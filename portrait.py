@@ -17,7 +17,8 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-TEMPLATE = Path(__file__).parent / "templates" / "nametag.png"
+from paths import DATA
+TEMPLATE = DATA / "templates" / "nametag.png"
 THRESHOLD = 150
 MIN_SCORE = 0.30
 # close-up box relative to the tag text's top-left corner (character stands above the tag)

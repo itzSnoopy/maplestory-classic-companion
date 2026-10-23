@@ -27,7 +27,8 @@ from PIL import Image
 
 import layout
 
-WORLD_TEMPLATE = Path(__file__).parent / "templates" / "minimap_world.png"
+from paths import DATA
+WORLD_TEMPLATE = DATA / "templates" / "minimap_world.png"
 TOP_LEFT_SEARCH = (0, 0, 700, 300)   # usual home of the minimap (frame pixels)
 WORLD_MAX = 8.0                      # mean abs gray difference that still counts as the button
 HEADER_MAX = layout.MATCH_MAX

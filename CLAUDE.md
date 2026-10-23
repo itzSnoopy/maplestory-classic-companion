@@ -72,6 +72,9 @@ Don't read the PNGs unless asked. They're big, and the numbers are already in th
 | `maplist.py` / `maps_classic.json` | snaps map reads to the 453 real Classic map names (NiaMeowDB list) |
 | `obs_test.py` | connection test, crop/OCR check, `--learn` glyphs by hand |
 | `dev/svc_sim.py` | offline end-to-end test of the service with saved frames |
+| `paths.py` / `companion.py` | where shipped files vs player data live (packaged: %LOCALAPPDATA%) / single entry point (helper, `--service` = tracker) |
+| `calibrate.py` / `setup_ui.py` | first-run setup: cut minimap templates, learn digits from typed EXP, name tag from a dragged box |
+| `packaging/` | `build.py` (PyInstaller release zip, bundled Tesseract), START_HERE.txt, THIRD_PARTY.txt |
 | `NOTES.md` | **running log of formats, OCR findings, design decisions. Read before changing OCR/parsing, and add to it after.** |
 
 Test changes offline before restarting the live tracker. Save simulation output to the scratchpad,

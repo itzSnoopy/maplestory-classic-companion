@@ -51,7 +51,7 @@ from history import fmt_secs, read_json, write_json
 from sinks import make_sinks
 from sources import ABSENT, UNAVAILABLE, make_source, pick_type
 
-CODE = Path(__file__).parent
+from paths import APP as CODE, DATA, load_config
 REF_TABLE = CODE / "exp_table_classic.json"       # MeowDB reference (Classic World)
 
 
@@ -72,7 +72,7 @@ def set_root(root):
     diary.set_root(ROOT)
 
 
-set_root(CODE)
+set_root(DATA)
 
 RATE_WINDOW_S = 600       # rolling window for EXP/hr and ETA
 RATE_MIN_SPAN_S = 45      # need at least this much history before trusting a rate
@@ -868,13 +868,17 @@ def run(cfg, args, source=None, sinks=None):
         lock.close()
 
 
-if __name__ == "__main__":
+def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--config", default=str(CODE / "config.json"))
+    ap.add_argument("--config", default=None)
     ap.add_argument("--interval", type=float, help="slowest capture interval (overrides config)")
     ap.add_argument("--level", type=int, help="current level, if the level crop isn't reliable")
     ap.add_argument("--service", action="store_true",
                     help="background mode: log to tracker_live.log (implied under pythonw)")
-    a = ap.parse_args()
-    run(json.loads(Path(a.config).read_text(encoding="utf-8")), a)
+    a = ap.parse_args(argv)
+    run(load_config(a.config), a)
+
+
+if __name__ == "__main__":
+    main()

@@ -6,12 +6,13 @@ request names, not on obsws-python's wrapper method signatures.
 import base64
 import io
 
-import obsws_python as obs
 from PIL import Image
 
 
 class ObsCapture:
     def __init__(self, host="localhost", port=4455, password="", timeout=5):
+        # imported here: OBS support is optional (the packaged app leaves it out, GPL-3.0 library)
+        import obsws_python as obs
         self.client = obs.ReqClient(host=host, port=port, password=password or None,
                                     timeout=timeout)
 

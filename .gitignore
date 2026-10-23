@@ -42,3 +42,7 @@ venv/
 
 # --- Claude Code local files (handoff docs ARE committed) ---
 .claude/settings.local.json
+
+# --- Build output ---
+/build/
+/dist/

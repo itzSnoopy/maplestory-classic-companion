@@ -21,7 +21,7 @@ import tkinter as tk
 from datetime import datetime, timedelta
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+from paths import APP, DATA as ROOT, self_command
 STATUS = ROOT / "status.json"
 DIGEST = ROOT / "digest.json"
 JOURNAL = ROOT / "journal.md"
@@ -95,12 +95,6 @@ def tracker_running():
     finally:
         f.close()
     return False
-
-
-def pythonw():
-    exe = Path(sys.executable)
-    w = exe.with_name("pythonw.exe")
-    return str(w if w.exists() else exe)
 
 
 def fmt_dur(secs):
@@ -229,7 +223,9 @@ def demo_data():
 
 
 # ------------------------------------------------------------------ tray icon
-ART_ICON = ROOT / "art" / "icon.png"      # custom artwork (from the user's artist friend)
+# custom artwork (from the user's artist friend): the player's own copy wins over the shipped one
+ART_ICON = next((p for p in (ROOT / "art" / "icon.png", APP / "art" / "icon.png") if p.exists()),
+                ROOT / "art" / "icon.png")
 
 
 def make_icon_image(color, s=64):
@@ -429,6 +425,7 @@ class App:
         self.menu.add_command(label="Details", command=self.toggle_details)
         self.menu.add_command(label="Always on top", command=self.toggle_topmost)
         self.menu.add_command(label="Settings…", command=self.open_settings)
+        self.menu.add_command(label="Run setup…", command=self.open_setup)
         self.menu.add_separator()
         self.menu.add_command(label="Start tracker", command=self.start_tracker)
         self.menu.add_command(label="Stop tracker", command=self.stop_tracker)
@@ -544,6 +541,31 @@ class App:
         self.round_corners()
         self.save_ui()
 
+    def open_setup(self):
+        """First-run setup / recalibration. The tracker (re)starts when it finishes, so it loads
+        the new templates and digits."""
+        win = getattr(self, "setup_win", None)
+        if win is not None:
+            try:
+                win.w.deiconify()
+                win.w.lift()
+                return
+            except tk.TclError:
+                pass
+        from setup_ui import SetupWindow
+        self.setup_win = SetupWindow(self, on_done=self.restart_tracker)
+
+    def restart_tracker(self):
+        if not tracker_running():
+            return self.start_tracker()
+        self.stop_tracker()
+
+        def wait(tries=0):
+            if tracker_running() and tries < 30:
+                return self.root.after(1000, lambda: wait(tries + 1))
+            self.start_tracker()
+        self.root.after(1000, wait)
+
     def open_settings(self, page="Discord"):
         if self.settings_win is not None:
             try:
@@ -571,7 +593,7 @@ class App:
         if tracker_running():
             return
         flags = 0x00000008 | 0x00000200      # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
-        subprocess.Popen([pythonw(), "tracker.py", "--service"], cwd=str(ROOT),
+        subprocess.Popen(self_command("--service"), cwd=str(ROOT),
                          creationflags=flags, close_fds=True)
         self.lock_quiet_until = time.time() + 10   # don't poke the lock while it starts up
         self.running = True
@@ -741,6 +763,7 @@ def main():
     ap.add_argument("--demo", action="store_true", help="show fake data (layout test)")
     ap.add_argument("--details", action="store_true", help="start with details open")
     ap.add_argument("--settings", nargs="?", const="Discord", help="open the settings window (page)")
+    ap.add_argument("--setup", action="store_true", help="open the first-run setup window")
     ap.add_argument("--at", help="dev: place the windows at X,Y (use --at=-2400,40 for the second monitor)")
     args = ap.parse_args()
     lock = None
@@ -753,6 +776,13 @@ def main():
         app = App(demo=args.demo, details=True if args.details else None, at=at)
         if args.settings:
             app.root.after(300, lambda: app.open_settings(args.settings))
+        if not args.demo:
+            import calibrate
+            import paths
+            if args.setup or calibrate.needs_setup():
+                app.root.after(300, app.open_setup)
+            elif paths.FROZEN:
+                app.root.after(500, app.start_tracker)    # packaged app: tracker comes with the helper
         app.run()
     finally:
         if lock:

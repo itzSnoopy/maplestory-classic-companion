@@ -23,7 +23,7 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+from paths import APP as ROOT
 MAPS_FILE = ROOT / "maps_classic.json"
 ROMAN_RE = re.compile(r"\s(I{1,3}|IV|V|VI{1,3}|IX)$")
 FUZZY_CUTOFF = 0.88

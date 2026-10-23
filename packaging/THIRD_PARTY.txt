@@ -1,0 +1,23 @@
+Third-party software in this build
+==================================
+
+Python 3.12                 PSF License             https://www.python.org/
+Tcl/Tk (tkinter)            BSD-style (Tcl license) https://www.tcl.tk/
+NumPy                       BSD-3-Clause and others https://numpy.org/
+Pillow                      MIT-CMU                 https://python-pillow.org/
+pystray                     LGPL-3.0                https://github.com/moses-palmer/pystray
+                            (shipped as Python source inside the bundle; you may replace it)
+pytesseract                 Apache-2.0              https://github.com/madmaze/pytesseract
+windows-capture             MIT                     https://github.com/NiiightmareXD/windows-capture
+pywin32                     PSF License             https://github.com/mhammond/pywin32
+Tesseract OCR 5 (UB Mannheim build), with Leptonica and support libraries
+                            Apache-2.0 (Tesseract); see tesseract/TESSERACT_LICENSE
+                            https://github.com/tesseract-ocr/tesseract
+                            https://github.com/UB-Mannheim/tesseract/wiki
+
+Game data
+---------
+EXP table and map names: MeowDB / NiaDB (https://meowdb.com/msclassic), fan-run.
+No Nexon game images ship with this program. The setup window cuts the few small
+reference pictures it needs (minimap button, minimap header, your name tag) from your own
+screen, and they stay on your PC.

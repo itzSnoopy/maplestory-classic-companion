@@ -17,8 +17,11 @@ def setup(tesseract_path):
     global READY
     if not HAVE_OCR:
         return False
-    if tesseract_path and Path(tesseract_path).exists():
-        pytesseract.pytesseract.tesseract_cmd = tesseract_path
+    from paths import BUNDLED_TESSERACT
+    for p in (tesseract_path, BUNDLED_TESSERACT):     # configured path, else the packaged copy
+        if p and Path(p).exists():
+            pytesseract.pytesseract.tesseract_cmd = str(p)
+            break
     try:
         pytesseract.get_tesseract_version()
         READY = True

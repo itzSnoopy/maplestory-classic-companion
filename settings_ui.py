@@ -181,6 +181,13 @@ class SettingsWindow:
         return f
 
     def capture_section(self, f):
+        try:
+            import obsws_python  # noqa: F401
+        except ImportError:      # packaged app: window capture only
+            self.form_row(f, "Capture the game from",
+                          lambda p: self.label(p, "Game window"),
+                          "Works with the window covered or moved, not minimized.")
+            return
         self.form_row(f, "Capture the game from",
                       lambda p: self.radios(p, "capture.source",
                                             [("wgc", "Game window (no OBS)"), ("obs", "OBS")]),
@@ -293,13 +300,16 @@ class SettingsWindow:
         return row
 
     def page_about(self, f):
+        from paths import DATA
+        from version import VERSION
         self.title(f, "About")
         for line in (
-            "Maple helper: floating EXP window, tray icon and settings for the classic-helper tracker.",
-            "It only reads status.json and digest.json. It never touches the game or OBS.",
-            "Settings are saved in helper_settings.json (not config.json).",
-            "Discord gets text only, through the Discord app on this PC. Don't upload Nexon game art "
-            "as the app icon; use discord_icon.png from this folder.",
+            f"Maple Classic Companion {VERSION}: leveling tracker for MapleStory Classic World.",
+            "It only looks at the game window. It never reads the game's memory, never touches its "
+            "network traffic, and never presses keys.",
+            f"Your data and settings: {DATA}",
+            "Discord gets text only, through the Discord app on this PC.",
+            "MapleStory is a trademark of Nexon. This app is not affiliated with Nexon.",
         ):
             self.label(f, line, wrap=self.px(560)).pack(anchor="w", pady=(0, self.px(6)))
         return f

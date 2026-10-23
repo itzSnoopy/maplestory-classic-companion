@@ -14,7 +14,7 @@ import hashlib
 import json
 from pathlib import Path
 
-ROOT = Path(__file__).parent
+from paths import DATA as ROOT
 TEMPLATES = ROOT / "glyphs.json"
 UNKNOWN = ROOT / "glyphs" / "unknown"
 BAND = 9          # rows kept from the top of the text: 7 for digits + room for ',' descender

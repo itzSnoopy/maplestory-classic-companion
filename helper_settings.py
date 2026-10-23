@@ -10,7 +10,7 @@ import os
 import re
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+from paths import DATA as ROOT
 SETTINGS = ROOT / "helper_settings.json"
 
 DEFAULTS = {
@@ -18,7 +18,7 @@ DEFAULTS = {
         "source": "wgc",                # wgc = game window (no OBS) · obs = OBS Window Capture
     },
     "character": {
-        "name": "SnoopySparda",
+        "name": "",
         "job": "Beginner",
         "job_auto": True,               # use the job the tracker reads from the status bar
         "channel": "",

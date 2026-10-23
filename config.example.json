@@ -59,7 +59,7 @@
     }
   },
   "overlay": {
-    "enabled": true,
+    "enabled": false,
     "text_source": "Maple Tracker Text"
   },
   "notifications": {

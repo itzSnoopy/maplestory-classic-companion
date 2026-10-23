@@ -1,0 +1,30 @@
+Maple Classic Companion (test build)
+====================================
+
+A leveling tracker for MapleStory Classic World: EXP per hour, time to the next level,
+best maps, and a diary of your milestones.
+
+It only looks at the game window, like screen recording. It never reads the game's memory,
+never touches its network traffic, and never presses keys for you.
+
+Start it
+--------
+1. Unzip this whole folder somewhere you like (for example your Documents folder).
+   Keep the files together; the program needs the "_internal" folder next to it.
+2. Double-click MapleClassicCompanion.exe.
+   Windows may say "Windows protected your PC" because this test build isn't signed.
+   Click "More info", then "Run anyway".
+3. A setup window opens. Have MapleStory running in windowed mode, logged in, with the
+   minimap open in the top-left corner. Follow the steps (about a minute).
+
+After setup, a small window shows your level and EXP per hour, and an icon sits in the tray
+near the clock. Right-click the small window for Settings, the journal, and "Run setup…".
+
+To stop it: right-click the small window > "Exit and stop tracker".
+
+Your data (stats, diary, settings) is saved in:
+    %LOCALAPPDATA%\MapleClassicCompanion
+Delete that folder to start over.
+
+This is a personal test build, not a finished product.
+MapleStory is a trademark of Nexon. This app is not affiliated with or endorsed by Nexon.

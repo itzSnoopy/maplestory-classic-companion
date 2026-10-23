@@ -23,7 +23,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-CODE = Path(__file__).parent
+from paths import APP as CODE, DATA
 ICON = {"levelup": "⬆️", "death": "💀", "job": "⭐", "first_visit": "🗺️", "note": "📝"}
 
 
@@ -37,7 +37,7 @@ def set_root(root):
     REQUESTS = ROOT / "diary_requests.jsonl"           # notes waiting for the tracker
 
 
-set_root(CODE)
+set_root(DATA)
 
 
 def _read_json(path, default):
@@ -48,7 +48,7 @@ def _read_json(path, default):
 
 
 def char_name():
-    return _read_json(CODE / "helper_settings.json", {}).get("character", {}).get("name") or "My character"
+    return _read_json(DATA / "helper_settings.json", {}).get("character", {}).get("name") or "My character"
 
 
 def entries():

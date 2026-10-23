@@ -53,6 +53,12 @@ def pick_type(cfg, log=print):
         except ImportError:
             log("window capture needs `pip install windows-capture`; using OBS instead")
             return "screen"
+    if kind == "screen":
+        try:
+            import obsws_python  # noqa: F401
+        except ImportError:
+            log("OBS support isn't installed in this build; using window capture instead")
+            return "wgc"
     log(f"source: {kind} ({why})")
     return kind
 

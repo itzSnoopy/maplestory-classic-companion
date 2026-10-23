@@ -13,7 +13,8 @@ import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
 
-REF_TABLE = Path(__file__).parent / "exp_table_classic.json"
+from paths import APP, DATA
+REF_TABLE = APP / "exp_table_classic.json"
 
 
 def set_root(root):
@@ -29,7 +30,7 @@ def set_root(root):
     STATUS = ROOT / "status.json"
 
 
-set_root(Path(__file__).parent)
+set_root(DATA)
 
 SESSION_FIELDS = ["start", "end", "end_reason", "active_s", "level_start", "pct_start",
                   "level_end", "pct_end", "exp_gained", "exp_per_active_hour", "level_ups",

@@ -22,7 +22,8 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-MINIMAP_TEMPLATE = Path(__file__).parent / "templates" / "minimap_header.png"
+from paths import APP, DATA, load_config
+MINIMAP_TEMPLATE = DATA / "templates" / "minimap_header.png"
 MINIMAP_REF = (16, 7, 66, 23)       # where the template was cut, in 1920x1080 frame pixels
 MATCH_MAX = 6.0                     # mean abs gray difference that still counts as found
 
@@ -57,7 +58,7 @@ def best_match(g, t):
     return float(d[y, x]), int(x), int(y)
 
 
-LAYOUTS = Path(__file__).parent / "layouts.json"
+LAYOUTS = APP / "layouts.json"
 _layouts = None
 
 
@@ -155,7 +156,7 @@ if __name__ == "__main__":
     if len(sys.argv) == 3 and sys.argv[1] == "learn-minimap":
         make_minimap_template(sys.argv[2])
     elif len(sys.argv) in (2, 3) and sys.argv[1] == "record":
-        cfg = json.loads((Path(__file__).parent / "config.json").read_text(encoding="utf-8"))
+        cfg = load_config()
         if len(sys.argv) == 3:
             frame = Image.open(sys.argv[2]).convert("RGB")
         else:

@@ -16,7 +16,7 @@ from pathlib import Path
 
 import diary
 
-CODE = Path(__file__).parent
+from paths import APP as CODE
 
 
 def _read_json(path, default):

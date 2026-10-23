@@ -18,7 +18,7 @@ import parse
 from capture_obs import crop, from_config
 from layout import anchor_for
 
-ROOT = Path(__file__).parent
+from paths import DATA as ROOT
 
 
 def connect_and_grab(cfg):

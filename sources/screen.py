@@ -11,6 +11,7 @@ HUD reading:
 """
 import hashlib
 import itertools
+import re
 import time
 from collections import deque
 from datetime import datetime
@@ -86,6 +87,10 @@ def _agrees(glyph_text, tess_text):
         g == "?" or g == t for g, t in zip(glyph_text, tess_text))
 
 
+# the whole EXP bar text as the game draws it: '1,234[56.78%]' (no leading zeros, 3-digit groups)
+EXP_TEXT_RE = re.compile(r"^(0|[1-9]\d{0,2}(,\d{3})*)\[(0|[1-9]\d?|100)\.\d\d%\]$")
+
+
 def solve_unknowns(g, need):
     """Fill '?' glyphs by arithmetic: with EXP needed known, the only digits that make
     cur/need match the displayed % (to 2 decimals) are the right ones. Unique answer or None."""
@@ -98,6 +103,8 @@ def solve_unknowns(g, need):
         for i, d in zip(q, combo):
             s[i] = d
         s = "".join(s)
+        if not EXP_TEXT_RE.match(s):        # e.g. '0[,.74%]' parses loosely as 0 EXP, 0%
+            continue
         cur, _, pct = parse.parse_exp(s)
         if cur is None or pct is None or cur >= need:
             continue
@@ -122,6 +129,10 @@ def read_exp(img, rc, hints):
             return solved, False
         except ValueError as e:
             log(f"glyph learn skipped: {e}")
+    if g.count("?") > 3:
+        # too little is known to check Tesseract against (it misreads this font: '15' -> '45'),
+        # and trusting it poisons the EXP-needed estimate. Skip; a solvable frame comes soon.
+        return g, True
     t = ocr.read(img, {**rc, "glyphs": False}, kind="exp")
     if not _agrees(g, t):
         return g, True          # Tesseract contradicts known glyphs: don't trust it
@@ -216,7 +227,9 @@ class ScreenSource(Source):
 
         self.frame, self.crops, self.stamp = frame, crops, now.strftime("%H%M%S_%f")[:-4]
         self._take_due_shots(t)
-        cur, _, pct = parse.parse_exp(raw.get("exp", ""))
+        exp_text = raw.get("exp", "")
+        # unknown digits ('?8[??.74%]') would parse loosely into wrong numbers: no reading instead
+        cur, _, pct = parse.parse_exp(exp_text) if "?" not in exp_text else (None, None, None)
         level = parse.parse_level(raw["level"]) if raw.get("level") else None
         job = self.jobs.update(frame, level, t)       # reads only when due (start / advancement)
         # map: snap to the real Classic map list (maps_classic.json); else the cleaned raw read
