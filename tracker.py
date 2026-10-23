@@ -79,6 +79,9 @@ RATE_WINDOW_S = 600       # rolling window for EXP/hr and ETA
 RATE_MIN_SPAN_S = 45      # need at least this much history before trusting a rate
 DEATH_MAX_PCT = 12        # a death costs at most ~10% of the level; bigger drops are level-ups
 NO_DEATH_PENALTY_BELOW = 10   # pre-BB beginners (Lv 1-9) lose no EXP on death
+BOX_SETTLE_S = 5          # "You have died." box seen: wait this long for the EXP drop, then log
+                          # the death anyway (no EXP lost: Lv 1-9, or the bar was already empty)
+BOX_SAME_DEATH_S = 60     # a box and an EXP drop this close together are the same death
 
 
 def _killer(map_name, level):
@@ -146,6 +149,9 @@ class Tracker:
         self.need_lo, self.need_hi = 0.0, math.inf
         self.exp_total, self.pct_total, self.exp_lost = 0, 0.0, 0
         self.deaths = self.rejected = 0
+        self.last_death_t = None            # last death logged (from the EXP drop or the box)
+        self.box_pending = None             # when the "You have died." box appeared, not yet logged
+        self.box_only_t = None              # last death logged from the box alone (no EXP drop)
         self.hist = deque()                 # (t, exp_total, pct_total)
         self.last_t = None
         self.last_progress_t = None
@@ -257,6 +263,26 @@ class Tracker:
             self.last_levelup_t = t           # lets the badge glyph be learned now
             self.level_started, self.level_active = None, 0.0
 
+    def _death(self, t, lost, pct_lost, box, hp=None):
+        self.deaths += 1
+        self.last_death_t, self.box_pending = t, None
+        self.events.append({"type": "death", "lost": lost, "level": self.level, "map": self.map,
+                            "killer": _killer(self.map, self.level), "pct_lost": pct_lost,
+                            "box": box, "hp": hp})
+
+    def death_box(self, t):
+        """The "You have died." box just appeared (sources poll for it, deathbox.py). The EXP
+        drop usually shows on the next reading and logs the death; settle_box() logs it without
+        one after BOX_SETTLE_S."""
+        if self.last_death_t is not None and t - self.last_death_t < BOX_SAME_DEATH_S:
+            return                          # the EXP drop already logged this death
+        self.box_pending = t
+
+    def settle_box(self, t):
+        if self.box_pending is not None and t - self.box_pending >= BOX_SETTLE_S:
+            self.box_only_t = t
+            self._death(t, 0, 0.0, box=True)
+
     def consistent(self, cur, pct, need=None, tol=0.3):
         need = need or self.need
         if not need or cur is None or pct is None:
@@ -359,13 +385,17 @@ class Tracker:
             self.start_pct, self.start_level = pct, self.level
         else:
             # The badge can lag the EXP bar by a frame, so a big EXP drop decides on its own.
+            # Decided from level + EXP bar only (user, 2026-10-23: HP rules were too much; the HP
+            # reading obs.hp_pct is still logged for later use).
             dropped = pct < self.pct - 0.005 or cur < self.cur
             if dropped and (level_read == (self.level or 0) + 1
                             or self.pct - pct > DEATH_MAX_PCT):
                 event = "levelup"
             elif dropped:
                 beginner = self.level is not None and self.level < NO_DEATH_PENALTY_BELOW
-                if not beginner and cur > 0 and self.consistent(cur, pct):
+                # a death can empty the bar: 0 counts when the % reads 0 too (2026-10-23, Lv 13
+                # with 6 EXP died to 0 and was rejected)
+                if not beginner and (cur > 0 or pct == 0) and self.consistent(cur, pct):
                     event = "death"
                 else:
                     event = "rejected"           # small unexplained drop: OCR noise
@@ -383,12 +413,13 @@ class Tracker:
             d_pct = (100 - self.pct) + pct
         elif event == "death":
             self.exp_lost += self.cur - cur
-            self.deaths += 1
             need = self.need
-            self.events.append({"type": "death", "lost": self.cur - cur, "level": self.level,
-                                "map": self.map, "killer": _killer(self.map, self.level),
-                                "pct_lost": round((self.cur - cur) * 100 / need, 2) if need else
-                                round(self.pct - pct, 2)})
+            if self.box_only_t is not None and t - self.box_only_t < BOX_SAME_DEATH_S:
+                log(f"EXP drop -{self.cur - cur} belongs to the death already logged from the box")
+            else:
+                self._death(t, self.cur - cur,
+                            round((self.cur - cur) * 100 / need, 2) if need else round(self.pct - pct, 2),
+                            box=self.box_pending is not None, hp=obs.hp_pct)
         elif self.cur is not None:
             d_exp, d_pct = cur - self.cur, pct - self.pct
 
@@ -604,6 +635,7 @@ class Session:
             self.render_at = 0.0
             diary.render()
         event, d_exp, gains = tr.step(obs)
+        tr.settle_box(obs.t)
         self.source.after_step(obs, event, tr.ctx())
         tr.check_milestones()
 
@@ -659,8 +691,10 @@ class Session:
                 who = killers.label(k)
                 diary.add("death", diary.death_text(e["level"], e["map"], e["lost"], e.get("pct_lost"),
                                                     who),
-                          level=e["level"], map=e["map"], job=tr.job, shots=self._shots("death", now),
+                          level=e["level"], map=e["map"], job=tr.job,
+                          shots=self._shots("death", now, delays=(0, 2)),   # +2 s: ghost + grave
                           lost=e["lost"], pct_lost=e.get("pct_lost"), killed_by=who,
+                          death_box=e.get("box") or None,
                           killer_how=k.get("how"),
                           killer_guess=k.get("killer") if not who else None,
                           suspects=k.get("suspects") or None)
@@ -698,7 +732,8 @@ class Session:
             elif e["type"] == "death":
                 k = e.get("killer") or {}
                 who = killers.label(k)
-                self.journal.write(f"Died at Lv {e['level']} @ {e['map']}: -{e['lost']:,} EXP"
+                self.journal.write(f"Died at Lv {e['level']} @ {e['map']}: "
+                                   + (f"-{e['lost']:,} EXP" if e["lost"] else "no EXP lost")
                                    + (f", killed by {who}" if who else ""))
             elif e["type"] == "map":
                 s = e["from"]
@@ -790,6 +825,9 @@ def run(cfg, args, source=None, sinks=None):
     absent_close = svc.get("close_after_absent_s", 600)
     afk_close = svc.get("close_after_afk_s", 1800)
     idle_poll = svc.get("idle_poll_s", 10)
+    box_cfg = cfg.get("death_box", {})
+    box_poll = box_cfg.get("poll_s", 1.0) if box_cfg.get("enabled", True) else 0
+    was_dead = False
     digest_every = svc.get("digest_every_s", 300)
 
     H.cleanup(svc.get("retention_days", 14))
@@ -876,7 +914,32 @@ def run(cfg, args, source=None, sinks=None):
             except Exception:
                 log("ERROR in loop:\n" + traceback.format_exc())
                 sleep_for = 10
-            time.sleep(max(0.0, sleep_for - (time.time() - t)))
+            # wait for the next reading; while playing, look for the "You have died." box about
+            # once a second (it can be gone in a second or two if the player clicks Revive)
+            end = t + sleep_for
+            while (left := end - time.time()) > 0:
+                if box_poll and session and last_state == "playing":
+                    now = time.time()
+                    try:
+                        dead = source.poll(now)
+                    except Exception:
+                        log("death box poll failed: " + traceback.format_exc())
+                        dead = None
+                    if dead and not was_dead:
+                        log("death box seen")
+                        session.tr.death_box(now)
+                        end = now                    # read the EXP bar right away
+                    if dead is not None:
+                        was_dead = dead
+                    if session.tr.box_pending is not None:   # read again when it settles
+                        end = min(end, session.tr.box_pending + BOX_SETTLE_S + 0.1)
+                    left = end - time.time()
+                    if left <= 0:
+                        break
+                    time.sleep(min(box_poll, left))
+                else:
+                    time.sleep(left)
+                    break
     except KeyboardInterrupt:
         pass
     finally:

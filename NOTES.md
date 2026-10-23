@@ -191,3 +191,58 @@ whitelist, threshold).
   overlay sink, the Settings capture choice, config keys `obs` / `overlay`, `obsws-python`.
   `crop()` moved to `layout.py`; `service.obs_retry_s` is now `service.source_retry_s`.
   Glyphs are taught by the first-run setup (`calibrate.py`) instead of `obs_test.py --learn`.
+
+## 2026-10-23 17:27 · Death on screen (burst capture, dev/fixtures/burst/20261023_172714, local only)
+
+Player (Lv 13 Magician, 6 EXP) died on purpose to an **Axe Stump** at Construction Site North of
+Kerning City, 1920x1080, burst at 3 fps (`python dev/burst.py`).
+- Sequence: hit while touching the mob (HP 52/392 -> 0) -> same frame (~0.3 s later): **"You have
+  died."** dialog with a tombstone icon and an orange **REVIVE IN TOWN** button, centered
+  horizontally around (960, 540) at 1920x1080 -> character turns into a translucent **ghost** ->
+  a **tombstone drops from the sky** and lands on the spot within ~1 s -> dialog stays until the
+  player clicks -> fade to black (~0.5 s) -> respawn in the nearest town (Kerning City).
+- Status bar HP shows 0/max while dead.
+- EXP went 6 -> 0. The tracker **rejected it** (death rule required cur > 0). Fixed: 0 counts when
+  the % also reads 0.
+- Killer: nothing on screen names it. It's the mob touching the player in the last alive frame.
+  Map-based guess: no (6 species); Axe Stump was 2nd of 5 suspects.
+- Good diary shot: ~1 s after the dialog appears (ghost + landed tombstone + the killer usually still
+  next to it).
+- Burst capture note: `sources/wgc.py` ran fine beside the live tracker (two capture sessions).
+
+## 2026-10-23 17:31 · Second death (burst 20261023_173048, local only)
+
+Killed by a **Red Snail** (Lv 4), same map, crowded channel. Last hit: purple damage number **8**
+above the character (damage taken is purple; the player's own hits are orange). Then the same
+sequence: "You have died." box, ghost, tombstone lands on the spot, the snail still on top of it.
+- **The box is pixel-identical between deaths and sits at a fixed spot** at 1920x1080: blue panel
+  bbox ~(837,495)-(1082,560). Test: pixels in (700..1220, 400..700) with B>170, R<110, 100<G<170
+  -> 13,632-13,634 on every dead frame, far fewer otherwise. A reliable death detector.
+- Killer idea from this: the **last purple damage number** + each suspect's touch-damage range
+  (MeowDB mob attack) could single out the mob. Red Snail 8 dmg vs Axe Stump etc.
+- Side effect of the zero-EXP bug: after the first death the live tracker kept its old 6 EXP and
+  rejected every reading (log shows `0[0.00%] ... [rejected]` each 30 s) until a restart.
+
+## 2026-10-23 17:40 · Death box detector (deathbox.py), live
+
+Geometry relative to the window center (1920x1080): blue panel (-122,-44)-(123,21), orange button
+(-56,33)-(44,44), tombstone+halo (-90,-38)-(-40,20); searched +-8 px. Scores on the two bursts:
+dead frames panel >= 0.823, button >= 0.491, icon >= 0.173; alive frames <= 0.009 / 0 / 0; 78 other
+saved frames (diary, level-ups) max panel 0.235, none dead. Thresholds 0.70 / 0.35 / 0.10. ~20 ms a
+frame. Unverified: other window sizes (assumed the box stays 1:1 and centered), other boxes in the
+same skin (none seen yet).
+The EXP-bar glyph check fails on JPEG frames (exact pixel font), so poll() only rejects black frames.
+
+## 2026-10-23 17:47 · HP bar (hpbar.py), used for death / level-up
+
+Read the bar, not the `HP[329/376]` digits: red fill (~206,8,0; rows 1065-1070 R 226-243) over grey,
+interior x 780..884, y 1063..1076 at 1920x1080, bottom-center anchor. Tick marks split the fill,
+so HP% = last red column / 105 px. Checked: 329/376 -> 92 px = 87.6%; works on JPEG too.
+- Level-ups: HP 100% on 7 of 8 saved "at" frames (Lv10 read 85.7%: likely a hit right after the
+  refill); "after" frames 65-100%.
+- Deaths: 13.3% -> 0 at death (burst 1). **Bar is also 0 px when alive under ~1% HP** (burst 2:
+  1-3 HP for 5 s before dying), so empty bar alone isn't death; empty bar + EXP drop is.
+- Revive in town: **50 HP** (12.4% of 392), never full.
+HP rules for death/level-up were built and then **removed the same hour** (user: too much; level +
+EXP bar are enough). HP is still read and logged (raw.hp in exp_log.csv, `hp` on death events) for
+later use.

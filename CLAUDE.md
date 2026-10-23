@@ -67,6 +67,8 @@ Don't read the PNGs unless asked. They're big, and the numbers are already in th
 | `helper_ui.py` | floating info window + tray icon (read-only on status/digest; `start_helper.cmd`) |
 | `settings_ui.py` / `helper_settings.py` / `discord_rpc.py` | helper settings window, `helper_settings.json`, Discord Rich Presence (off by default) |
 | `jobread.py` | job name from the status bar, read only at start / when an advancement is possible |
+| `hpbar.py` | HP % from the red HP bar fill (no OCR); logged as raw.hp, not used for decisions yet |
+| `deathbox.py` | spots the "You have died." box (shape/colour, no stored art); polled ~1/s between readings (`Source.poll`) |
 | `killers.py` / `killers.json` / `map_mobs.json` | who killed the player, guessed from the map's mob list (MeowDB, `dev/fetch_map_mobs.py`) + curated boss maps; `python killers.py audit` |
 | `maplist.py` / `maps_classic.json` | snaps map reads to the 453 real Classic map names (NiaMeowDB list) |
 | `dev/svc_sim.py` | offline end-to-end test of the service with saved frames |

@@ -50,6 +50,7 @@ class WgcFrames:
     """Frame provider for ScreenSource. Keeps one capture session open on the game window and
     copies a frame only when grab() asks for one."""
     name = "wgc"
+    pollable = True         # live window: ScreenSource.poll may grab extra frames between reads
 
     def __init__(self, cfg):
         c = cfg.get("wgc", {})

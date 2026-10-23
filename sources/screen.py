@@ -19,7 +19,9 @@ from pathlib import Path
 
 from PIL import Image
 
+import deathbox
 import glyphs
+import hpbar
 import jobread
 import maplist
 import ocr
@@ -211,12 +213,28 @@ class ScreenSource(Source):
         # map: snap to the real Classic map list (maps_classic.json); else the cleaned raw read
         known = maplist.snap(raw["map"]) if raw.get("map") else None
         map_name = known["name"] if known else (parse.parse_map(raw["map"]) if raw.get("map") else None)
+        hp = hpbar.hp_pct(frame, tuple(self.res or (1920, 1080)))     # HP bar fill, no OCR
         rawlog = {k: v.replace("\n", " / ") for k, v in raw.items()}
+        rawlog["hp"] = hp
         if known:
             rawlog["map_id"] = known["id"]
         return Observation(
-            t, OK, exp_cur=cur, exp_pct=pct, level=level, job=job, map=map_name,
+            t, OK, exp_cur=cur, exp_pct=pct, level=level, job=job, map=map_name, hp_pct=hp,
             suspect=suspect, source=self.name, raw=rawlog)
+
+    def poll(self, t):
+        """Between readings: is the "You have died." box up? (deathbox.py, ~20 ms a frame).
+        Also takes diary pictures that came due (the ghost + tombstone shot ~2 s after death)."""
+        if not getattr(self.frames, "pollable", False):
+            return None                 # saved frames in tests: polling would eat them
+        try:
+            frame = self.frames.grab()
+        except Exception:
+            return None
+        if frame.getbbox() is None:
+            return None                 # game not on screen (black frame: gone / minimized)
+        self._take_due_shots(t, frame)
+        return deathbox.is_dead(frame)
 
     def begin_session(self, session_dir, gallery_dir):
         self.session_dir, self.gallery = Path(session_dir), Path(gallery_dir)
@@ -291,12 +309,12 @@ class ScreenSource(Source):
         except Exception as e:
             log(f"snapshot failed: {e}")
 
-    def _take_due_shots(self, t):
+    def _take_due_shots(self, t, frame=None):
         due = [p for p in self.pending_shots if p[0] <= t]
         if due:
             self.pending_shots = [p for p in self.pending_shots if p[0] > t]
             for _, out_dir, stem in due:
-                self._save_shot(self.frame, out_dir, stem)
+                self._save_shot(frame if frame is not None else self.frame, out_dir, stem)
 
     def end_session(self):
         self.session_dir = None

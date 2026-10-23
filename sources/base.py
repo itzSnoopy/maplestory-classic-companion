@@ -29,6 +29,7 @@ class Observation:
     map: Optional[str] = None
     exp_needed: Optional[int] = None         # set only by sources that know it exactly
     job: Optional[str] = None
+    hp_pct: Optional[float] = None           # HP bar fill 0-100 (0 = empty: dead, or under ~1%)
     gains: list = field(default_factory=list)   # per-kill EXP breakdown: [(base, bonus), ...]
     suspect: bool = False                    # the source isn't confident in this reading
     raw: dict = field(default_factory=dict)  # source-specific raw values (logged as JSON)
@@ -61,6 +62,12 @@ class Source:
         reading after that time). Returns the file paths that are or will be written.
         Sources without pictures return []."""
         return []
+
+    def poll(self, t):
+        """Quick look between readings (about once a second while playing). Returns True while
+        the "You have died." box is on screen, False when it isn't, None if this source can't
+        tell. Must be cheap; sources without live frames return None."""
+        return None
 
     def end_session(self):
         pass
