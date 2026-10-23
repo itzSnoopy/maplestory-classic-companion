@@ -37,6 +37,13 @@ DEFAULTS = {
         "show_elapsed": True,
         "when_not_playing": "clear",    # clear (no presence) or idle (show "Idle")
     },
+    "diary": {                          # Settings > Diary (diary_popup.py); the tracker reads the
+        "moments": True,                # moment timing on every check (diary.moment_settings)
+        "moment_min": 45,               # random moment every min..max minutes of active play
+        "moment_max": 120,
+        "popup": True,                  # card next to the helper window on new diary entries
+        "popup_seconds": 8,
+    },
 }
 
 PLACEHOLDERS = {

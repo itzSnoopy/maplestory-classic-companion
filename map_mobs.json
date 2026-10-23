@@ -1,0 +1,10330 @@
+{
+ "_source": "NiaMeowDB map pages, https://meowdb.com/msclassic/maps/<id> (spawn lists)",
+ "_fetched": "2026-10-23",
+ "_note": "Built by dev/fetch_map_mobs.py. respawn = seconds between timed spawns (0 = normal).",
+ "maps": {
+  "000000050": {
+   "name": "A Split Road",
+   "street": "Maple Road",
+   "region": "Maple Island",
+   "mobs": [
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 17,
+     "respawn": 0
+    },
+    {
+     "id": "4",
+     "name": "Shroom",
+     "level": 3,
+     "exp": 6,
+     "count": 14,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 11,
+     "respawn": 0
+    }
+   ]
+  },
+  "000000030": {
+   "name": "East Entrance to Mushroom Town",
+   "street": "Maple Road",
+   "region": "Maple Island",
+   "mobs": [
+    {
+     "id": "1",
+     "name": "Tutorial Jr. Sentinel",
+     "level": 1,
+     "exp": 1,
+     "count": 6,
+     "respawn": 0
+    }
+   ]
+  },
+  "000000010": {
+   "name": "Mushroom Town",
+   "street": "Maple Road",
+   "region": "Maple Island",
+   "mobs": []
+  },
+  "000000020": {
+   "name": "Mushroom Town",
+   "street": "Maple Road",
+   "region": "Maple Island",
+   "mobs": []
+  },
+  "000000001": {
+   "name": "Mushroom Town - West Entrance",
+   "street": "Maple Road",
+   "region": "Maple Island",
+   "mobs": []
+  },
+  "000000021": {
+   "name": "Mushroom Town Townstreet",
+   "street": "Maple Road",
+   "region": "Maple Island",
+   "mobs": []
+  },
+  "000000040": {
+   "name": "Snail Hunting Ground I",
+   "street": "Maple Road",
+   "region": "Maple Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 40,
+     "respawn": 0
+    }
+   ]
+  },
+  "000000041": {
+   "name": "Snail Hunting Ground II",
+   "street": "Maple Road",
+   "region": "Maple Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 29,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 13,
+     "respawn": 0
+    }
+   ]
+  },
+  "000000042": {
+   "name": "Snail Hunting Ground III",
+   "street": "Maple Road",
+   "region": "Maple Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 20,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 21,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 1,
+     "respawn": 0
+    }
+   ]
+  },
+  "000000060": {
+   "name": "Southperry",
+   "street": "Maple Road",
+   "region": "Maple Island",
+   "mobs": []
+  },
+  "000000061": {
+   "name": "Southperry Armor Store",
+   "street": "Maple Road",
+   "region": "Maple Island",
+   "mobs": []
+  },
+  "000001010": {
+   "name": "Amherst",
+   "street": "Rainbow Street",
+   "region": "Maple Island",
+   "mobs": []
+  },
+  "000001013": {
+   "name": "Amherst Department Store",
+   "street": "Rainbow Street",
+   "region": "Maple Island",
+   "mobs": []
+  },
+  "000001012": {
+   "name": "Amherst Townstreet",
+   "street": "Rainbow Street",
+   "region": "Maple Island",
+   "mobs": []
+  },
+  "000001011": {
+   "name": "Amherst Weapon Store",
+   "street": "Rainbow Street",
+   "region": "Maple Island",
+   "mobs": []
+  },
+  "000001002": {
+   "name": "Dangerous Forest",
+   "street": "Rainbow Street",
+   "region": "Maple Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 14,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 12,
+     "respawn": 0
+    }
+   ]
+  },
+  "000001005": {
+   "name": "Hunting Ground Middle of the Forest I",
+   "street": "Rainbow Street",
+   "region": "Maple Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 14,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "4",
+     "name": "Shroom",
+     "level": 3,
+     "exp": 6,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 8,
+     "respawn": 0
+    }
+   ]
+  },
+  "000001006": {
+   "name": "Hunting Ground Middle of the Forest II",
+   "street": "Rainbow Street",
+   "region": "Maple Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 16,
+     "respawn": 0
+    },
+    {
+     "id": "4",
+     "name": "Shroom",
+     "level": 3,
+     "exp": 6,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 6,
+     "respawn": 0
+    }
+   ]
+  },
+  "000001001": {
+   "name": "In a Small Forest",
+   "street": "Rainbow Street",
+   "region": "Maple Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "4",
+     "name": "Shroom",
+     "level": 3,
+     "exp": 6,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 4,
+     "respawn": 0
+    }
+   ]
+  },
+  "000001003": {
+   "name": "Mushroom Garden",
+   "street": "Rainbow Street",
+   "region": "Maple Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "4",
+     "name": "Shroom",
+     "level": 3,
+     "exp": 6,
+     "count": 23,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 5,
+     "respawn": 0
+    }
+   ]
+  },
+  "000001014": {
+   "name": "Snail Field of Flowers",
+   "street": "Rainbow Street",
+   "region": "Maple Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 6,
+     "respawn": 0
+    }
+   ]
+  },
+  "000001004": {
+   "name": "Snail Garden",
+   "street": "Rainbow Street",
+   "region": "Maple Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 19,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 11,
+     "respawn": 0
+    }
+   ]
+  },
+  "000001020": {
+   "name": "The Field East of Amherst",
+   "street": "Rainbow Street",
+   "region": "Maple Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 12,
+     "respawn": 0
+    }
+   ]
+  },
+  "000001000": {
+   "name": "The Field West of Amherst",
+   "street": "Rainbow Street",
+   "region": "Maple Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 13,
+     "respawn": 0
+    },
+    {
+     "id": "4",
+     "name": "Shroom",
+     "level": 3,
+     "exp": 6,
+     "count": 17,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 24,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 5,
+     "respawn": 0
+    }
+   ]
+  },
+  "000001021": {
+   "name": "Tomato Field",
+   "street": "Rainbow Street",
+   "region": "Maple Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 4,
+     "respawn": 0
+    }
+   ]
+  },
+  "010006162": {
+   "name": "Another Sanctuary",
+   "street": "Deep Passage",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "56",
+     "name": "Golden Stirge",
+     "level": 42,
+     "exp": 93,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "62",
+     "name": "Rotten Mushroom",
+     "level": 56,
+     "exp": 183,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "63",
+     "name": "Sporewood",
+     "level": 59,
+     "exp": 201,
+     "count": 7,
+     "respawn": 0
+    }
+   ]
+  },
+  "010006152": {
+   "name": "Bygone Days",
+   "street": "Deep Passage",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010006120": {
+   "name": "Decayed Tunnel I",
+   "street": "Deep Passage",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "23",
+     "name": "Evil Eye",
+     "level": 27,
+     "exp": 50,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "60",
+     "name": "Duskmander",
+     "level": 50,
+     "exp": 133,
+     "count": 11,
+     "respawn": 0
+    }
+   ]
+  },
+  "010006130": {
+   "name": "Decayed Tunnel II",
+   "street": "Deep Passage",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "38",
+     "name": "Zombie Lupin",
+     "level": 41,
+     "exp": 89,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "56",
+     "name": "Golden Stirge",
+     "level": 42,
+     "exp": 93,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "59",
+     "name": "Rafflesia",
+     "level": 47,
+     "exp": 117,
+     "count": 11,
+     "respawn": 0
+    }
+   ]
+  },
+  "010006140": {
+   "name": "Decayed Tunnel III",
+   "street": "Deep Passage",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "56",
+     "name": "Golden Stirge",
+     "level": 42,
+     "exp": 93,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "59",
+     "name": "Rafflesia",
+     "level": 47,
+     "exp": 117,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "61",
+     "name": "Myewood",
+     "level": 54,
+     "exp": 160,
+     "count": 6,
+     "respawn": 0
+    }
+   ]
+  },
+  "010006161": {
+   "name": "Dilapidated Tomb",
+   "street": "Deep Passage",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "26",
+     "name": "Fairy 2",
+     "level": 29,
+     "exp": 54,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "62",
+     "name": "Rotten Mushroom",
+     "level": 56,
+     "exp": 183,
+     "count": 14,
+     "respawn": 0
+    },
+    {
+     "id": "63",
+     "name": "Sporewood",
+     "level": 59,
+     "exp": 201,
+     "count": 3,
+     "respawn": 0
+    }
+   ]
+  },
+  "010006150": {
+   "name": "Lingering Regret",
+   "street": "Deep Passage",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "28",
+     "name": "Fairy 4",
+     "level": 29,
+     "exp": 54,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "58",
+     "name": "Echopus",
+     "level": 45,
+     "exp": 107,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "61",
+     "name": "Myewood",
+     "level": 54,
+     "exp": 160,
+     "count": 9,
+     "respawn": 0
+    }
+   ]
+  },
+  "010006090": {
+   "name": "Perilous Descent I",
+   "street": "Deep Passage",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "21",
+     "name": "Zombie Mushroom",
+     "level": 24,
+     "exp": 45,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "58",
+     "name": "Echopus",
+     "level": 45,
+     "exp": 107,
+     "count": 11,
+     "respawn": 0
+    }
+   ]
+  },
+  "010006100": {
+   "name": "Perilous Descent II",
+   "street": "Deep Passage",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "21",
+     "name": "Zombie Mushroom",
+     "level": 24,
+     "exp": 45,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "58",
+     "name": "Echopus",
+     "level": 45,
+     "exp": 107,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "60",
+     "name": "Duskmander",
+     "level": 50,
+     "exp": 133,
+     "count": 11,
+     "respawn": 0
+    }
+   ]
+  },
+  "010006110": {
+   "name": "Perilous Descent III",
+   "street": "Deep Passage",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "58",
+     "name": "Echopus",
+     "level": 45,
+     "exp": 107,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "60",
+     "name": "Duskmander",
+     "level": 50,
+     "exp": 133,
+     "count": 9,
+     "respawn": 0
+    }
+   ]
+  },
+  "010006160": {
+   "name": "Precipice of Darkness",
+   "street": "Deep Passage",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "38",
+     "name": "Zombie Lupin",
+     "level": 41,
+     "exp": 89,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "60",
+     "name": "Duskmander",
+     "level": 50,
+     "exp": 133,
+     "count": 14,
+     "respawn": 0
+    },
+    {
+     "id": "62",
+     "name": "Rotten Mushroom",
+     "level": 56,
+     "exp": 183,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "800011",
+     "name": "Zombie Mushroom (alt)",
+     "level": 30,
+     "exp": 56,
+     "count": 2,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005080": {
+   "name": "Another Entrance",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010005100": {
+   "name": "Another Path",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "37",
+     "name": "Cold Eye",
+     "level": 40,
+     "exp": 85,
+     "count": 23,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005060": {
+   "name": "Ant Tunnel I",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "21",
+     "name": "Zombie Mushroom",
+     "level": 24,
+     "exp": 45,
+     "count": 11,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005061": {
+   "name": "Ant Tunnel II",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "21",
+     "name": "Zombie Mushroom",
+     "level": 24,
+     "exp": 45,
+     "count": 32,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005062": {
+   "name": "Ant Tunnel III",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 38,
+     "respawn": 0
+    },
+    {
+     "id": "21",
+     "name": "Zombie Mushroom",
+     "level": 24,
+     "exp": 45,
+     "count": 61,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005063": {
+   "name": "Ant Tunnel IV",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 41,
+     "respawn": 0
+    },
+    {
+     "id": "21",
+     "name": "Zombie Mushroom",
+     "level": 24,
+     "exp": 45,
+     "count": 23,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005070": {
+   "name": "Ant Tunnel Park",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "21",
+     "name": "Zombie Mushroom",
+     "level": 24,
+     "exp": 45,
+     "count": 23,
+     "respawn": 0
+    },
+    {
+     "id": "23",
+     "name": "Evil Eye",
+     "level": 27,
+     "exp": 50,
+     "count": 31,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005031": {
+   "name": "Damp Forest",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "12",
+     "name": "Octopus",
+     "level": 12,
+     "exp": 23,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "18",
+     "name": "Jr. Necki",
+     "level": 21,
+     "exp": 39,
+     "count": 11,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005030": {
+   "name": "Damp Tree-Forest",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 13,
+     "respawn": 0
+    },
+    {
+     "id": "12",
+     "name": "Octopus",
+     "level": 12,
+     "exp": 23,
+     "count": 19,
+     "respawn": 0
+    },
+    {
+     "id": "18",
+     "name": "Jr. Necki",
+     "level": 21,
+     "exp": 39,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 6,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005065": {
+   "name": "Dangerous Steam",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "17",
+     "name": "Stirge",
+     "level": 20,
+     "exp": 37,
+     "count": 38,
+     "respawn": 0
+    },
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "21",
+     "name": "Zombie Mushroom",
+     "level": 24,
+     "exp": 45,
+     "count": 6,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005064": {
+   "name": "Dark Cave",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "17",
+     "name": "Stirge",
+     "level": 20,
+     "exp": 37,
+     "count": 35,
+     "respawn": 0
+    },
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "21",
+     "name": "Zombie Mushroom",
+     "level": 24,
+     "exp": 45,
+     "count": 7,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005066": {
+   "name": "Deep Ant Tunnel I",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 16,
+     "respawn": 0
+    },
+    {
+     "id": "21",
+     "name": "Zombie Mushroom",
+     "level": 24,
+     "exp": 45,
+     "count": 29,
+     "respawn": 0
+    },
+    {
+     "id": "23",
+     "name": "Evil Eye",
+     "level": 27,
+     "exp": 50,
+     "count": 21,
+     "respawn": 0
+    },
+    {
+     "id": "34",
+     "name": "Jr. Boogie 2",
+     "level": 35,
+     "exp": 69,
+     "count": 2,
+     "respawn": 180
+    }
+   ]
+  },
+  "010005067": {
+   "name": "Deep Ant Tunnel II",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "21",
+     "name": "Zombie Mushroom",
+     "level": 24,
+     "exp": 45,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "23",
+     "name": "Evil Eye",
+     "level": 27,
+     "exp": 50,
+     "count": 16,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005020": {
+   "name": "Deep Forest",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 1,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 2,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005075": {
+   "name": "Drake Hunting Ground",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "34",
+     "name": "Jr. Boogie 2",
+     "level": 35,
+     "exp": 69,
+     "count": 2,
+     "respawn": 300
+    },
+    {
+     "id": "45",
+     "name": "Drake",
+     "level": 50,
+     "exp": 133,
+     "count": 18,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005090": {
+   "name": "Drake's Meal Table",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 1,
+     "respawn": 300
+    },
+    {
+     "id": "37",
+     "name": "Cold Eye",
+     "level": 40,
+     "exp": 85,
+     "count": 22,
+     "respawn": 0
+    },
+    {
+     "id": "45",
+     "name": "Drake",
+     "level": 50,
+     "exp": 133,
+     "count": 23,
+     "respawn": 0
+    },
+    {
+     "id": "51",
+     "name": "Wild Kargo",
+     "level": 62,
+     "exp": 231,
+     "count": 10,
+     "respawn": 300
+    }
+   ]
+  },
+  "010005011": {
+   "name": "Hunting Ground in the Deep Forest I",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 1,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "12",
+     "name": "Octopus",
+     "level": 12,
+     "exp": 23,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "18",
+     "name": "Jr. Necki",
+     "level": 21,
+     "exp": 39,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "31",
+     "name": "Curse Eye",
+     "level": 33,
+     "exp": 63,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "33",
+     "name": "Jr. Boogie 1",
+     "level": 35,
+     "exp": 69,
+     "count": 1,
+     "respawn": 300
+    }
+   ]
+  },
+  "010005012": {
+   "name": "Hunting Ground in the Deep Forest II",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 1,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 16,
+     "respawn": 0
+    },
+    {
+     "id": "31",
+     "name": "Curse Eye",
+     "level": 33,
+     "exp": 63,
+     "count": 20,
+     "respawn": 0
+    },
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 15,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005002": {
+   "name": "Regular Sauna",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010005101": {
+   "name": "Sanctuary Entrance I",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "37",
+     "name": "Cold Eye",
+     "level": 40,
+     "exp": 85,
+     "count": 13,
+     "respawn": 0
+    },
+    {
+     "id": "52",
+     "name": "Tauromacis",
+     "level": 70,
+     "exp": 337,
+     "count": 4,
+     "respawn": 120
+    }
+   ]
+  },
+  "010005102": {
+   "name": "Sanctuary Entrance II",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "37",
+     "name": "Cold Eye",
+     "level": 40,
+     "exp": 85,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "52",
+     "name": "Tauromacis",
+     "level": 70,
+     "exp": 337,
+     "count": 4,
+     "respawn": 60
+    }
+   ]
+  },
+  "010005103": {
+   "name": "Sanctuary Entrance III",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "37",
+     "name": "Cold Eye",
+     "level": 40,
+     "exp": 85,
+     "count": 8,
+     "respawn": 10
+    },
+    {
+     "id": "52",
+     "name": "Tauromacis",
+     "level": 70,
+     "exp": 337,
+     "count": 2,
+     "respawn": 60
+    },
+    {
+     "id": "53",
+     "name": "Taurospear",
+     "level": 75,
+     "exp": 429,
+     "count": 4,
+     "respawn": 30
+    }
+   ]
+  },
+  "010005104": {
+   "name": "Sanctuary Entrance IV",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "37",
+     "name": "Cold Eye",
+     "level": 40,
+     "exp": 85,
+     "count": 5,
+     "respawn": 10
+    },
+    {
+     "id": "52",
+     "name": "Tauromacis",
+     "level": 70,
+     "exp": 337,
+     "count": 2,
+     "respawn": 60
+    },
+    {
+     "id": "53",
+     "name": "Taurospear",
+     "level": 75,
+     "exp": 429,
+     "count": 5,
+     "respawn": 30
+    }
+   ]
+  },
+  "010005050": {
+   "name": "Sleepy Dungeon I",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "12",
+     "name": "Octopus",
+     "level": 12,
+     "exp": 23,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "18",
+     "name": "Jr. Necki",
+     "level": 21,
+     "exp": 39,
+     "count": 1,
+     "respawn": 0
+    },
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "31",
+     "name": "Curse Eye",
+     "level": 33,
+     "exp": 63,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 2,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005051": {
+   "name": "Sleepy Dungeon II",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "18",
+     "name": "Jr. Necki",
+     "level": 21,
+     "exp": 39,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "31",
+     "name": "Curse Eye",
+     "level": 33,
+     "exp": 63,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 10,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005052": {
+   "name": "Sleepy Dungeon III",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "18",
+     "name": "Jr. Necki",
+     "level": 21,
+     "exp": 39,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "31",
+     "name": "Curse Eye",
+     "level": 33,
+     "exp": 63,
+     "count": 19,
+     "respawn": 0
+    },
+    {
+     "id": "33",
+     "name": "Jr. Boogie 1",
+     "level": 35,
+     "exp": 69,
+     "count": 1,
+     "respawn": 10800
+    },
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "49",
+     "name": "Dark Stone Golem",
+     "level": 58,
+     "exp": 192,
+     "count": 9,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005053": {
+   "name": "Sleepy Dungeon IV",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "18",
+     "name": "Jr. Necki",
+     "level": 21,
+     "exp": 39,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "31",
+     "name": "Curse Eye",
+     "level": 33,
+     "exp": 63,
+     "count": 14,
+     "respawn": 0
+    },
+    {
+     "id": "33",
+     "name": "Jr. Boogie 1",
+     "level": 35,
+     "exp": 69,
+     "count": 3,
+     "respawn": 300
+    },
+    {
+     "id": "34",
+     "name": "Jr. Boogie 2",
+     "level": 35,
+     "exp": 69,
+     "count": 3,
+     "respawn": 600
+    },
+    {
+     "id": "49",
+     "name": "Dark Stone Golem",
+     "level": 58,
+     "exp": 192,
+     "count": 7,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005054": {
+   "name": "Sleepy Dungeon V",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "18",
+     "name": "Jr. Necki",
+     "level": 21,
+     "exp": 39,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "31",
+     "name": "Curse Eye",
+     "level": 33,
+     "exp": 63,
+     "count": 23,
+     "respawn": 0
+    },
+    {
+     "id": "33",
+     "name": "Jr. Boogie 1",
+     "level": 35,
+     "exp": 69,
+     "count": 5,
+     "respawn": 300
+    },
+    {
+     "id": "34",
+     "name": "Jr. Boogie 2",
+     "level": 35,
+     "exp": 69,
+     "count": 5,
+     "respawn": 600
+    },
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 23,
+     "respawn": 0
+    },
+    {
+     "id": "49",
+     "name": "Dark Stone Golem",
+     "level": 58,
+     "exp": 192,
+     "count": 19,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005000": {
+   "name": "Sleepywood",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010005001": {
+   "name": "Sleepywood Hotel",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010005010": {
+   "name": "Swampy Land in a Deep Forest",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 16,
+     "respawn": 0
+    },
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "12",
+     "name": "Octopus",
+     "level": 12,
+     "exp": 23,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 16,
+     "respawn": 0
+    },
+    {
+     "id": "18",
+     "name": "Jr. Necki",
+     "level": 21,
+     "exp": 39,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 9,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005071": {
+   "name": "The Cave of Evil Eye I",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "23",
+     "name": "Evil Eye",
+     "level": 27,
+     "exp": 50,
+     "count": 19,
+     "respawn": 0
+    },
+    {
+     "id": "34",
+     "name": "Jr. Boogie 2",
+     "level": 35,
+     "exp": 69,
+     "count": 2,
+     "respawn": 300
+    }
+   ]
+  },
+  "010005072": {
+   "name": "The Cave of Evil Eye II",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "23",
+     "name": "Evil Eye",
+     "level": 27,
+     "exp": 50,
+     "count": 36,
+     "respawn": 0
+    },
+    {
+     "id": "34",
+     "name": "Jr. Boogie 2",
+     "level": 35,
+     "exp": 69,
+     "count": 2,
+     "respawn": 300
+    }
+   ]
+  },
+  "010005073": {
+   "name": "The Cave of Evil Eye III",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "23",
+     "name": "Evil Eye",
+     "level": 27,
+     "exp": 50,
+     "count": 38,
+     "respawn": 0
+    },
+    {
+     "id": "34",
+     "name": "Jr. Boogie 2",
+     "level": 35,
+     "exp": 69,
+     "count": 2,
+     "respawn": 300
+    }
+   ]
+  },
+  "010005074": {
+   "name": "The Cave of Evil Eye IV",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "23",
+     "name": "Evil Eye",
+     "level": 27,
+     "exp": 50,
+     "count": 23,
+     "respawn": 0
+    },
+    {
+     "id": "34",
+     "name": "Jr. Boogie 2",
+     "level": 35,
+     "exp": 69,
+     "count": 2,
+     "respawn": 1800
+    }
+   ]
+  },
+  "010005105": {
+   "name": "The Cursed Sanctuary",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "700001",
+     "name": "Jr. Balrog",
+     "level": 80,
+     "exp": 2188,
+     "count": 1,
+     "respawn": 10800
+    }
+   ]
+  },
+  "010005078": {
+   "name": "The Grave of Mushmom",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "21",
+     "name": "Zombie Mushroom",
+     "level": 24,
+     "exp": 45,
+     "count": 13,
+     "respawn": 0
+    },
+    {
+     "id": "34",
+     "name": "Jr. Boogie 2",
+     "level": 35,
+     "exp": 69,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "700002",
+     "name": "Zombie Mushmom",
+     "level": 55,
+     "exp": 668,
+     "count": 1,
+     "respawn": 3600
+    }
+   ]
+  },
+  "010005076": {
+   "name": "The Tunnel That Lost Light I",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "37",
+     "name": "Cold Eye",
+     "level": 40,
+     "exp": 85,
+     "count": 32,
+     "respawn": 0
+    },
+    {
+     "id": "45",
+     "name": "Drake",
+     "level": 50,
+     "exp": 133,
+     "count": 20,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005077": {
+   "name": "The Tunnel That Lost Light II",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "37",
+     "name": "Cold Eye",
+     "level": 40,
+     "exp": 85,
+     "count": 25,
+     "respawn": 0
+    },
+    {
+     "id": "45",
+     "name": "Drake",
+     "level": 50,
+     "exp": 133,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "51",
+     "name": "Wild Kargo",
+     "level": 62,
+     "exp": 231,
+     "count": 7,
+     "respawn": 0
+    }
+   ]
+  },
+  "010005003": {
+   "name": "VIP Sauna",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010005091": {
+   "name": "Wild Kargo's Area",
+   "street": "Dungeon",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "37",
+     "name": "Cold Eye",
+     "level": 40,
+     "exp": 85,
+     "count": 17,
+     "respawn": 0
+    },
+    {
+     "id": "51",
+     "name": "Wild Kargo",
+     "level": 62,
+     "exp": 231,
+     "count": 14,
+     "respawn": 120
+    }
+   ]
+  },
+  "010007010": {
+   "name": "A Look-Out Shed Around the Beach",
+   "street": "Florina Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 27,
+     "respawn": 60
+    },
+    {
+     "id": "36",
+     "name": "Lorang",
+     "level": 38,
+     "exp": 78,
+     "count": 36,
+     "respawn": 0
+    }
+   ]
+  },
+  "010007031": {
+   "name": "Clang and Lorang",
+   "street": "Florina Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "36",
+     "name": "Lorang",
+     "level": 38,
+     "exp": 78,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "41",
+     "name": "Tortie",
+     "level": 46,
+     "exp": 111,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "44",
+     "name": "Clang",
+     "level": 49,
+     "exp": 127,
+     "count": 17,
+     "respawn": 0
+    }
+   ]
+  },
+  "010007000": {
+   "name": "Florina Beach",
+   "street": "Florina Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010007040": {
+   "name": "Hot Sand",
+   "street": "Florina Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "41",
+     "name": "Tortie",
+     "level": 46,
+     "exp": 111,
+     "count": 25,
+     "respawn": 0
+    },
+    {
+     "id": "44",
+     "name": "Clang",
+     "level": 49,
+     "exp": 127,
+     "count": 13,
+     "respawn": 0
+    }
+   ]
+  },
+  "010007030": {
+   "name": "Lorang and Clang",
+   "street": "Florina Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "36",
+     "name": "Lorang",
+     "level": 38,
+     "exp": 78,
+     "count": 18,
+     "respawn": 0
+    },
+    {
+     "id": "44",
+     "name": "Clang",
+     "level": 49,
+     "exp": 127,
+     "count": 29,
+     "respawn": 0
+    }
+   ]
+  },
+  "010007020": {
+   "name": "Lorang Lorang",
+   "street": "Florina Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "36",
+     "name": "Lorang",
+     "level": 38,
+     "exp": 78,
+     "count": 35,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001002": {
+   "name": "An Empty House",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 6,
+     "respawn": 0
+    }
+   ]
+  },
+  "010000022": {
+   "name": "Beach Hunting Ground",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "4",
+     "name": "Shroom",
+     "level": 3,
+     "exp": 6,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "8",
+     "name": "Pig",
+     "level": 7,
+     "exp": 13,
+     "count": 1,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "10",
+     "name": "Ribbon Pig",
+     "level": 10,
+     "exp": 19,
+     "count": 5,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003112": {
+   "name": "Cabin of the Forsaken",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010003011": {
+   "name": "Caution Falling Down",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "12",
+     "name": "Octopus",
+     "level": 12,
+     "exp": 23,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "16",
+     "name": "Blue Mushroom",
+     "level": 19,
+     "exp": 35,
+     "count": 3,
+     "respawn": 0
+    }
+   ]
+  },
+  "010006022": {
+   "name": "Collision of Ice and Fire",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "54",
+     "name": "Glowshroom",
+     "level": 39,
+     "exp": 82,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "57",
+     "name": "Aqumander",
+     "level": 43,
+     "exp": 98,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "59",
+     "name": "Rafflesia",
+     "level": 47,
+     "exp": 117,
+     "count": 7,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004101": {
+   "name": "Dangerous Valley",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "30",
+     "name": "Fire Boar",
+     "level": 32,
+     "exp": 60,
+     "count": 21,
+     "respawn": 0
+    },
+    {
+     "id": "40",
+     "name": "Copper Drake",
+     "level": 45,
+     "exp": 107,
+     "count": 13,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004102": {
+   "name": "Dangerous Valley II",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "30",
+     "name": "Fire Boar",
+     "level": 32,
+     "exp": 60,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "40",
+     "name": "Copper Drake",
+     "level": 45,
+     "exp": 107,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "50",
+     "name": "Red Drake",
+     "level": 60,
+     "exp": 211,
+     "count": 17,
+     "respawn": 20
+    }
+   ]
+  },
+  "010002027": {
+   "name": "Downstairs at the Forest",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 17,
+     "respawn": 0
+    },
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 3,
+     "respawn": 300
+    }
+   ]
+  },
+  "010004041": {
+   "name": "Land of Wild Boar",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "22",
+     "name": "Wild Boar",
+     "level": 25,
+     "exp": 46,
+     "count": 22,
+     "respawn": 0
+    },
+    {
+     "id": "33",
+     "name": "Jr. Boogie 1",
+     "level": 35,
+     "exp": 69,
+     "count": 3,
+     "respawn": 600
+    },
+    {
+     "id": "34",
+     "name": "Jr. Boogie 2",
+     "level": 35,
+     "exp": 69,
+     "count": 3,
+     "respawn": 300
+    }
+   ]
+  },
+  "010007021": {
+   "name": "Lorang Lorang Lorang",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "36",
+     "name": "Lorang",
+     "level": 38,
+     "exp": 78,
+     "count": 17,
+     "respawn": 0
+    },
+    {
+     "id": "41",
+     "name": "Tortie",
+     "level": 46,
+     "exp": 111,
+     "count": 6,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002004": {
+   "name": "Marr's Forest",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010002021": {
+   "name": "Monkey Forest I",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 14,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003095": {
+   "name": "Monkey Swamp I",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "18",
+     "name": "Jr. Necki",
+     "level": 21,
+     "exp": 39,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 28,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003096": {
+   "name": "Monkey Swamp II",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "18",
+     "name": "Jr. Necki",
+     "level": 21,
+     "exp": 39,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "38",
+     "name": "Zombie Lupin",
+     "level": 41,
+     "exp": 89,
+     "count": 13,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003097": {
+   "name": "Monkey Swamp III",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "18",
+     "name": "Jr. Necki",
+     "level": 21,
+     "exp": 39,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "38",
+     "name": "Zombie Lupin",
+     "level": 41,
+     "exp": 89,
+     "count": 31,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001021": {
+   "name": "Mushroom Garden",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "4",
+     "name": "Shroom",
+     "level": 3,
+     "exp": 6,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 15,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003081": {
+   "name": "Northern Top of Construction Site",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "12",
+     "name": "Octopus",
+     "level": 12,
+     "exp": 23,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "16",
+     "name": "Blue Mushroom",
+     "level": 19,
+     "exp": 35,
+     "count": 3,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004042": {
+   "name": "Over the Wall",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "15",
+     "name": "Axe Stump",
+     "level": 17,
+     "exp": 32,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 5,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001003": {
+   "name": "Pig Park",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "24",
+     "name": "Iron Hog",
+     "level": 28,
+     "exp": 52,
+     "count": 20,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001004": {
+   "name": "Pig Park II",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "24",
+     "name": "Iron Hog",
+     "level": 28,
+     "exp": 52,
+     "count": 22,
+     "respawn": 0
+    }
+   ]
+  },
+  "010006121": {
+   "name": "Someone Else's Grave",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "21",
+     "name": "Zombie Mushroom",
+     "level": 24,
+     "exp": 45,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "27",
+     "name": "Fairy 3",
+     "level": 29,
+     "exp": 54,
+     "count": 1,
+     "respawn": 0
+    },
+    {
+     "id": "62",
+     "name": "Rotten Mushroom",
+     "level": 56,
+     "exp": 183,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "700003",
+     "name": "Rotten Mushmom",
+     "level": 60,
+     "exp": 844,
+     "count": 1,
+     "respawn": 3600
+    }
+   ]
+  },
+  "010001005": {
+   "name": "Someone Else's House",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "24",
+     "name": "Iron Hog",
+     "level": 28,
+     "exp": 52,
+     "count": 13,
+     "respawn": 1
+    },
+    {
+     "id": "26",
+     "name": "Fairy 2",
+     "level": 29,
+     "exp": 54,
+     "count": 2,
+     "respawn": 180
+    },
+    {
+     "id": "700000",
+     "name": "Mushmom",
+     "level": 40,
+     "exp": 340,
+     "count": 1,
+     "respawn": 3600
+    }
+   ]
+  },
+  "010001081": {
+   "name": "The Blue Mushroom Forest",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 1,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "16",
+     "name": "Blue Mushroom",
+     "level": 19,
+     "exp": 35,
+     "count": 16,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001101": {
+   "name": "The Breathing Rock",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "16",
+     "name": "Blue Mushroom",
+     "level": 19,
+     "exp": 35,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "28",
+     "name": "Fairy 4",
+     "level": 29,
+     "exp": 54,
+     "count": 2,
+     "respawn": 180
+    },
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "48",
+     "name": "Stone Golem",
+     "level": 56,
+     "exp": 175,
+     "count": 4,
+     "respawn": 20
+    }
+   ]
+  },
+  "010002005": {
+   "name": "The Circulation Desk",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010005040": {
+   "name": "The Deep Forest of Patience <Step 1>",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010005041": {
+   "name": "The Deep Forest of Patience <Step 2>",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010005042": {
+   "name": "The Deep Forest of Patience <Step 3>",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010005043": {
+   "name": "The Deep Forest of Patience <Step 4>",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010005044": {
+   "name": "The Deep Forest of Patience <Step 5>",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "90",
+     "name": "Super Jr. Necki",
+     "level": 200,
+     "exp": 0,
+     "count": 5,
+     "respawn": 1
+    },
+    {
+     "id": "91",
+     "name": "Super Slime",
+     "level": 200,
+     "exp": 0,
+     "count": 11,
+     "respawn": 1
+    }
+   ]
+  },
+  "010005045": {
+   "name": "The Deep Forest of Patience <Step 6>",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010005046": {
+   "name": "The Deep Forest of Patience <Step 7>",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010002025": {
+   "name": "The Forest of Evil I",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "38",
+     "name": "Zombie Lupin",
+     "level": 41,
+     "exp": 89,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "47",
+     "name": "Malady",
+     "level": 55,
+     "exp": 167,
+     "count": 15,
+     "respawn": 60
+    }
+   ]
+  },
+  "010002026": {
+   "name": "The Forest of Evil II",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "38",
+     "name": "Zombie Lupin",
+     "level": 41,
+     "exp": 89,
+     "count": 16,
+     "respawn": 0
+    },
+    {
+     "id": "47",
+     "name": "Malady",
+     "level": 55,
+     "exp": 167,
+     "count": 23,
+     "respawn": 60
+    }
+   ]
+  },
+  "010002040": {
+   "name": "The Forest of Patience <Step 1>",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010002041": {
+   "name": "The Forest of Patience <Step 2>",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010002042": {
+   "name": "The Forest of Patience <Step 3>",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010002043": {
+   "name": "The Forest of Patience <Step 4>",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "90",
+     "name": "Super Jr. Necki",
+     "level": 200,
+     "exp": 0,
+     "count": 18,
+     "respawn": 1
+    }
+   ]
+  },
+  "010002044": {
+   "name": "The Forest of Patience <Step 5>",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010003098": {
+   "name": "The Hermit's Cabin",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010004091": {
+   "name": "The Land of Wild Boar II",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "15",
+     "name": "Axe Stump",
+     "level": 17,
+     "exp": 32,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "22",
+     "name": "Wild Boar",
+     "level": 25,
+     "exp": 46,
+     "count": 23,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003110": {
+   "name": "The Murky Swamp I",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "18",
+     "name": "Jr. Necki",
+     "level": 21,
+     "exp": 39,
+     "count": 16,
+     "respawn": 0
+    },
+    {
+     "id": "29",
+     "name": "Ligator",
+     "level": 31,
+     "exp": 58,
+     "count": 17,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003111": {
+   "name": "The Murky Swamp II",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "18",
+     "name": "Jr. Necki",
+     "level": 21,
+     "exp": 39,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "29",
+     "name": "Ligator",
+     "level": 31,
+     "exp": 58,
+     "count": 14,
+     "respawn": 0
+    }
+   ]
+  },
+  "010000021": {
+   "name": "The Pig Beach",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "8",
+     "name": "Pig",
+     "level": 7,
+     "exp": 13,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "10",
+     "name": "Ribbon Pig",
+     "level": 10,
+     "exp": 19,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "24",
+     "name": "Iron Hog",
+     "level": 28,
+     "exp": 52,
+     "count": 1,
+     "respawn": 3600
+    }
+   ]
+  },
+  "010001006": {
+   "name": "The Resting Spot, Pig Park",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010006031": {
+   "name": "The Valley of Death",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "21",
+     "name": "Zombie Mushroom",
+     "level": 24,
+     "exp": 45,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "38",
+     "name": "Zombie Lupin",
+     "level": 41,
+     "exp": 89,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "59",
+     "name": "Rafflesia",
+     "level": 47,
+     "exp": 117,
+     "count": 10,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002024": {
+   "name": "Tree Dungeon, Monkey Forest II",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "31",
+     "name": "Curse Eye",
+     "level": 33,
+     "exp": 63,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "38",
+     "name": "Zombie Lupin",
+     "level": 41,
+     "exp": 89,
+     "count": 26,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001082": {
+   "name": "Utah's Pig Farm",
+   "street": "Hidden Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "92",
+     "name": "Super Ribbon Pig",
+     "level": 200,
+     "exp": 0,
+     "count": 28,
+     "respawn": 1
+    }
+   ]
+  },
+  "010003061": {
+   "name": "Line 1 <Area 1>",
+   "street": "Kerning City Subway",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "14",
+     "name": "Bubbling",
+     "level": 15,
+     "exp": 28,
+     "count": 64,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003063": {
+   "name": "Line 1 <Area 2>",
+   "street": "Kerning City Subway",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "17",
+     "name": "Stirge",
+     "level": 20,
+     "exp": 37,
+     "count": 21,
+     "respawn": 0
+    },
+    {
+     "id": "32",
+     "name": "Jr. Wraith",
+     "level": 34,
+     "exp": 66,
+     "count": 69,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003064": {
+   "name": "Line 1 <Area 3>",
+   "street": "Kerning City Subway",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "17",
+     "name": "Stirge",
+     "level": 20,
+     "exp": 37,
+     "count": 18,
+     "respawn": 0
+    },
+    {
+     "id": "32",
+     "name": "Jr. Wraith",
+     "level": 34,
+     "exp": 66,
+     "count": 31,
+     "respawn": 0
+    },
+    {
+     "id": "43",
+     "name": "Wraith",
+     "level": 48,
+     "exp": 122,
+     "count": 48,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003065": {
+   "name": "Line 1 <Area 4>",
+   "street": "Kerning City Subway",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "43",
+     "name": "Wraith",
+     "level": 48,
+     "exp": 122,
+     "count": 59,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003066": {
+   "name": "Line 2 <Area 1>",
+   "street": "Kerning City Subway",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "18",
+     "name": "Jr. Necki",
+     "level": 21,
+     "exp": 39,
+     "count": 14,
+     "respawn": 0
+    },
+    {
+     "id": "32",
+     "name": "Jr. Wraith",
+     "level": 34,
+     "exp": 66,
+     "count": 83,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003067": {
+   "name": "Line 2 <Area 2>",
+   "street": "Kerning City Subway",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "18",
+     "name": "Jr. Necki",
+     "level": 21,
+     "exp": 39,
+     "count": 18,
+     "respawn": 0
+    },
+    {
+     "id": "32",
+     "name": "Jr. Wraith",
+     "level": 34,
+     "exp": 66,
+     "count": 32,
+     "respawn": 0
+    },
+    {
+     "id": "43",
+     "name": "Wraith",
+     "level": 48,
+     "exp": 122,
+     "count": 57,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003068": {
+   "name": "Line 2 <Area 3>",
+   "street": "Kerning City Subway",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "43",
+     "name": "Wraith",
+     "level": 48,
+     "exp": 122,
+     "count": 68,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003062": {
+   "name": "Transfer Area",
+   "street": "Kerning City Subway",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "17",
+     "name": "Stirge",
+     "level": 20,
+     "exp": 37,
+     "count": 38,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003100": {
+   "name": "B1 <Area 1>",
+   "street": "Line 3 Construction Site",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "90",
+     "name": "Super Jr. Necki",
+     "level": 200,
+     "exp": 0,
+     "count": 3,
+     "respawn": 1
+    }
+   ]
+  },
+  "010003101": {
+   "name": "B1 <Area 2>",
+   "street": "Line 3 Construction Site",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "93",
+     "name": "Super Stirge",
+     "level": 200,
+     "exp": 0,
+     "count": 12,
+     "respawn": 1
+    }
+   ]
+  },
+  "010003102": {
+   "name": "B1 <Subway Depot>",
+   "street": "Line 3 Construction Site",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "14",
+     "name": "Bubbling",
+     "level": 15,
+     "exp": 28,
+     "count": 9,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003103": {
+   "name": "B2 <Area 1>",
+   "street": "Line 3 Construction Site",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010003104": {
+   "name": "B2 <Area 2>",
+   "street": "Line 3 Construction Site",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010003105": {
+   "name": "B2 <Subway Depot>",
+   "street": "Line 3 Construction Site",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "32",
+     "name": "Jr. Wraith",
+     "level": 34,
+     "exp": 66,
+     "count": 12,
+     "respawn": 1
+    },
+    {
+     "id": "33",
+     "name": "Jr. Boogie 1",
+     "level": 35,
+     "exp": 69,
+     "count": 1,
+     "respawn": 300
+    }
+   ]
+  },
+  "010003106": {
+   "name": "B3 <Area 1>",
+   "street": "Line 3 Construction Site",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "93",
+     "name": "Super Stirge",
+     "level": 200,
+     "exp": 0,
+     "count": 4,
+     "respawn": 1
+    }
+   ]
+  },
+  "010003107": {
+   "name": "B3 <Area 2>",
+   "street": "Line 3 Construction Site",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010003108": {
+   "name": "B3 <Area 3>",
+   "street": "Line 3 Construction Site",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010003109": {
+   "name": "B3 <Subway Depot>",
+   "street": "Line 3 Construction Site",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "33",
+     "name": "Jr. Boogie 1",
+     "level": 35,
+     "exp": 69,
+     "count": 1,
+     "respawn": 300
+    },
+    {
+     "id": "34",
+     "name": "Jr. Boogie 2",
+     "level": 35,
+     "exp": 69,
+     "count": 1,
+     "respawn": 300
+    },
+    {
+     "id": "43",
+     "name": "Wraith",
+     "level": 48,
+     "exp": 122,
+     "count": 10,
+     "respawn": 1
+    }
+   ]
+  },
+  "010006002": {
+   "name": "Cave Fairy Department Store",
+   "street": "Shallow Passage",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010006001": {
+   "name": "Cave Fairy Sanctuary",
+   "street": "Shallow Passage",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010006080": {
+   "name": "Forbidden Entrance",
+   "street": "Shallow Passage",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "21",
+     "name": "Zombie Mushroom",
+     "level": 24,
+     "exp": 45,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "56",
+     "name": "Golden Stirge",
+     "level": 42,
+     "exp": 93,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "59",
+     "name": "Rafflesia",
+     "level": 47,
+     "exp": 117,
+     "count": 13,
+     "respawn": 0
+    },
+    {
+     "id": "60",
+     "name": "Duskmander",
+     "level": 50,
+     "exp": 133,
+     "count": 12,
+     "respawn": 0
+    }
+   ]
+  },
+  "010006071": {
+   "name": "Forgotten Dungeon Tunnel",
+   "street": "Shallow Passage",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "31",
+     "name": "Curse Eye",
+     "level": 33,
+     "exp": 63,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "54",
+     "name": "Glowshroom",
+     "level": 39,
+     "exp": 82,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "55",
+     "name": "Raffle",
+     "level": 40,
+     "exp": 85,
+     "count": 12,
+     "respawn": 0
+    }
+   ]
+  },
+  "010006040": {
+   "name": "Forgotten Entrance I",
+   "street": "Shallow Passage",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "55",
+     "name": "Raffle",
+     "level": 40,
+     "exp": 85,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "56",
+     "name": "Golden Stirge",
+     "level": 42,
+     "exp": 93,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "57",
+     "name": "Aqumander",
+     "level": 43,
+     "exp": 98,
+     "count": 9,
+     "respawn": 0
+    }
+   ]
+  },
+  "010006050": {
+   "name": "Forgotten Entrance II",
+   "street": "Shallow Passage",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "54",
+     "name": "Glowshroom",
+     "level": 39,
+     "exp": 82,
+     "count": 13,
+     "respawn": 0
+    },
+    {
+     "id": "55",
+     "name": "Raffle",
+     "level": 40,
+     "exp": 85,
+     "count": 14,
+     "respawn": 0
+    }
+   ]
+  },
+  "010006060": {
+   "name": "Forgotten Entrance III",
+   "street": "Shallow Passage",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "31",
+     "name": "Curse Eye",
+     "level": 33,
+     "exp": 63,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "54",
+     "name": "Glowshroom",
+     "level": 39,
+     "exp": 82,
+     "count": 19,
+     "respawn": 0
+    },
+    {
+     "id": "55",
+     "name": "Raffle",
+     "level": 40,
+     "exp": 85,
+     "count": 14,
+     "respawn": 0
+    }
+   ]
+  },
+  "010006000": {
+   "name": "Forgotten Hollow",
+   "street": "Shallow Passage",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "080003500": {
+   "name": "Forgotten Hollow Instance 080003500",
+   "street": "Shallow Passage",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010006010": {
+   "name": "Primeval Forest I",
+   "street": "Shallow Passage",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "54",
+     "name": "Glowshroom",
+     "level": 39,
+     "exp": 82,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "57",
+     "name": "Aqumander",
+     "level": 43,
+     "exp": 98,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "58",
+     "name": "Echopus",
+     "level": 45,
+     "exp": 107,
+     "count": 6,
+     "respawn": 0
+    }
+   ]
+  },
+  "010006020": {
+   "name": "Primeval Forest II",
+   "street": "Shallow Passage",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "56",
+     "name": "Golden Stirge",
+     "level": 42,
+     "exp": 93,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "57",
+     "name": "Aqumander",
+     "level": 43,
+     "exp": 98,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "58",
+     "name": "Echopus",
+     "level": 45,
+     "exp": 107,
+     "count": 9,
+     "respawn": 0
+    }
+   ]
+  },
+  "010006030": {
+   "name": "Primeval Forest III",
+   "street": "Shallow Passage",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "55",
+     "name": "Raffle",
+     "level": 40,
+     "exp": 85,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "57",
+     "name": "Aqumander",
+     "level": 43,
+     "exp": 98,
+     "count": 6,
+     "respawn": 0
+    }
+   ]
+  },
+  "010006070": {
+   "name": "The End of Fleeting Light",
+   "street": "Shallow Passage",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "57",
+     "name": "Aqumander",
+     "level": 43,
+     "exp": 98,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "59",
+     "name": "Rafflesia",
+     "level": 47,
+     "exp": 117,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "60",
+     "name": "Duskmander",
+     "level": 50,
+     "exp": 133,
+     "count": 7,
+     "respawn": 0
+    }
+   ]
+  },
+  "010006072": {
+   "name": "The Faded Canopy",
+   "street": "Shallow Passage",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "54",
+     "name": "Glowshroom",
+     "level": 39,
+     "exp": 82,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "55",
+     "name": "Raffle",
+     "level": 40,
+     "exp": 85,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "58",
+     "name": "Echopus",
+     "level": 45,
+     "exp": 107,
+     "count": 7,
+     "respawn": 0
+    }
+   ]
+  },
+  "010000020": {
+   "name": "3-Way Road-Split",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 14,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 17,
+     "respawn": 0
+    },
+    {
+     "id": "8",
+     "name": "Pig",
+     "level": 7,
+     "exp": 13,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "10",
+     "name": "Ribbon Pig",
+     "level": 10,
+     "exp": 19,
+     "count": 6,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001020": {
+   "name": "A Hill West of Henesys",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 1,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 16,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "8",
+     "name": "Pig",
+     "level": 7,
+     "exp": 13,
+     "count": 16,
+     "respawn": 0
+    },
+    {
+     "id": "10",
+     "name": "Ribbon Pig",
+     "level": 10,
+     "exp": 19,
+     "count": 10,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003008": {
+   "name": "Backalley Semi-Basement",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010002091": {
+   "name": "Before Takeoff <To Orbis>",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010001051": {
+   "name": "Bowman Instructional School",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010004140": {
+   "name": "Camp 1",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "67",
+     "name": "Skeleton Soldier",
+     "level": 57,
+     "exp": 183,
+     "count": 20,
+     "respawn": 6
+    },
+    {
+     "id": "68",
+     "name": "Officer Skeleton",
+     "level": 63,
+     "exp": 242,
+     "count": 5,
+     "respawn": 6
+    }
+   ]
+  },
+  "010004141": {
+   "name": "Camp 2",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "67",
+     "name": "Skeleton Soldier",
+     "level": 57,
+     "exp": 183,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "68",
+     "name": "Officer Skeleton",
+     "level": 63,
+     "exp": 242,
+     "count": 8,
+     "respawn": 8
+    }
+   ]
+  },
+  "010004142": {
+   "name": "Camp 3",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "67",
+     "name": "Skeleton Soldier",
+     "level": 57,
+     "exp": 183,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "68",
+     "name": "Officer Skeleton",
+     "level": 63,
+     "exp": 242,
+     "count": 14,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003080": {
+   "name": "Construction Site North of Kerning City",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 23,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "12",
+     "name": "Octopus",
+     "level": 12,
+     "exp": 23,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "15",
+     "name": "Axe Stump",
+     "level": 17,
+     "exp": 32,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "16",
+     "name": "Blue Mushroom",
+     "level": 19,
+     "exp": 35,
+     "count": 1,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002031": {
+   "name": "Dungeon, Southern Forest I",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 21,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002032": {
+   "name": "Dungeon, Southern Forest II",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 16,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002033": {
+   "name": "Dungeon, Southern Forest III",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 16,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002034": {
+   "name": "Dungeon, Southern Forest IV",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "16",
+     "name": "Blue Mushroom",
+     "level": 19,
+     "exp": 35,
+     "count": 1,
+     "respawn": 0
+    },
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 13,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004090": {
+   "name": "East Domain of Perion",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "15",
+     "name": "Axe Stump",
+     "level": 17,
+     "exp": 32,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 10,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004050": {
+   "name": "East Rocky Mountain I",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 16,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 14,
+     "respawn": 0
+    },
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 13,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004051": {
+   "name": "East Rocky Mountain II",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 16,
+     "respawn": 0
+    },
+    {
+     "id": "15",
+     "name": "Axe Stump",
+     "level": 17,
+     "exp": 32,
+     "count": 12,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004052": {
+   "name": "East Rocky Mountain III",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 14,
+     "respawn": 0
+    },
+    {
+     "id": "15",
+     "name": "Axe Stump",
+     "level": 17,
+     "exp": 32,
+     "count": 12,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004053": {
+   "name": "East Rocky Mountain IV",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 17,
+     "respawn": 0
+    },
+    {
+     "id": "15",
+     "name": "Axe Stump",
+     "level": 17,
+     "exp": 32,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 23,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004054": {
+   "name": "East Rocky Mountain V",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 17,
+     "respawn": 0
+    },
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 25,
+     "respawn": 0
+    },
+    {
+     "id": "30",
+     "name": "Fire Boar",
+     "level": 32,
+     "exp": 60,
+     "count": 4,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004055": {
+   "name": "East Rocky Mountain VI",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "15",
+     "name": "Axe Stump",
+     "level": 17,
+     "exp": 32,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 17,
+     "respawn": 0
+    },
+    {
+     "id": "30",
+     "name": "Fire Boar",
+     "level": 32,
+     "exp": 60,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 3,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004056": {
+   "name": "East Rocky Mountain VII",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "30",
+     "name": "Fire Boar",
+     "level": 32,
+     "exp": 60,
+     "count": 20,
+     "respawn": 0
+    },
+    {
+     "id": "40",
+     "name": "Copper Drake",
+     "level": 45,
+     "exp": 107,
+     "count": 22,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002000": {
+   "name": "Ellinia",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010002002": {
+   "name": "Ellinia Department Store",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010002090": {
+   "name": "Ellinia Station",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010002001": {
+   "name": "Ellinia Weapon Store",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010004133": {
+   "name": "Excavation Site <Camp>",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010004130": {
+   "name": "Excavation Site I",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "39",
+     "name": "Ghost Stump",
+     "level": 19,
+     "exp": 35,
+     "count": 23,
+     "respawn": 0
+    },
+    {
+     "id": "42",
+     "name": "Wooden Mask",
+     "level": 23,
+     "exp": 43,
+     "count": 10,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004131": {
+   "name": "Excavation Site II",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "39",
+     "name": "Ghost Stump",
+     "level": 19,
+     "exp": 35,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "42",
+     "name": "Wooden Mask",
+     "level": 23,
+     "exp": 43,
+     "count": 30,
+     "respawn": 0
+    },
+    {
+     "id": "64",
+     "name": "Rocky Mask",
+     "level": 24,
+     "exp": 45,
+     "count": 12,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004132": {
+   "name": "Excavation Site III",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "42",
+     "name": "Wooden Mask",
+     "level": 23,
+     "exp": 43,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "64",
+     "name": "Rocky Mask",
+     "level": 24,
+     "exp": 45,
+     "count": 17,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001030": {
+   "name": "Forest West of Henesys",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 13,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 20,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "8",
+     "name": "Pig",
+     "level": 7,
+     "exp": 13,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "10",
+     "name": "Ribbon Pig",
+     "level": 10,
+     "exp": 19,
+     "count": 1,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001103": {
+   "name": "Golem's Temple I",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "16",
+     "name": "Blue Mushroom",
+     "level": 19,
+     "exp": 35,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "28",
+     "name": "Fairy 4",
+     "level": 29,
+     "exp": 54,
+     "count": 1,
+     "respawn": 180
+    },
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 3,
+     "respawn": 60
+    },
+    {
+     "id": "48",
+     "name": "Stone Golem",
+     "level": 56,
+     "exp": 175,
+     "count": 9,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001104": {
+   "name": "Golem's Temple II",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "16",
+     "name": "Blue Mushroom",
+     "level": 19,
+     "exp": 35,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "28",
+     "name": "Fairy 4",
+     "level": 29,
+     "exp": 54,
+     "count": 1,
+     "respawn": 180
+    },
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 3,
+     "respawn": 60
+    },
+    {
+     "id": "48",
+     "name": "Stone Golem",
+     "level": 56,
+     "exp": 175,
+     "count": 7,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001105": {
+   "name": "Golem's Temple III",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "16",
+     "name": "Blue Mushroom",
+     "level": 19,
+     "exp": 35,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "28",
+     "name": "Fairy 4",
+     "level": 29,
+     "exp": 54,
+     "count": 1,
+     "respawn": 180
+    },
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 7,
+     "respawn": 60
+    },
+    {
+     "id": "48",
+     "name": "Stone Golem",
+     "level": 56,
+     "exp": 175,
+     "count": 10,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001106": {
+   "name": "Golem's Temple IV",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "16",
+     "name": "Blue Mushroom",
+     "level": 19,
+     "exp": 35,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "28",
+     "name": "Fairy 4",
+     "level": 29,
+     "exp": 54,
+     "count": 1,
+     "respawn": 180
+    },
+    {
+     "id": "48",
+     "name": "Stone Golem",
+     "level": 56,
+     "exp": 175,
+     "count": 8,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001000": {
+   "name": "Henesys",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010001042": {
+   "name": "Henesys Department Store",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010001044": {
+   "name": "Henesys Hair Salon",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010001010": {
+   "name": "Henesys Hunting Ground I",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "4",
+     "name": "Shroom",
+     "level": 3,
+     "exp": 6,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 5,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001011": {
+   "name": "Henesys Hunting Ground II",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "4",
+     "name": "Shroom",
+     "level": 3,
+     "exp": 6,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 4,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001012": {
+   "name": "Henesys Hunting Ground III",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 17,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 13,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001040": {
+   "name": "Henesys Market",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010001050": {
+   "name": "Henesys Park",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010001043": {
+   "name": "Henesys Plastic Surgery",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010001045": {
+   "name": "Henesys Skin-Care",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010001007": {
+   "name": "Henesys Town Hall",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010001001": {
+   "name": "Henesys Townstreet",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010001041": {
+   "name": "Henesys Weapon Store",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010003000": {
+   "name": "Kerning City",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010003007": {
+   "name": "Kerning City Civic Center",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010003010": {
+   "name": "Kerning City Construction Site",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 24,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "12",
+     "name": "Octopus",
+     "level": 12,
+     "exp": 23,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 2,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003005": {
+   "name": "Kerning City Hair Salon",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010003050": {
+   "name": "Kerning City Middle Forest I",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 14,
+     "respawn": 0
+    },
+    {
+     "id": "4",
+     "name": "Shroom",
+     "level": 3,
+     "exp": 6,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "8",
+     "name": "Pig",
+     "level": 7,
+     "exp": 13,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "10",
+     "name": "Ribbon Pig",
+     "level": 10,
+     "exp": 19,
+     "count": 5,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003051": {
+   "name": "Kerning City Middle Forest II",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "4",
+     "name": "Shroom",
+     "level": 3,
+     "exp": 6,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "8",
+     "name": "Pig",
+     "level": 7,
+     "exp": 13,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "10",
+     "name": "Ribbon Pig",
+     "level": 10,
+     "exp": 19,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 2,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003052": {
+   "name": "Kerning City Middle Forest III",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 13,
+     "respawn": 0
+    },
+    {
+     "id": "8",
+     "name": "Pig",
+     "level": 7,
+     "exp": 13,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "10",
+     "name": "Ribbon Pig",
+     "level": 10,
+     "exp": 19,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 2,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003002": {
+   "name": "Kerning City Pharmacy",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010003006": {
+   "name": "Kerning City Repair Shop",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010003001": {
+   "name": "Kerning City Self-Defence Item Store",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010003020": {
+   "name": "L Forest I",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "4",
+     "name": "Shroom",
+     "level": 3,
+     "exp": 6,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "8",
+     "name": "Pig",
+     "level": 7,
+     "exp": 13,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "10",
+     "name": "Ribbon Pig",
+     "level": 10,
+     "exp": 19,
+     "count": 21,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "24",
+     "name": "Iron Hog",
+     "level": 28,
+     "exp": 52,
+     "count": 1,
+     "respawn": 600
+    }
+   ]
+  },
+  "010003030": {
+   "name": "L Forest II",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 1,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "4",
+     "name": "Shroom",
+     "level": 3,
+     "exp": 6,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "8",
+     "name": "Pig",
+     "level": 7,
+     "exp": 13,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "10",
+     "name": "Ribbon Pig",
+     "level": 10,
+     "exp": 19,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "16",
+     "name": "Blue Mushroom",
+     "level": 19,
+     "exp": 35,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 1,
+     "respawn": 3600
+    }
+   ]
+  },
+  "010003040": {
+   "name": "L Forest III",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "4",
+     "name": "Shroom",
+     "level": 3,
+     "exp": 6,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 14,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 23,
+     "respawn": 0
+    },
+    {
+     "id": "8",
+     "name": "Pig",
+     "level": 7,
+     "exp": 13,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "10",
+     "name": "Ribbon Pig",
+     "level": 10,
+     "exp": 19,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "16",
+     "name": "Blue Mushroom",
+     "level": 19,
+     "exp": 35,
+     "count": 4,
+     "respawn": 600
+    }
+   ]
+  },
+  "010000000": {
+   "name": "Lith Harbor",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010000001": {
+   "name": "Lith Harbor Armor Shop",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010000002": {
+   "name": "Lith Harbor Department Store",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010000003": {
+   "name": "Lith Harbor Weapon Shop",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010002003": {
+   "name": "Magic Library",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010002023": {
+   "name": "Monkey Forest II",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "38",
+     "name": "Zombie Lupin",
+     "level": 41,
+     "exp": 89,
+     "count": 25,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003004": {
+   "name": "Niora Hospital",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010004057": {
+   "name": "Parched Land",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "15",
+     "name": "Axe Stump",
+     "level": 17,
+     "exp": 32,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "33",
+     "name": "Jr. Boogie 1",
+     "level": 35,
+     "exp": 69,
+     "count": 1,
+     "respawn": 0
+    },
+    {
+     "id": "34",
+     "name": "Jr. Boogie 2",
+     "level": 35,
+     "exp": 69,
+     "count": 1,
+     "respawn": 0
+    },
+    {
+     "id": "700007",
+     "name": "Stumpy",
+     "level": 35,
+     "exp": 276,
+     "count": 1,
+     "respawn": 3600
+    }
+   ]
+  },
+  "010004000": {
+   "name": "Perion",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010004002": {
+   "name": "Perion Department Store",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010004040": {
+   "name": "Perion Street Corner",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 1,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 11,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004001": {
+   "name": "Perion Weapon Store",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010001052": {
+   "name": "Pet-Walking Road",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010004138": {
+   "name": "Remains <Cliff>",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "68",
+     "name": "Officer Skeleton",
+     "level": 63,
+     "exp": 242,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "69",
+     "name": "Commander Skeleton",
+     "level": 73,
+     "exp": 390,
+     "count": 14,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004134": {
+   "name": "Remains <Tomb> I",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "65",
+     "name": "Skeledog",
+     "level": 44,
+     "exp": 102,
+     "count": 16,
+     "respawn": 0
+    },
+    {
+     "id": "66",
+     "name": "Mummydog",
+     "level": 47,
+     "exp": 117,
+     "count": 7,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004135": {
+   "name": "Remains <Tomb> II",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "65",
+     "name": "Skeledog",
+     "level": 44,
+     "exp": 102,
+     "count": 13,
+     "respawn": 0
+    },
+    {
+     "id": "66",
+     "name": "Mummydog",
+     "level": 47,
+     "exp": 117,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "67",
+     "name": "Skeleton Soldier",
+     "level": 57,
+     "exp": 183,
+     "count": 2,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004136": {
+   "name": "Remains <Tomb> III",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "65",
+     "name": "Skeledog",
+     "level": 44,
+     "exp": 102,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "66",
+     "name": "Mummydog",
+     "level": 47,
+     "exp": 117,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "67",
+     "name": "Skeleton Soldier",
+     "level": 57,
+     "exp": 183,
+     "count": 2,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004137": {
+   "name": "Remains <Tomb> IV",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "68",
+     "name": "Officer Skeleton",
+     "level": 63,
+     "exp": 242,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "69",
+     "name": "Commander Skeleton",
+     "level": 73,
+     "exp": 390,
+     "count": 5,
+     "respawn": 0
+    }
+   ]
+  },
+  "010000010": {
+   "name": "Right Around Lith Harbor",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 20,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 11,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004060": {
+   "name": "Rocky Road I",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 6,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004070": {
+   "name": "Rocky Road II",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "15",
+     "name": "Axe Stump",
+     "level": 17,
+     "exp": 32,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "22",
+     "name": "Wild Boar",
+     "level": 25,
+     "exp": 46,
+     "count": 4,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004080": {
+   "name": "Rocky Road III",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "15",
+     "name": "Axe Stump",
+     "level": 17,
+     "exp": 32,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "22",
+     "name": "Wild Boar",
+     "level": 25,
+     "exp": 46,
+     "count": 7,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003060": {
+   "name": "Subway Ticketing Booth",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010003070": {
+   "name": "Sunset Sky",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 7,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001102": {
+   "name": "The Entrance of Golem's Temple",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "16",
+     "name": "Blue Mushroom",
+     "level": 19,
+     "exp": 35,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "28",
+     "name": "Fairy 4",
+     "level": 29,
+     "exp": 54,
+     "count": 3,
+     "respawn": 180
+    },
+    {
+     "id": "48",
+     "name": "Stone Golem",
+     "level": 56,
+     "exp": 175,
+     "count": 9,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002010": {
+   "name": "The Field South of Ellinia",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 27,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 18,
+     "respawn": 0
+    },
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 13,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 8,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002050": {
+   "name": "The Field Up North of Ellinia",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 16,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001080": {
+   "name": "The Forest East of Henesys",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "4",
+     "name": "Shroom",
+     "level": 3,
+     "exp": 6,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "8",
+     "name": "Pig",
+     "level": 7,
+     "exp": 13,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "10",
+     "name": "Ribbon Pig",
+     "level": 10,
+     "exp": 19,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "16",
+     "name": "Blue Mushroom",
+     "level": 19,
+     "exp": 35,
+     "count": 2,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002070": {
+   "name": "The Forest North of Ellinia",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 21,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 26,
+     "respawn": 0
+    },
+    {
+     "id": "15",
+     "name": "Axe Stump",
+     "level": 17,
+     "exp": 32,
+     "count": 13,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002020": {
+   "name": "The Forest of Wisdom",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 25,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 30,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002030": {
+   "name": "The Forest South of Ellinia",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 19,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 24,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "15",
+     "name": "Axe Stump",
+     "level": 17,
+     "exp": 32,
+     "count": 2,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001060": {
+   "name": "The Hill East of Henesys",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "4",
+     "name": "Shroom",
+     "level": 3,
+     "exp": 6,
+     "count": 22,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "8",
+     "name": "Pig",
+     "level": 7,
+     "exp": 13,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "10",
+     "name": "Ribbon Pig",
+     "level": 10,
+     "exp": 19,
+     "count": 3,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001070": {
+   "name": "The Rain-Forest East of Henesys",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "8",
+     "name": "Pig",
+     "level": 7,
+     "exp": 13,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "10",
+     "name": "Ribbon Pig",
+     "level": 10,
+     "exp": 19,
+     "count": 4,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002060": {
+   "name": "The Tree That Grew I",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 22,
+     "respawn": 0
+    },
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 10,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002061": {
+   "name": "The Tree That Grew II",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 28,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 30,
+     "respawn": 0
+    },
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 12,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002062": {
+   "name": "The Tree That Grew III",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 27,
+     "respawn": 0
+    },
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 13,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 8,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002071": {
+   "name": "The Tree Tunnel At the Forest Up North",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010000011": {
+   "name": "Thicket Around the Beach I",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 20,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 13,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 11,
+     "respawn": 0
+    }
+   ]
+  },
+  "010000012": {
+   "name": "Thicket Around the Beach II",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "8",
+     "name": "Pig",
+     "level": 7,
+     "exp": 13,
+     "count": 18,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 9,
+     "respawn": 0
+    }
+   ]
+  },
+  "010000013": {
+   "name": "Thicket Around the Beach III",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 13,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 1,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "700004",
+     "name": "Mano",
+     "level": 20,
+     "exp": 148,
+     "count": 1,
+     "respawn": 3600
+    }
+   ]
+  },
+  "010003003": {
+   "name": "Thieves' Hideout",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010002072": {
+   "name": "Tree Dungeon, Forest Up North I",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 14,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002073": {
+   "name": "Tree Dungeon, Forest Up North II",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 14,
+     "respawn": 0
+    },
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 15,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002074": {
+   "name": "Tree Dungeon, Forest Up North III",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 16,
+     "respawn": 0
+    },
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 16,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002075": {
+   "name": "Tree Dungeon, Forest Up North IV",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 13,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 31,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002083": {
+   "name": "Tree Dungeon, Forest Up North IX",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "31",
+     "name": "Curse Eye",
+     "level": 33,
+     "exp": 63,
+     "count": 20,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002076": {
+   "name": "Tree Dungeon, Forest Up North V",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 14,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 13,
+     "respawn": 0
+    },
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 15,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002080": {
+   "name": "Tree Dungeon, Forest Up North VI",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "27",
+     "name": "Fairy 3",
+     "level": 29,
+     "exp": 54,
+     "count": 2,
+     "respawn": 180
+    },
+    {
+     "id": "31",
+     "name": "Curse Eye",
+     "level": 33,
+     "exp": 63,
+     "count": 15,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002081": {
+   "name": "Tree Dungeon, Forest Up North VII",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "27",
+     "name": "Fairy 3",
+     "level": 29,
+     "exp": 54,
+     "count": 2,
+     "respawn": 180
+    },
+    {
+     "id": "31",
+     "name": "Curse Eye",
+     "level": 33,
+     "exp": 63,
+     "count": 13,
+     "respawn": 0
+    },
+    {
+     "id": "37",
+     "name": "Cold Eye",
+     "level": 40,
+     "exp": 85,
+     "count": 4,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002082": {
+   "name": "Tree Dungeon, Forest Up North VIII",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "31",
+     "name": "Curse Eye",
+     "level": 33,
+     "exp": 63,
+     "count": 17,
+     "respawn": 0
+    }
+   ]
+  },
+  "010002022": {
+   "name": "Tree Dungeon, Monkey Forest I",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "31",
+     "name": "Curse Eye",
+     "level": 33,
+     "exp": 63,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "38",
+     "name": "Zombie Lupin",
+     "level": 41,
+     "exp": 89,
+     "count": 26,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004003": {
+   "name": "Warriors' Sanctuary",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010004030": {
+   "name": "West Domain of Perion",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "2",
+     "name": "Snail",
+     "level": 1,
+     "exp": 2,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 1,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 21,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 14,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004020": {
+   "name": "West Rocky Mountain I",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 22,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 27,
+     "respawn": 0
+    },
+    {
+     "id": "15",
+     "name": "Axe Stump",
+     "level": 17,
+     "exp": 32,
+     "count": 4,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004021": {
+   "name": "West Rocky Mountain II",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 20,
+     "respawn": 0
+    },
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "15",
+     "name": "Axe Stump",
+     "level": 17,
+     "exp": 32,
+     "count": 7,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004022": {
+   "name": "West Rocky Mountain III",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 32,
+     "respawn": 0
+    },
+    {
+     "id": "15",
+     "name": "Axe Stump",
+     "level": 17,
+     "exp": 32,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 9,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004023": {
+   "name": "West Rocky Mountain IV",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "15",
+     "name": "Axe Stump",
+     "level": 17,
+     "exp": 32,
+     "count": 1,
+     "respawn": 0
+    },
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 14,
+     "respawn": 0
+    },
+    {
+     "id": "22",
+     "name": "Wild Boar",
+     "level": 25,
+     "exp": 46,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 3,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004010": {
+   "name": "West Street Corner of Perion",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "6",
+     "name": "Stump",
+     "level": 5,
+     "exp": 10,
+     "count": 24,
+     "respawn": 0
+    },
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 14,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 5,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001008": {
+   "name": "Yellow Mushroom House",
+   "street": "Victoria Road",
+   "region": "Victoria Island",
+   "mobs": []
+  },
+  "010003093": {
+   "name": "Dangerous Croko I",
+   "street": "Warning Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "18",
+     "name": "Jr. Necki",
+     "level": 21,
+     "exp": 39,
+     "count": 27,
+     "respawn": 0
+    },
+    {
+     "id": "29",
+     "name": "Ligator",
+     "level": 31,
+     "exp": 58,
+     "count": 14,
+     "respawn": 0
+    },
+    {
+     "id": "46",
+     "name": "Croco",
+     "level": 52,
+     "exp": 146,
+     "count": 6,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003094": {
+   "name": "Dangerous Croko II",
+   "street": "Warning Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "18",
+     "name": "Jr. Necki",
+     "level": 21,
+     "exp": 39,
+     "count": 21,
+     "respawn": 0
+    },
+    {
+     "id": "46",
+     "name": "Croco",
+     "level": 52,
+     "exp": 146,
+     "count": 24,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004100": {
+   "name": "Deep Valley I",
+   "street": "Warning Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 1,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "15",
+     "name": "Axe Stump",
+     "level": 17,
+     "exp": 32,
+     "count": 1,
+     "respawn": 0
+    },
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "22",
+     "name": "Wild Boar",
+     "level": 25,
+     "exp": 46,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "30",
+     "name": "Fire Boar",
+     "level": 32,
+     "exp": 60,
+     "count": 4,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004110": {
+   "name": "Deep Valley II",
+   "street": "Warning Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "15",
+     "name": "Axe Stump",
+     "level": 17,
+     "exp": 32,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "22",
+     "name": "Wild Boar",
+     "level": 25,
+     "exp": 46,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "30",
+     "name": "Fire Boar",
+     "level": 32,
+     "exp": 60,
+     "count": 5,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004120": {
+   "name": "Deep Valley III",
+   "street": "Warning Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "15",
+     "name": "Axe Stump",
+     "level": 17,
+     "exp": 32,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "22",
+     "name": "Wild Boar",
+     "level": 25,
+     "exp": 46,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "30",
+     "name": "Fire Boar",
+     "level": 32,
+     "exp": 60,
+     "count": 9,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001100": {
+   "name": "Henesys Dungeon Entrance",
+   "street": "Warning Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 14,
+     "respawn": 0
+    },
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "16",
+     "name": "Blue Mushroom",
+     "level": 19,
+     "exp": 35,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "24",
+     "name": "Iron Hog",
+     "level": 28,
+     "exp": 52,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "48",
+     "name": "Stone Golem",
+     "level": 56,
+     "exp": 175,
+     "count": 3,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004121": {
+   "name": "Perion Dungeon Entrance",
+   "street": "Warning Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "11",
+     "name": "Dark Stump",
+     "level": 11,
+     "exp": 21,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "22",
+     "name": "Wild Boar",
+     "level": 25,
+     "exp": 46,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "30",
+     "name": "Fire Boar",
+     "level": 32,
+     "exp": 60,
+     "count": 9,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004111": {
+   "name": "The Burnt Land I",
+   "street": "Warning Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "30",
+     "name": "Fire Boar",
+     "level": 32,
+     "exp": 60,
+     "count": 18,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004112": {
+   "name": "The Burnt Land II",
+   "street": "Warning Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "30",
+     "name": "Fire Boar",
+     "level": 32,
+     "exp": 60,
+     "count": 19,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004113": {
+   "name": "The Burnt Land III",
+   "street": "Warning Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 13,
+     "respawn": 0
+    },
+    {
+     "id": "30",
+     "name": "Fire Boar",
+     "level": 32,
+     "exp": 60,
+     "count": 24,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004114": {
+   "name": "The Burnt Land IV",
+   "street": "Warning Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "30",
+     "name": "Fire Boar",
+     "level": 32,
+     "exp": 60,
+     "count": 21,
+     "respawn": 0
+    },
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 14,
+     "respawn": 0
+    }
+   ]
+  },
+  "010004115": {
+   "name": "The Burnt Land V",
+   "street": "Warning Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "20",
+     "name": "Dark Axe Stump",
+     "level": 23,
+     "exp": 43,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "30",
+     "name": "Fire Boar",
+     "level": 32,
+     "exp": 60,
+     "count": 26,
+     "respawn": 0
+    },
+    {
+     "id": "35",
+     "name": "Lupin",
+     "level": 37,
+     "exp": 75,
+     "count": 12,
+     "respawn": 0
+    }
+   ]
+  },
+  "010001090": {
+   "name": "The Road to the Dungeon",
+   "street": "Warning Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "3",
+     "name": "Blue Snail",
+     "level": 2,
+     "exp": 4,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "4",
+     "name": "Shroom",
+     "level": 3,
+     "exp": 6,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "5",
+     "name": "Red Snail",
+     "level": 4,
+     "exp": 8,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "8",
+     "name": "Pig",
+     "level": 7,
+     "exp": 13,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "9",
+     "name": "Orange Mushroom",
+     "level": 8,
+     "exp": 15,
+     "count": 2,
+     "respawn": 0
+    },
+    {
+     "id": "10",
+     "name": "Ribbon Pig",
+     "level": 10,
+     "exp": 19,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "16",
+     "name": "Blue Mushroom",
+     "level": 19,
+     "exp": 35,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "24",
+     "name": "Iron Hog",
+     "level": 28,
+     "exp": 52,
+     "count": 2,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003090": {
+   "name": "The Swamp of Despair I",
+   "street": "Warning Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "18",
+     "name": "Jr. Necki",
+     "level": 21,
+     "exp": 39,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 3,
+     "respawn": 0
+    },
+    {
+     "id": "29",
+     "name": "Ligator",
+     "level": 31,
+     "exp": 58,
+     "count": 41,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003091": {
+   "name": "The Swamp of Despair II",
+   "street": "Warning Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "18",
+     "name": "Jr. Necki",
+     "level": 21,
+     "exp": 39,
+     "count": 17,
+     "respawn": 0
+    },
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 20,
+     "respawn": 0
+    },
+    {
+     "id": "29",
+     "name": "Ligator",
+     "level": 31,
+     "exp": 58,
+     "count": 36,
+     "respawn": 0
+    }
+   ]
+  },
+  "010003092": {
+   "name": "The Swamp of Despair III",
+   "street": "Warning Street",
+   "region": "Victoria Island",
+   "mobs": [
+    {
+     "id": "7",
+     "name": "Slime",
+     "level": 6,
+     "exp": 12,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "18",
+     "name": "Jr. Necki",
+     "level": 21,
+     "exp": 39,
+     "count": 19,
+     "respawn": 0
+    },
+    {
+     "id": "29",
+     "name": "Ligator",
+     "level": 31,
+     "exp": 58,
+     "count": 28,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000021": {
+   "name": "Cabin <To Ellinia>",
+   "street": "During the Ride",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020000023": {
+   "name": "Cabin <To Orbis>",
+   "street": "During the Ride",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020000020": {
+   "name": "To Ellinia",
+   "street": "During the Ride",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020000022": {
+   "name": "To Orbis",
+   "street": "During the Ride",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020001001": {
+   "name": "Chief's Residence",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020001032": {
+   "name": "Cold Field I",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1055",
+     "name": "Hector",
+     "level": 55,
+     "exp": 175,
+     "count": 29,
+     "respawn": 0
+    },
+    {
+     "id": "1060",
+     "name": "White Fang",
+     "level": 59,
+     "exp": 205,
+     "count": 8,
+     "respawn": 1800
+    }
+   ]
+  },
+  "020001033": {
+   "name": "Cold Field II",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1048",
+     "name": "Jr. Yeti",
+     "level": 50,
+     "exp": 142,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "1049",
+     "name": "Transforming Jr. Yeti",
+     "level": 50,
+     "exp": 0,
+     "count": 1,
+     "respawn": 8000
+    },
+    {
+     "id": "1055",
+     "name": "Hector",
+     "level": 55,
+     "exp": 175,
+     "count": 16,
+     "respawn": 0
+    },
+    {
+     "id": "1060",
+     "name": "White Fang",
+     "level": 59,
+     "exp": 205,
+     "count": 4,
+     "respawn": 1800
+    },
+    {
+     "id": "1062",
+     "name": "Pepe",
+     "level": 60,
+     "exp": 213,
+     "count": 12,
+     "respawn": 0
+    }
+   ]
+  },
+  "020001052": {
+   "name": "Dangerous Cliff",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1056",
+     "name": "Dark Jr. Yeti",
+     "level": 56,
+     "exp": 183,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "1057",
+     "name": "Transforming Dark Jr. Yeti",
+     "level": 56,
+     "exp": 0,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "1073",
+     "name": "Dark Yeti",
+     "level": 68,
+     "exp": 281,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "1085",
+     "name": "Dark Yeti and Pepe",
+     "level": 82,
+     "exp": 426,
+     "count": 4,
+     "respawn": 60
+    }
+   ]
+  },
+  "020001064": {
+   "name": "Dead Mine I",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1032",
+     "name": "Flyeye",
+     "level": 41,
+     "exp": 89,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "1059",
+     "name": "Minor Zombie",
+     "level": 58,
+     "exp": 197,
+     "count": 16,
+     "respawn": 0
+    }
+   ]
+  },
+  "020001065": {
+   "name": "Dead Mine II",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1032",
+     "name": "Flyeye",
+     "level": 41,
+     "exp": 89,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "1059",
+     "name": "Minor Zombie",
+     "level": 58,
+     "exp": 197,
+     "count": 25,
+     "respawn": 0
+    }
+   ]
+  },
+  "020001066": {
+   "name": "Dead Mine III",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1032",
+     "name": "Flyeye",
+     "level": 41,
+     "exp": 89,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "1059",
+     "name": "Minor Zombie",
+     "level": 58,
+     "exp": 197,
+     "count": 20,
+     "respawn": 0
+    }
+   ]
+  },
+  "020001067": {
+   "name": "Dead Mine IV",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1032",
+     "name": "Flyeye",
+     "level": 41,
+     "exp": 89,
+     "count": 18,
+     "respawn": 0
+    },
+    {
+     "id": "1059",
+     "name": "Minor Zombie",
+     "level": 58,
+     "exp": 197,
+     "count": 10,
+     "respawn": 0
+    }
+   ]
+  },
+  "020001000": {
+   "name": "El Nath",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020001012": {
+   "name": "El Nath Department Store",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020001010": {
+   "name": "El Nath Market",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020001011": {
+   "name": "El Nath Weapon Store",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020001060": {
+   "name": "Forest of Dead Trees I",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1058",
+     "name": "Coolie Zombie",
+     "level": 57,
+     "exp": 190,
+     "count": 14,
+     "respawn": 0
+    }
+   ]
+  },
+  "020001061": {
+   "name": "Forest of Dead Trees II",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1058",
+     "name": "Coolie Zombie",
+     "level": 57,
+     "exp": 190,
+     "count": 14,
+     "respawn": 0
+    }
+   ]
+  },
+  "020001062": {
+   "name": "Forest of Dead Trees III",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1058",
+     "name": "Coolie Zombie",
+     "level": 57,
+     "exp": 190,
+     "count": 17,
+     "respawn": 0
+    }
+   ]
+  },
+  "020001063": {
+   "name": "Forest of Dead Trees IV",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1058",
+     "name": "Coolie Zombie",
+     "level": 57,
+     "exp": 190,
+     "count": 13,
+     "respawn": 0
+    }
+   ]
+  },
+  "020001040": {
+   "name": "Ice Valley I",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1048",
+     "name": "Jr. Yeti",
+     "level": 50,
+     "exp": 142,
+     "count": 10,
+     "respawn": 0
+    },
+    {
+     "id": "1049",
+     "name": "Transforming Jr. Yeti",
+     "level": 50,
+     "exp": 0,
+     "count": 20,
+     "respawn": 0
+    },
+    {
+     "id": "1060",
+     "name": "White Fang",
+     "level": 59,
+     "exp": 205,
+     "count": 6,
+     "respawn": 300
+    }
+   ]
+  },
+  "020001041": {
+   "name": "Ice Valley II",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1048",
+     "name": "Jr. Yeti",
+     "level": 50,
+     "exp": 142,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "1049",
+     "name": "Transforming Jr. Yeti",
+     "level": 50,
+     "exp": 0,
+     "count": 18,
+     "respawn": 0
+    },
+    {
+     "id": "1060",
+     "name": "White Fang",
+     "level": 59,
+     "exp": 205,
+     "count": 6,
+     "respawn": 300
+    },
+    {
+     "id": "1068",
+     "name": "Yeti",
+     "level": 65,
+     "exp": 254,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "1083",
+     "name": "Yeti and Pepe",
+     "level": 78,
+     "exp": 381,
+     "count": 10,
+     "respawn": 0
+    }
+   ]
+  },
+  "020001035": {
+   "name": "Icy Cold Field",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1048",
+     "name": "Jr. Yeti",
+     "level": 50,
+     "exp": 142,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "1049",
+     "name": "Transforming Jr. Yeti",
+     "level": 50,
+     "exp": 0,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "1068",
+     "name": "Yeti",
+     "level": 65,
+     "exp": 254,
+     "count": 21,
+     "respawn": 0
+    }
+   ]
+  },
+  "020001042": {
+   "name": "Sharp Cliff I",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1048",
+     "name": "Jr. Yeti",
+     "level": 50,
+     "exp": 142,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "1049",
+     "name": "Transforming Jr. Yeti",
+     "level": 50,
+     "exp": 0,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "1056",
+     "name": "Dark Jr. Yeti",
+     "level": 56,
+     "exp": 183,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "1057",
+     "name": "Transforming Dark Jr. Yeti",
+     "level": 56,
+     "exp": 0,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "1073",
+     "name": "Dark Yeti",
+     "level": 68,
+     "exp": 281,
+     "count": 5,
+     "respawn": 0
+    }
+   ]
+  },
+  "020001043": {
+   "name": "Sharp Cliff II",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1056",
+     "name": "Dark Jr. Yeti",
+     "level": 56,
+     "exp": 183,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "1057",
+     "name": "Transforming Dark Jr. Yeti",
+     "level": 56,
+     "exp": 0,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "1066",
+     "name": "Dark Pepe",
+     "level": 64,
+     "exp": 246,
+     "count": 11,
+     "respawn": 0
+    },
+    {
+     "id": "1073",
+     "name": "Dark Yeti",
+     "level": 68,
+     "exp": 281,
+     "count": 4,
+     "respawn": 0
+    }
+   ]
+  },
+  "020001020": {
+   "name": "Snowy Hill",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1011",
+     "name": "Leatty",
+     "level": 32,
+     "exp": 62,
+     "count": 27,
+     "respawn": 0
+    },
+    {
+     "id": "1021",
+     "name": "Jr. Pepe",
+     "level": 35,
+     "exp": 74,
+     "count": 20,
+     "respawn": 0
+    }
+   ]
+  },
+  "020001071": {
+   "name": "The Cave of Trial I",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1039",
+     "name": "Jr. Cerebes",
+     "level": 43,
+     "exp": 108,
+     "count": 14,
+     "respawn": 0
+    },
+    {
+     "id": "1050",
+     "name": "Firebomb",
+     "level": 51,
+     "exp": 148,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "1077",
+     "name": "Cerebes",
+     "level": 72,
+     "exp": 319,
+     "count": 11,
+     "respawn": 0
+    }
+   ]
+  },
+  "020001072": {
+   "name": "The Cave of Trial II",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1039",
+     "name": "Jr. Cerebes",
+     "level": 43,
+     "exp": 108,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "1077",
+     "name": "Cerebes",
+     "level": 72,
+     "exp": 319,
+     "count": 13,
+     "respawn": 0
+    }
+   ]
+  },
+  "020001074": {
+   "name": "The Cave of Trial III",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1039",
+     "name": "Jr. Cerebes",
+     "level": 43,
+     "exp": 108,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "1050",
+     "name": "Firebomb",
+     "level": 51,
+     "exp": 148,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "1077",
+     "name": "Cerebes",
+     "level": 72,
+     "exp": 319,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "1090",
+     "name": "Bain",
+     "level": 90,
+     "exp": 524,
+     "count": 13,
+     "respawn": 0
+    }
+   ]
+  },
+  "020001075": {
+   "name": "The Door to Zakum",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020001070": {
+   "name": "The Passage",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1032",
+     "name": "Flyeye",
+     "level": 41,
+     "exp": 89,
+     "count": 15,
+     "respawn": 0
+    }
+   ]
+  },
+  "020001030": {
+   "name": "Watch Out for Icy Path I",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1048",
+     "name": "Jr. Yeti",
+     "level": 50,
+     "exp": 142,
+     "count": 26,
+     "respawn": 0
+    },
+    {
+     "id": "1049",
+     "name": "Transforming Jr. Yeti",
+     "level": 50,
+     "exp": 0,
+     "count": 3,
+     "respawn": 8000
+    }
+   ]
+  },
+  "020001031": {
+   "name": "Watch Out for Icy Path II",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1048",
+     "name": "Jr. Yeti",
+     "level": 50,
+     "exp": 142,
+     "count": 18,
+     "respawn": 0
+    },
+    {
+     "id": "1055",
+     "name": "Hector",
+     "level": 55,
+     "exp": 175,
+     "count": 12,
+     "respawn": 0
+    }
+   ]
+  },
+  "020001050": {
+   "name": "Wolf Territory I",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1055",
+     "name": "Hector",
+     "level": 55,
+     "exp": 175,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "1060",
+     "name": "White Fang",
+     "level": 59,
+     "exp": 205,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "1080",
+     "name": "Werewolf",
+     "level": 75,
+     "exp": 350,
+     "count": 4,
+     "respawn": 60
+    }
+   ]
+  },
+  "020001051": {
+   "name": "Wolf Territory II",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1055",
+     "name": "Hector",
+     "level": 55,
+     "exp": 175,
+     "count": 14,
+     "respawn": 0
+    },
+    {
+     "id": "1060",
+     "name": "White Fang",
+     "level": 59,
+     "exp": 205,
+     "count": 4,
+     "respawn": 0
+    },
+    {
+     "id": "1080",
+     "name": "Werewolf",
+     "level": 75,
+     "exp": 350,
+     "count": 4,
+     "respawn": 60
+    }
+   ]
+  },
+  "020001053": {
+   "name": "Wolf Territory III",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1060",
+     "name": "White Fang",
+     "level": 59,
+     "exp": 205,
+     "count": 10,
+     "respawn": 1
+    },
+    {
+     "id": "1084",
+     "name": "Lycanthrope",
+     "level": 80,
+     "exp": 403,
+     "count": 3,
+     "respawn": 60
+    }
+   ]
+  },
+  "020001054": {
+   "name": "Wolf Territory IV",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1060",
+     "name": "White Fang",
+     "level": 59,
+     "exp": 205,
+     "count": 11,
+     "respawn": 1
+    },
+    {
+     "id": "1084",
+     "name": "Lycanthrope",
+     "level": 80,
+     "exp": 403,
+     "count": 3,
+     "respawn": 60
+    }
+   ]
+  },
+  "020001055": {
+   "name": "Wolf Territory V",
+   "street": "El Nath",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1060",
+     "name": "White Fang",
+     "level": 59,
+     "exp": 205,
+     "count": 15,
+     "respawn": 1
+    },
+    {
+     "id": "1084",
+     "name": "Lycanthrope",
+     "level": 80,
+     "exp": 403,
+     "count": 3,
+     "respawn": 60
+    }
+   ]
+  },
+  "020001073": {
+   "name": "Cave Within the Cave",
+   "street": "Hidden Street",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1039",
+     "name": "Jr. Cerebes",
+     "level": 43,
+     "exp": 108,
+     "count": 19,
+     "respawn": 0
+    }
+   ]
+  },
+  "020001044": {
+   "name": "Holy Ground at the Snowfield",
+   "street": "Hidden Street",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020001034": {
+   "name": "The Crown-Flyer",
+   "street": "Hidden Street",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1048",
+     "name": "Jr. Yeti",
+     "level": 50,
+     "exp": 142,
+     "count": 14,
+     "respawn": 0
+    },
+    {
+     "id": "1062",
+     "name": "Pepe",
+     "level": 60,
+     "exp": 213,
+     "count": 18,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000013": {
+   "name": "Before Takeoff <To Ellinia>",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020000050": {
+   "name": "Cloud Park I",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1019",
+     "name": "Star Pixie",
+     "level": 35,
+     "exp": 74,
+     "count": 35,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000080": {
+   "name": "Cloud Park II",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1019",
+     "name": "Star Pixie",
+     "level": 35,
+     "exp": 74,
+     "count": 31,
+     "respawn": 0
+    },
+    {
+     "id": "1036",
+     "name": "Nependeath",
+     "level": 42,
+     "exp": 103,
+     "count": 9,
+     "respawn": 5
+    }
+   ]
+  },
+  "020000082": {
+   "name": "Cloud Park III",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1019",
+     "name": "Star Pixie",
+     "level": 35,
+     "exp": 74,
+     "count": 21,
+     "respawn": 0
+    },
+    {
+     "id": "1042",
+     "name": "Lunar Pixie",
+     "level": 45,
+     "exp": 117,
+     "count": 20,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000084": {
+   "name": "Cloud Park IV",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "25",
+     "name": "Fairy 1",
+     "level": 29,
+     "exp": 54,
+     "count": 2,
+     "respawn": 180
+    },
+    {
+     "id": "1019",
+     "name": "Star Pixie",
+     "level": 35,
+     "exp": 74,
+     "count": 16,
+     "respawn": 0
+    },
+    {
+     "id": "1042",
+     "name": "Lunar Pixie",
+     "level": 45,
+     "exp": 117,
+     "count": 26,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000087": {
+   "name": "Cloud Park V",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1042",
+     "name": "Lunar Pixie",
+     "level": 45,
+     "exp": 117,
+     "count": 20,
+     "respawn": 0
+    },
+    {
+     "id": "1051",
+     "name": "Luster Pixie",
+     "level": 52,
+     "exp": 155,
+     "count": 21,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000088": {
+   "name": "Cloud Park VI",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "25",
+     "name": "Fairy 1",
+     "level": 29,
+     "exp": 54,
+     "count": 2,
+     "respawn": 180
+    },
+    {
+     "id": "1042",
+     "name": "Lunar Pixie",
+     "level": 45,
+     "exp": 117,
+     "count": 22,
+     "respawn": 0
+    },
+    {
+     "id": "1051",
+     "name": "Luster Pixie",
+     "level": 52,
+     "exp": 155,
+     "count": 25,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000083": {
+   "name": "Disposed Flower Garden",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1019",
+     "name": "Star Pixie",
+     "level": 35,
+     "exp": 74,
+     "count": 5,
+     "respawn": 0
+    },
+    {
+     "id": "1036",
+     "name": "Nependeath",
+     "level": 42,
+     "exp": 103,
+     "count": 29,
+     "respawn": 0
+    },
+    {
+     "id": "1042",
+     "name": "Lunar Pixie",
+     "level": 45,
+     "exp": 117,
+     "count": 4,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000090": {
+   "name": "Entrance to Orbis Tower",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020000056": {
+   "name": "Garden of Darkness I",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1078",
+     "name": "Lucida",
+     "level": 73,
+     "exp": 329,
+     "count": 14,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000057": {
+   "name": "Garden of Darkness II",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1078",
+     "name": "Lucida",
+     "level": 73,
+     "exp": 329,
+     "count": 15,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000070": {
+   "name": "Garden of Green I",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1014",
+     "name": "Jr. Grupin",
+     "level": 33,
+     "exp": 66,
+     "count": 23,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000071": {
+   "name": "Garden of Green II",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1054",
+     "name": "Grupin",
+     "level": 53,
+     "exp": 162,
+     "count": 20,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000052": {
+   "name": "Garden of Red I",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1012",
+     "name": "Jr. Cellion",
+     "level": 33,
+     "exp": 66,
+     "count": 22,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000053": {
+   "name": "Garden of Red II",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1012",
+     "name": "Jr. Cellion",
+     "level": 33,
+     "exp": 66,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "1052",
+     "name": "Cellion",
+     "level": 53,
+     "exp": 162,
+     "count": 12,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000060": {
+   "name": "Garden of Yellow I",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1013",
+     "name": "Jr. Lioner",
+     "level": 33,
+     "exp": 66,
+     "count": 22,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000061": {
+   "name": "Garden of Yellow II",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1013",
+     "name": "Jr. Lioner",
+     "level": 33,
+     "exp": 66,
+     "count": 8,
+     "respawn": 0
+    },
+    {
+     "id": "1053",
+     "name": "Lioner",
+     "level": 53,
+     "exp": 162,
+     "count": 11,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000041": {
+   "name": "Guild Head Quarters<Hall of Fame>",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020000085": {
+   "name": "Old Man's House",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020000000": {
+   "name": "Orbis",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020000002": {
+   "name": "Orbis Department Store",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020000030": {
+   "name": "Orbis Park",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020000010": {
+   "name": "Orbis Ticketing Booth",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020000096": {
+   "name": "Orbis Tower <10th Floor>",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1004",
+     "name": "Ice Sentinel",
+     "level": 30,
+     "exp": 56,
+     "count": 19,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000095": {
+   "name": "Orbis Tower <11th Floor>",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1003",
+     "name": "Sentinel",
+     "level": 30,
+     "exp": 56,
+     "count": 17,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000094": {
+   "name": "Orbis Tower <12th Floor>",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1003",
+     "name": "Sentinel",
+     "level": 30,
+     "exp": 56,
+     "count": 24,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000093": {
+   "name": "Orbis Tower <13th Floor>",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1001",
+     "name": "Jr. Sentinel",
+     "level": 26,
+     "exp": 48,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "1003",
+     "name": "Sentinel",
+     "level": 30,
+     "exp": 56,
+     "count": 10,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000092": {
+   "name": "Orbis Tower <14th Floor>",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1001",
+     "name": "Jr. Sentinel",
+     "level": 26,
+     "exp": 48,
+     "count": 30,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000091": {
+   "name": "Orbis Tower <15th Floor>",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1001",
+     "name": "Jr. Sentinel",
+     "level": 26,
+     "exp": 48,
+     "count": 24,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000106": {
+   "name": "Orbis Tower <1st Floor>",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1021",
+     "name": "Jr. Pepe",
+     "level": 35,
+     "exp": 74,
+     "count": 22,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000105": {
+   "name": "Orbis Tower <2nd Floor>",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1015",
+     "name": "Dark Leatty",
+     "level": 33,
+     "exp": 66,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "1021",
+     "name": "Jr. Pepe",
+     "level": 35,
+     "exp": 74,
+     "count": 23,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000104": {
+   "name": "Orbis Tower <3rd Floor>",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1015",
+     "name": "Dark Leatty",
+     "level": 33,
+     "exp": 66,
+     "count": 24,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000103": {
+   "name": "Orbis Tower <4th Floor>",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1011",
+     "name": "Leatty",
+     "level": 32,
+     "exp": 62,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "1015",
+     "name": "Dark Leatty",
+     "level": 33,
+     "exp": 66,
+     "count": 12,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000102": {
+   "name": "Orbis Tower <5th Floor>",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1011",
+     "name": "Leatty",
+     "level": 32,
+     "exp": 62,
+     "count": 26,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000101": {
+   "name": "Orbis Tower <6th Floor>",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1001",
+     "name": "Jr. Sentinel",
+     "level": 26,
+     "exp": 48,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "1004",
+     "name": "Ice Sentinel",
+     "level": 30,
+     "exp": 56,
+     "count": 10,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000100": {
+   "name": "Orbis Tower <7th Floor>",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1001",
+     "name": "Jr. Sentinel",
+     "level": 26,
+     "exp": 48,
+     "count": 6,
+     "respawn": 0
+    },
+    {
+     "id": "1005",
+     "name": "Fire Sentinel",
+     "level": 30,
+     "exp": 56,
+     "count": 8,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000098": {
+   "name": "Orbis Tower <8th Floor>",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1004",
+     "name": "Ice Sentinel",
+     "level": 30,
+     "exp": 56,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "1005",
+     "name": "Fire Sentinel",
+     "level": 30,
+     "exp": 56,
+     "count": 16,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000097": {
+   "name": "Orbis Tower <9th Floor>",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1005",
+     "name": "Fire Sentinel",
+     "level": 30,
+     "exp": 56,
+     "count": 20,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000099": {
+   "name": "Orbis Tower <Hidden Room>",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020000001": {
+   "name": "Orbis Weapon Store",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020000054": {
+   "name": "Stairway to the Sky I",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1052",
+     "name": "Cellion",
+     "level": 53,
+     "exp": 162,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "1053",
+     "name": "Lioner",
+     "level": 53,
+     "exp": 162,
+     "count": 14,
+     "respawn": 0
+    },
+    {
+     "id": "1054",
+     "name": "Grupin",
+     "level": 53,
+     "exp": 162,
+     "count": 9,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000055": {
+   "name": "Stairway to the Sky II",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1078",
+     "name": "Lucida",
+     "level": 73,
+     "exp": 329,
+     "count": 9,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000011": {
+   "name": "Station Tunnel <To Ellinia>",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020000012": {
+   "name": "Station<To Ellinia>",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020000081": {
+   "name": "Strolling Path",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1019",
+     "name": "Star Pixie",
+     "level": 35,
+     "exp": 74,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "1036",
+     "name": "Nependeath",
+     "level": 42,
+     "exp": 103,
+     "count": 20,
+     "respawn": 5
+    }
+   ]
+  },
+  "020000086": {
+   "name": "Strolling Path II",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1042",
+     "name": "Lunar Pixie",
+     "level": 45,
+     "exp": 117,
+     "count": 16,
+     "respawn": 0
+    },
+    {
+     "id": "1045",
+     "name": "Dark Nependeath",
+     "level": 47,
+     "exp": 127,
+     "count": 17,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000051": {
+   "name": "The Road to Garden of 3 Colors",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": [
+    {
+     "id": "1012",
+     "name": "Jr. Cellion",
+     "level": 33,
+     "exp": 66,
+     "count": 9,
+     "respawn": 0
+    },
+    {
+     "id": "1013",
+     "name": "Jr. Lioner",
+     "level": 33,
+     "exp": 66,
+     "count": 7,
+     "respawn": 0
+    },
+    {
+     "id": "1014",
+     "name": "Jr. Grupin",
+     "level": 33,
+     "exp": 66,
+     "count": 9,
+     "respawn": 0
+    }
+   ]
+  },
+  "020000040": {
+   "name": "Top of the Hill",
+   "street": "Orbis",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020000032": {
+   "name": "Orbis Hair Salon",
+   "street": "Orbis Park",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020000031": {
+   "name": "Orbis Plastic Surgery",
+   "street": "Orbis Park",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "020000033": {
+   "name": "Orbis Skin-Care",
+   "street": "Orbis Park",
+   "region": "Ossyria",
+   "mobs": []
+  },
+  "080000000": {
+   "name": "1st Accompaniment <1st Stage>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": [
+    {
+     "id": "800000",
+     "name": "Ligator (alt) (KPQ)",
+     "level": 21,
+     "exp": 68,
+     "count": 22,
+     "respawn": 0
+    }
+   ]
+  },
+  "080000100": {
+   "name": "1st Accompaniment <2nd Stage>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080000200": {
+   "name": "1st Accompaniment <3rd Stage>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080000300": {
+   "name": "1st Accompaniment <4th stage>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080000500": {
+   "name": "1st Accompaniment <Bonus>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": [
+    {
+     "id": "13",
+     "name": "Green Mushroom",
+     "level": 14,
+     "exp": 26,
+     "count": 12,
+     "respawn": 0
+    },
+    {
+     "id": "19",
+     "name": "Horny Mushroom",
+     "level": 22,
+     "exp": 41,
+     "count": 24,
+     "respawn": 0
+    }
+   ]
+  },
+  "080000600": {
+   "name": "1st Accompaniment <Exit>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080000400": {
+   "name": "1st Accompaniment <Last Stage>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": [
+    {
+     "id": "800001",
+     "name": "Jr. Necki (alt) (KPQ)",
+     "level": 25,
+     "exp": 80,
+     "count": 6,
+     "respawn": 180
+    },
+    {
+     "id": "800002",
+     "name": "Curse Eye (alt) (KPQ)",
+     "level": 29,
+     "exp": 94,
+     "count": 3,
+     "respawn": 180
+    },
+    {
+     "id": "800003",
+     "name": "King Slime",
+     "level": 32,
+     "exp": 2400,
+     "count": 1,
+     "respawn": 0
+    }
+   ]
+  },
+  "080001000": {
+   "name": "Ant Tunnel For Bowman",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": [
+    {
+     "id": "800010",
+     "name": "Evil Eye (alt) (2nd Job Test)",
+     "level": 30,
+     "exp": 56,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "800011",
+     "name": "Zombie Mushroom (alt)",
+     "level": 30,
+     "exp": 56,
+     "count": 15,
+     "respawn": 0
+    }
+   ]
+  },
+  "080003300": {
+   "name": "Back to Town",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080002001": {
+   "name": "Free Market <1>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080002010": {
+   "name": "Free Market <10>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080002011": {
+   "name": "Free Market <11>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080002012": {
+   "name": "Free Market <12>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080002013": {
+   "name": "Free Market <13>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080002014": {
+   "name": "Free Market <14>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080002015": {
+   "name": "Free Market <15>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080002016": {
+   "name": "Free Market <16>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080002017": {
+   "name": "Free Market <17>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080002018": {
+   "name": "Free Market <18>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080002019": {
+   "name": "Free Market <19>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080002002": {
+   "name": "Free Market <2>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080002020": {
+   "name": "Free Market <20>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080002003": {
+   "name": "Free Market <3>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080002004": {
+   "name": "Free Market <4>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080002005": {
+   "name": "Free Market <5>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080002006": {
+   "name": "Free Market <6>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080002007": {
+   "name": "Free Market <7>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080002008": {
+   "name": "Free Market <8>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080002009": {
+   "name": "Free Market <9>",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080002000": {
+   "name": "Free Market Entrance",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080001100": {
+   "name": "Magician's Tree Dungeon",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": [
+    {
+     "id": "800012",
+     "name": "Curse Eye (alt2) (2nd Job Test)",
+     "level": 30,
+     "exp": 56,
+     "count": 13,
+     "respawn": 0
+    },
+    {
+     "id": "800013",
+     "name": "Horny Mushroom (alt) (2nd Job Test)",
+     "level": 30,
+     "exp": 56,
+     "count": 13,
+     "respawn": 0
+    }
+   ]
+  },
+  "080003200": {
+   "name": "Pig Town",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080003000": {
+   "name": "Primrose Hill",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080003100": {
+   "name": "Shortcut",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080003400": {
+   "name": "Shortcut",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "080001200": {
+   "name": "Thief's Construction Site",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": [
+    {
+     "id": "800014",
+     "name": "Cold Eye (alt) (2nd Job Test)",
+     "level": 30,
+     "exp": 56,
+     "count": 13,
+     "respawn": 0
+    },
+    {
+     "id": "800015",
+     "name": "Blue Mushroom (alt) (2nd Job Test)",
+     "level": 30,
+     "exp": 56,
+     "count": 13,
+     "respawn": 0
+    }
+   ]
+  },
+  "080001300": {
+   "name": "Warrior's Rocky Mountain",
+   "street": "Hidden Street",
+   "region": "Hidden Street",
+   "mobs": [
+    {
+     "id": "800016",
+     "name": "Fire Boar (alt) (2nd Job Test)",
+     "level": 30,
+     "exp": 56,
+     "count": 15,
+     "respawn": 0
+    },
+    {
+     "id": "800017",
+     "name": "Lupin (alt) (2nd Job Test)",
+     "level": 30,
+     "exp": 56,
+     "count": 15,
+     "respawn": 0
+    }
+   ]
+  },
+  "089000000": {
+   "name": "Truth Booth",
+   "street": "Truth Booth",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "088001000": {
+   "name": "Backalley Semi-Basement",
+   "street": "Victoria Road",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "088000000": {
+   "name": "Yellow Mushroom House",
+   "street": "Victoria Road",
+   "region": "Hidden Street",
+   "mobs": []
+  },
+  "090040200": {
+   "name": "Coconut Harvest",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": []
+  },
+  "090040201": {
+   "name": "Coconut Harvest",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": []
+  },
+  "090040202": {
+   "name": "Coconut Harvest",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": []
+  },
+  "090040203": {
+   "name": "G* Coconut Season",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": []
+  },
+  "090050000": {
+   "name": "Leaving the Event",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": []
+  },
+  "090000000": {
+   "name": "Maple Hill",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": []
+  },
+  "090040011": {
+   "name": "Physical Fitness Test <Easy Level 1>",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": []
+  },
+  "090040012": {
+   "name": "Physical Fitness Test <Easy Level 2>",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": []
+  },
+  "090040013": {
+   "name": "Physical Fitness Test <Easy Level 3>",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": []
+  },
+  "090040010": {
+   "name": "Physical Fitness Test <Easy Waiting Room>",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": []
+  },
+  "090040001": {
+   "name": "Physical Fitness Test <Level 1>",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": [
+    {
+     "id": "90",
+     "name": "Super Jr. Necki",
+     "level": 200,
+     "exp": 0,
+     "count": 14,
+     "respawn": 1
+    }
+   ]
+  },
+  "090040002": {
+   "name": "Physical Fitness Test <Level 2>",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": []
+  },
+  "090040003": {
+   "name": "Physical Fitness Test <Level 3>",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": []
+  },
+  "090040004": {
+   "name": "Physical Fitness Test <Level 4>",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": [
+    {
+     "id": "90",
+     "name": "Super Jr. Necki",
+     "level": 200,
+     "exp": 0,
+     "count": 14,
+     "respawn": 1
+    }
+   ]
+  },
+  "090040021": {
+   "name": "Physical Fitness Test <Normal Level 1>",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": []
+  },
+  "090040022": {
+   "name": "Physical Fitness Test <Normal Level 2>",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": []
+  },
+  "090040023": {
+   "name": "Physical Fitness Test <Normal Level 3>",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": []
+  },
+  "090040020": {
+   "name": "Physical Fitness Test <Normal Waiting Room>",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": []
+  },
+  "090040000": {
+   "name": "Physical Fitness Test <Waiting Room>",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": []
+  },
+  "090050001": {
+   "name": "Receiving the Reward For the Event",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": []
+  },
+  "090040101": {
+   "name": "Up and Up <Level 1>",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": []
+  },
+  "090040102": {
+   "name": "Up and Up <Level 2>",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": []
+  },
+  "090040103": {
+   "name": "Up and Up <Level 3>",
+   "street": "Hidden Street",
+   "region": "Event",
+   "mobs": []
+  }
+ }
+}

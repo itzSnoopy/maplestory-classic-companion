@@ -25,9 +25,12 @@ NAME = "MapleClassicCompanion"
 BUILD = ROOT / "build"
 DIST = ROOT / "dist"
 TESSERACT_DIR = Path(os.environ.get("TESSERACT_DIR", r"C:\Program Files\Tesseract-OCR"))
-DATA_FILES = ["maps_classic.json", "exp_table_classic.json", "layouts.json", "config.example.json"]
+DATA_FILES = ["maps_classic.json", "exp_table_classic.json", "layouts.json", "config.example.json",
+              "map_mobs.json", "killers.json", "captions.json", "important_maps.json",
+              "game_refs.json"]
 # imported lazily inside functions; listed so the bundle has them for sure
 HIDDEN = ["setup_ui", "settings_ui", "calibrate", "discord_rpc", "diary_html", "jobread",
+          "diary_popup", "killers", "game_refs",
           "sources.wgc", "sources.screen", "sources.csv_replay", "windows_capture", "win32gui",
           "pystray._win32"]
 # OBS support (obsws-python) is GPL-3.0: left out of the build, window capture only
@@ -101,7 +104,7 @@ def main():
     copy_tesseract(app_dir)
     shutil.copy2(ROOT / "packaging" / "START_HERE.txt", top / "START HERE.txt")
 
-    bad = [p for p in top.rglob("*") if p.name in FORBIDDEN]
+    bad = [p for p in top.rglob("*") if p.name in FORBIDDEN or "game_icons" in p.parts]
     if bad:
         sys.exit(f"refusing to package player/game files: {bad}")
 

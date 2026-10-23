@@ -46,6 +46,7 @@ from pathlib import Path
 
 import diary
 import history as H
+import killers
 import parse
 from history import fmt_secs, read_json, write_json
 from sinks import make_sinks
@@ -78,6 +79,15 @@ RATE_WINDOW_S = 600       # rolling window for EXP/hr and ETA
 RATE_MIN_SPAN_S = 45      # need at least this much history before trusting a rate
 DEATH_MAX_PCT = 12        # a death costs at most ~10% of the level; bigger drops are level-ups
 NO_DEATH_PENALTY_BELOW = 10   # pre-BB beginners (Lv 1-9) lose no EXP on death
+
+
+def _killer(map_name, level):
+    """Who probably killed the player on this map (killers.py); never breaks death tracking."""
+    try:
+        return killers.attribute(map_name, level)
+    except Exception:
+        log("killer guess failed: " + traceback.format_exc())
+        return None
 
 
 def log(msg):
@@ -376,7 +386,7 @@ class Tracker:
             self.deaths += 1
             need = self.need
             self.events.append({"type": "death", "lost": self.cur - cur, "level": self.level,
-                                "map": self.map,
+                                "map": self.map, "killer": _killer(self.map, self.level),
                                 "pct_lost": round((self.cur - cur) * 100 / need, 2) if need else
                                 round(self.pct - pct, 2)})
         elif self.cur is not None:
@@ -603,6 +613,7 @@ class Session:
             self.journal.write(f"Session start: {H.lvl_pct(tr.start_level, tr.start_pct)}"
                                + (f" @ {tr.map}" if tr.map else ""))
         self._drain_events()
+        self._diary({"type": "moment"})     # diary: a random moment now and then (diary decides when)
 
         interval = tr.next_interval()
         when = datetime.fromtimestamp(obs.t)
@@ -644,9 +655,15 @@ class Session:
                           level=lv, map=e["map"], job=tr.job, shots=self._shots("levelup", now),
                           took_s=e["active_seconds_in_prev_level"])
             elif e["type"] == "death":
-                diary.add("death", diary.death_text(e["level"], e["map"], e["lost"], e.get("pct_lost")),
+                k = e.get("killer") or {}
+                who = killers.label(k)
+                diary.add("death", diary.death_text(e["level"], e["map"], e["lost"], e.get("pct_lost"),
+                                                    who),
                           level=e["level"], map=e["map"], job=tr.job, shots=self._shots("death", now),
-                          lost=e["lost"], pct_lost=e.get("pct_lost"))
+                          lost=e["lost"], pct_lost=e.get("pct_lost"), killed_by=who,
+                          killer_how=k.get("how"),
+                          killer_guess=k.get("killer") if not who else None,
+                          suspects=k.get("suspects") or None)
             elif e["type"] == "job":
                 diary.add("job", diary.job_text(e["from"], e["to"], e["level"], e["map"]),
                           level=e["level"], map=e["map"], job=e["to"],
@@ -655,6 +672,9 @@ class Session:
             elif e["type"] == "enter" and e["map"] and diary.mark_place(e["map"]):
                 diary.add("first_visit", diary.first_visit_text(e["map"]), level=e["level"],
                           map=e["map"], job=tr.job, shots=self._shots("first_visit", now, delays=(3,)))
+            elif e["type"] == "moment" and diary.moment_due(tr.active_total):
+                diary.add("moment", diary.MOMENT_TEXT, level=tr.level, map=tr.map, job=tr.job,
+                          shots=self._shots("moment", now))
         except Exception:
             log("diary entry failed: " + traceback.format_exc())
 
@@ -676,7 +696,10 @@ class Session:
                 self.journal.write(f"**Job advancement: {e['from']} -> {e['to']}** at Lv {e['level']}"
                                    f" @ {e['map']}")
             elif e["type"] == "death":
-                self.journal.write(f"Died at Lv {e['level']} @ {e['map']}: -{e['lost']:,} EXP")
+                k = e.get("killer") or {}
+                who = killers.label(k)
+                self.journal.write(f"Died at Lv {e['level']} @ {e['map']}: -{e['lost']:,} EXP"
+                                   + (f", killed by {who}" if who else ""))
             elif e["type"] == "map":
                 s = e["from"]
                 rate = round(s["exp"] / (s["active"] / 3600)) if s["active"] >= 60 else None

@@ -24,7 +24,7 @@ DC_GREEN = "#23a55a"
 
 
 class SettingsWindow:
-    CATEGORIES = ("General", "Character", "Discord", "About")
+    CATEGORIES = ("General", "Character", "Discord", "Diary", "About")
 
     def __init__(self, app, start="Discord"):
         self.app = app
@@ -298,6 +298,10 @@ class SettingsWindow:
                            selectcolor=FIELD, highlightthickness=0, bd=0).pack(side="left",
                                                                                padx=(0, self.px(10)))
         return row
+
+    def page_diary(self, f):
+        import diary_popup           # the diary component builds its own page
+        return diary_popup.page(self, f)
 
     def page_about(self, f):
         from paths import DATA

@@ -55,11 +55,16 @@ def _levels(root):
 
 def data(root=None):
     root = Path(root or diary.ROOT)
-    items = sorted(diary.entries(), key=lambda e: e["time"])
+    items = [e for e in diary.with_context(diary.entries()) if not e.get("hidden")]
+    custom = diary.custom_captions()
     for e in items:      # only pictures that exist; split close-ups from full frames
         shots = [s for s in e.get("shots", []) if (root / s).exists()]
         e["chars"] = [s for s in shots if s.endswith("_char.png")]
         e["fulls"] = [s for s in shots if not s.endswith("_char.png")]
+        e["id"] = diary.entry_id(e)
+        e["story"], e["story_source"] = diary.caption_info(e, custom)
+        e["custom"] = e["id"] in custom
+        e["clock"] = diary.clock(datetime.fromisoformat(e["time"]))
     maps = _read_json(root / "history" / "map_stats.json", {})
     digest = _read_json(root / "digest.json", {})
     return {"name": diary.char_name(), "generated": datetime.now().isoformat(timespec="seconds"),
@@ -68,12 +73,24 @@ def data(root=None):
                         if k in maps or any(e.get("map") == k for e in items)}, "now": digest.get("now", {}), "totals": digest.get("totals", {})}
 
 
+def page(root=None, live=False):
+    """The page as text. live=True: served by diary_server, so Edit / Generate can save."""
+    d = data(root)
+    d["live"] = live
+    d["sources"] = diary.all_sources()
+    d["sources_off"] = sorted(diary.sources_off())
+    try:
+        import game_refs
+        d["icons"] = game_refs.icons()
+    except Exception:
+        d["icons"] = {}
+    blob = json.dumps(d, ensure_ascii=False).replace("</", "<\\/")
+    return PAGE.replace("__TITLE__", _esc(f"{d['name']}'s diary")).replace("__DATA__", blob)
+
+
 def build(root=None):
     root = Path(root or diary.ROOT)
-    d = data(root)
-    blob = json.dumps(d, ensure_ascii=False).replace("</", "<\\/")
-    html = (PAGE.replace("__TITLE__", _esc(f"{d['name']}'s diary"))
-            .replace("__DATA__", blob))
+    html = page(root)
     out = root / "diary.html"
     tmp = out.with_suffix(".tmp")
     tmp.write_text(html, encoding="utf-8")
@@ -95,21 +112,21 @@ PAGE = r"""<!doctype html>
 :root {
   --bg: #f6f3ee; --panel: #fffdf9; --ink: #2a2622; --muted: #7a7168; --line: #e6dfd5;
   --accent: #d9822b; --accent-soft: #fbead6;
-  --levelup: #3f8f4a; --death: #b8433a; --job: #b8862b; --first_visit: #3a78b8; --note: #7a6a9a;
+  --levelup: #3f8f4a; --death: #b8433a; --job: #b8862b; --first_visit: #3a78b8; --note: #7a6a9a; --moment: #c0679a;
   --shadow: 0 1px 2px rgba(0,0,0,.06), 0 4px 14px rgba(0,0,0,.05);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #181614; --panel: #221f1c; --ink: #ece6de; --muted: #9c9389; --line: #36312c;
     --accent: #f0a050; --accent-soft: #3a2b1c;
-    --levelup: #6cc077; --death: #e0756b; --job: #e2b558; --first_visit: #6fa8e0; --note: #b3a3d3;
+    --levelup: #6cc077; --death: #e0756b; --job: #e2b558; --first_visit: #6fa8e0; --note: #b3a3d3; --moment: #e595c2;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.25);
   }
 }
 :root[data-theme="dark"] {
   --bg: #181614; --panel: #221f1c; --ink: #ece6de; --muted: #9c9389; --line: #36312c;
   --accent: #f0a050; --accent-soft: #3a2b1c;
-  --levelup: #6cc077; --death: #e0756b; --job: #e2b558; --first_visit: #6fa8e0; --note: #b3a3d3;
+  --levelup: #6cc077; --death: #e0756b; --job: #e2b558; --first_visit: #6fa8e0; --note: #b3a3d3; --moment: #e595c2;
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.25);
 }
 * { box-sizing: border-box; }
@@ -169,6 +186,74 @@ tr:last-child td { border-bottom: 0; }
 .lb button { position: absolute; background: rgba(255,255,255,.12); color: #fff; border: 0;
   border-radius: 999px; width: 44px; height: 44px; font-size: 22px; cursor: pointer; }
 .lb .x { top: 14px; right: 14px; } .lb .prev { left: 14px; top: 50%; } .lb .next { right: 14px; top: 50%; }
+/* Story view: one line down the middle, beats alternating left / right */
+.story { position: relative; padding: 6px 0 40px; }
+.story::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 4px;
+  margin-left: -2px; background: var(--ink); border-radius: 2px; }
+.story .end { position: relative; text-align: center; color: var(--muted); font-size: 13px; padding-top: 18px; }
+.story .end span, .sday span { position: relative; background: var(--bg); padding: 3px 14px; }
+.sday { position: relative; text-align: center; margin: 22px 0 14px; }
+.sday span { border: 2px solid var(--ink); border-radius: 999px; font-weight: 600; font-size: 13px; }
+.beat { position: relative; width: 50%; padding: 8px 40px 26px; }
+.beat.l { text-align: right; }
+.beat.r { margin-left: 50%; }
+.beat .dot { position: absolute; top: 6px; width: 34px; height: 34px; border-radius: 50%;
+  background: var(--panel); border: 3px solid var(--k); display: grid; place-items: center; font-size: 15px; }
+.beat.l .dot { right: -17px; } .beat.r .dot { left: -17px; }
+.beat .cap { font-family: "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive; font-size: 19px;
+  line-height: 1.4; padding-top: 4px; }
+.beat.death .cap { color: var(--death); }
+.beat.job .cap { color: var(--job); }
+.polaroid { display: inline-block; position: relative; margin: 12px 0 0; background: #fbfaf7;
+  padding: 8px 8px 0; border-radius: 3px; box-shadow: 0 2px 4px rgba(0,0,0,.18), 0 8px 22px rgba(0,0,0,.14);
+  cursor: zoom-in; transform: rotate(var(--tilt)); transition: transform .15s; max-width: 100%; }
+.polaroid:hover { transform: rotate(0deg) scale(1.03); }
+.beat.l .polaroid { --tilt: 2deg; } .beat.r .polaroid { --tilt: -2deg; }
+.polaroid img { display: block; width: 230px; max-width: 100%; height: auto; background: #000; }
+.polaroid.wide img { width: 280px; aspect-ratio: 16 / 10; object-fit: cover; }
+.polaroid .stamp { position: absolute; right: 14px; top: 14px; font: 700 14px/1 Consolas, "Courier New", monospace;
+  color: #ff9a2e; text-shadow: 0 0 2px #ff5a00, 0 0 6px rgba(255,90,0,.6); letter-spacing: .06em; }
+.polaroid figcaption { color: #4a4540; font: 13px/1.2 "Segoe Print", "Comic Sans MS", cursive; padding: 7px 4px 10px;
+  text-align: center; max-width: 230px; margin: 0 auto; }
+@media (max-width: 640px) {
+  .story::before { left: 18px; }
+  .beat, .beat.l, .beat.r { width: auto; margin-left: 0; padding: 6px 0 24px 50px; text-align: left; }
+  .beat.l .dot, .beat.r .dot { left: 1px; right: auto; }
+  .beat.l .tools { justify-content: flex-start; }
+  .beat.l .polaroid { --tilt: -2deg; }
+  .story .end, .sday { text-align: left; padding-left: 0; }
+}
+.beat .tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; align-items: center; }
+.beat.l .tools { justify-content: flex-end; }
+.beat .tools button { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 999px;
+  padding: 2px 10px; font: inherit; font-size: 12px; cursor: pointer; opacity: .55; transition: opacity .15s; }
+.beat:hover .tools button, .beat .tools button:focus-visible, .editor .tools button { opacity: 1; }
+.beat .tools button:hover { border-color: var(--accent); }
+.beat .tools button:disabled { opacity: .4; cursor: wait; }
+.beat .src { font-size: 11px; color: var(--muted); font-style: italic; margin-top: 2px; }
+.gicon { height: 24px; width: auto; aspect-ratio: 184 / 69; border-radius: 3px; vertical-align: middle; margin-right: 6px; }
+.refs .gicon { height: 20px; vertical-align: middle; margin-right: 0; }
+.beat .tools .mine { font-size: 11px; color: var(--muted); }
+.editor textarea { width: 100%; max-width: 420px; font: 17px/1.4 "Segoe Print", "Comic Sans MS", cursive; color: var(--ink);
+  background: var(--panel); border: 2px solid var(--accent); border-radius: 8px; padding: 6px 10px; resize: vertical; }
+.refs { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 10px 14px; margin: 0 0 16px; z-index: 1; }
+.refs summary { cursor: pointer; font-weight: 600; }
+.refs .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.refs label { display: inline-flex; gap: 6px; align-items: center; border: 1px solid var(--line); border-radius: 999px;
+  padding: 3px 10px; font-size: 13px; cursor: pointer; }
+.refs label:has(input:not(:checked)) { opacity: .55; text-decoration: line-through; }
+.refs .n { color: var(--muted); font-size: 12px; }
+.refs .row2 { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--muted); }
+.refs button { border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 999px;
+  padding: 3px 12px; font: inherit; font-size: 12px; cursor: pointer; }
+.refs button.save { background: var(--accent); border-color: var(--accent); color: var(--panel); font-weight: 600; }
+.hint { position: relative; background: var(--bg); color: var(--muted); font-size: 13px; text-align: center; padding: 0 0 12px; }
+.hint code { background: var(--panel); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; }
+#toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(20px); opacity: 0; pointer-events: none;
+  background: var(--ink); color: var(--bg); padding: 8px 16px; border-radius: 8px; font-size: 14px; transition: .2s; z-index: 20; max-width: calc(100% - 32px); }
+#toast.on { opacity: 1; transform: translateX(-50%); }
+@media (hover: none) { .beat .tools button { opacity: 1; } }
 .foot { margin-top: 30px; color: var(--muted); font-size: 12px; }
 .theme { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 8px;
   padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; }
@@ -191,11 +276,13 @@ tr:last-child td { border-bottom: 0; }
   </header>
   <div class="stats" id="stats"></div>
   <nav class="tabs" id="tabs">
-    <button data-tab="timeline">Timeline</button>
+    <button data-tab="story">Story</button>
+    <button data-tab="timeline">Details</button>
     <button data-tab="levels">Levels</button>
     <button data-tab="places">Places</button>
   </nav>
-  <section id="timeline">
+  <section id="story"><div class="story" id="storyline"></div></section>
+  <section id="timeline" hidden>
     <div class="controls" id="filters"></div>
     <div id="list"></div>
   </section>
@@ -215,7 +302,7 @@ tr:last-child td { border-bottom: 0; }
 "use strict";
 const D = JSON.parse(document.getElementById("data").textContent);
 const KINDS = {levelup: ["⬆️", "Level up"], death: ["💀", "Death"], job: ["⭐", "Job advancement"],
-               first_visit: ["🗺️", "First visit"], note: ["📝", "Note"]};
+               first_visit: ["🗺️", "First visit"], note: ["📝", "Note"], moment: ["📸", "Moment"]};
 const $ = s => document.querySelector(s);
 const store = {
   get(k, d) { try { const v = localStorage.getItem("diary." + k); return v === null ? d : v; } catch (e) { return d; } },
@@ -261,11 +348,11 @@ $("#theme").onclick = () => { theme = themes[(themes.indexOf(theme) + 1) % 3]; s
 // tabs
 function showTab(t) {
   for (const b of document.querySelectorAll("#tabs button")) b.classList.toggle("on", b.dataset.tab === t);
-  for (const id of ["timeline", "levels", "places"]) $("#" + id).hidden = id !== t;
+  for (const id of ["story", "timeline", "levels", "places"]) $("#" + id).hidden = id !== t;
   store.set("tab", t);
 }
 for (const b of document.querySelectorAll("#tabs button")) b.onclick = () => showTab(b.dataset.tab);
-showTab(store.get("tab", "timeline"));
+showTab(store.get("tab", "story"));
 
 // timeline
 let filter = store.get("filter", "all"), newestFirst = store.get("order", "new") === "new";
@@ -309,15 +396,16 @@ function renderList() {
   }
   $("#list").innerHTML = out.join("");
   for (const img of document.querySelectorAll("#list img")) {
-    img.onclick = () => openLb(+img.dataset.i);
+    img.onclick = () => openLb(+img.dataset.i, gallery);
     img.onerror = () => img.remove();
   }
 }
 renderFilters(); renderList();
 
 // lightbox
-let lbi = 0;
-function openLb(i) { lbi = (i + gallery.length) % gallery.length; const g = gallery[lbi];
+let lbi = 0, lbList = [];
+function openLb(i, list) { if (list) lbList = list; if (!lbList.length) return;
+  lbi = (i + lbList.length) % lbList.length; const g = lbList[lbi];
   $("#lb img").src = src(g.src); $("#lb .cap").textContent = g.cap; $("#lb").classList.add("on"); }
 const closeLb = () => $("#lb").classList.remove("on");
 $("#lb .x").onclick = closeLb;
@@ -326,6 +414,103 @@ $("#lb .next").onclick = e => { e.stopPropagation(); openLb(lbi + 1); };
 $("#lb").onclick = e => { if (e.target.id === "lb") closeLb(); };
 document.addEventListener("keydown", e => { if (!$("#lb").classList.contains("on")) return;
   if (e.key === "Escape") closeLb(); else if (e.key === "ArrowLeft") openLb(lbi - 1); else if (e.key === "ArrowRight") openLb(lbi + 1); });
+
+// story: oldest at the top, beats alternate sides, one photo print per beat.
+// Served by `python diary.py serve` (D.live), each line gets Edit / Generate buttons that save.
+async function api(path, body) {
+  const r = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json", "X-Diary": "1"},
+                               body: JSON.stringify(body)});
+  let j = {}; try { j = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
+  return j;
+}
+let editing = null;     // entry id being edited
+let refsOpen = false;
+const gicon = s => D.icons?.[s] ? `<img class="gicon" src="${src(D.icons[s])}" alt="" width="184" height="69" loading="lazy" onerror="this.remove()">` : "";
+function renderStory() {
+  const E = D.entries, pics = [], out = [];
+  if (!D.live) out.push(`<div class="hint">Want to edit or reroll the captions? Run <code>python diary.py serve</code>.</div>`);
+  else if (Object.keys(D.sources || {}).length) {
+    const off = new Set(D.sources_off || []);
+    out.push(`<details class="refs" id="refs"${refsOpen ? " open" : ""}><summary>🎮 References used for random captions (${Object.keys(D.sources).length - off.size} of ${Object.keys(D.sources).length} on)</summary>
+      <div class="chips">${Object.entries(D.sources).map(([s, n]) => `<label><input type="checkbox" value="${esc(s)}"${off.has(s) ? "" : " checked"}> ${gicon(s)}${esc(s)} <span class="n">${n}</span></label>`).join("")}</div>
+      <div class="row2"><button type="button" class="save" data-refs="save">Save</button><button type="button" data-refs="all">All on</button>
+        <span>Plain lines are always on. Your own captions stay as they are.</span></div></details>`);
+  }
+  if (!E.length) { $("#storyline").innerHTML = out.join("") + `<div class="empty">The story starts with your first level-up.</div>`; return; }
+  let day = null, n = 0;
+  E.forEach((e, idx) => {
+    const d = dt(e.time), dn = dayName(d);
+    if (dn !== day) { day = dn; out.push(`<div class="sday"><span>${esc(dn)}</span></div>`); }
+    const side = n++ % 2 ? "r" : "l", icon = (KINDS[e.kind] || ["•"])[0];
+    const shots = [...(e.chars || []), ...(e.fulls || [])];
+    let photo = "";
+    if (shots.length) {
+      const i0 = pics.length, cap = `${e.clock} · ${e.story}`;
+      shots.forEach((s, i) => pics.push({src: s, cap: cap + (i >= (e.chars || []).length && e.chars?.length ? " (screenshot)" : "")}));
+      const yy = String(d.getFullYear()).slice(2), mm = String(d.getMonth() + 1).padStart(2, "0"), dd = String(d.getDate()).padStart(2, "0");
+      photo = `<figure class="polaroid${e.chars?.length ? "" : " wide"}" data-i="${i0}" title="Click for the screenshot">
+        <img loading="lazy" src="${src(shots[0])}" alt=""${e.chars?.length ? ' width="320" height="230"' : ""}>
+        <span class="stamp">'${yy} ${mm} ${dd} ${esc(e.clock)}</span>
+        <figcaption>${esc(e.map || "")}</figcaption></figure>`;
+    }
+    let cap;
+    if (D.live && editing === e.id) {
+      cap = `<div class="editor"><textarea maxlength="300" rows="2">${esc(e.story)}</textarea>
+        <div class="tools"><button data-act="save">Save</button><button data-act="cancel">Cancel</button>
+        ${e.custom && e.kind !== "note" ? `<button data-act="auto" title="Back to the automatic line">Automatic</button>` : ""}</div></div>`;
+    } else {
+      cap = `<div class="cap">${esc(e.story || e.text)}</div>` + (e.story_source || (!shots.length && e.map) ? `<div class="src">${e.story_source ? gicon(e.story_source) + "— " + esc(e.story_source) : ""}${e.story_source && !shots.length && e.map ? " · " : ""}${!shots.length && e.map ? "📍 " + esc(e.map) : ""}</div>` : "") + (D.live ? `<div class="tools">
+        <button data-act="edit" title="Write your own caption">✏️ Edit</button>
+        ${e.kind !== "note" ? `<button data-act="gen" title="Another random line from captions.json">🎲 Generate</button>` : ""}
+        ${e.custom ? `<span class="mine">edited</span>` : ""}</div>` : "");
+    }
+    out.push(`<div class="beat ${side} ${esc(e.kind)}" data-idx="${idx}" style="--k:var(--${esc(e.kind)},var(--accent))">
+      <span class="dot">${icon}</span>${cap}${photo}</div>`);
+  });
+  out.push(`<div class="end"><span>…to be continued</span></div>`);
+  $("#storyline").innerHTML = out.join("");
+  for (const f of document.querySelectorAll("#storyline .polaroid")) {
+    f.onclick = () => openLb(+f.dataset.i, pics);
+    f.querySelector("img").onerror = () => f.remove();
+  }
+  const refs = $("#refs");
+  if (refs) {
+    refs.ontoggle = () => { refsOpen = refs.open; };
+    refs.querySelector("[data-refs=all]").onclick = () => { for (const c of refs.querySelectorAll("input")) c.checked = true; };
+    refs.querySelector("[data-refs=save]").onclick = async () => {
+      const off = [...refs.querySelectorAll("input")].filter(c => !c.checked).map(c => c.value);
+      try { await api("/api/sources", {off}); location.reload(); }
+      catch (err) { toast(/fetch/i.test(err.message) ? "Can't reach the diary server. Is `python diary.py serve` still running?" : err.message); }
+    };
+  }
+  const ta = document.querySelector("#storyline textarea");
+  if (ta) { ta.focus(); ta.select();
+    ta.onkeydown = ev => { if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); act(ta.closest(".beat"), "save"); }
+                           else if (ev.key === "Escape") act(ta.closest(".beat"), "cancel"); }; }
+  for (const b of document.querySelectorAll("#storyline .tools button"))
+    b.onclick = () => act(b.closest(".beat"), b.dataset.act, b);
+}
+async function act(beat, what, btn) {
+  const e = D.entries[+beat.dataset.idx];
+  if (what === "edit") { editing = e.id; return renderStory(); }
+  if (what === "cancel") { editing = null; return renderStory(); }
+  for (const b of beat.querySelectorAll("button")) b.disabled = true;
+  try {
+    let r;
+    if (what === "gen") r = await api("/api/generate", {id: e.id});
+    else r = await api("/api/caption", {id: e.id, text: what === "auto" ? "" : beat.querySelector("textarea").value});
+    e.story = r.story; e.story_source = r.source; e.custom = r.custom; editing = null; renderStory();
+  } catch (err) {
+    for (const b of beat.querySelectorAll("button")) b.disabled = false;
+    toast(/fetch/i.test(err.message) ? "Can't reach the diary server. Is `python diary.py serve` still running?" : err.message);
+  }
+}
+function toast(msg) {
+  let t = $("#toast"); if (!t) { t = document.createElement("div"); t.id = "toast"; document.body.appendChild(t); }
+  t.textContent = msg; t.classList.add("on"); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("on"), 4000);
+}
+renderStory();
 
 // levels table: one row per level reached
 (function levels() {

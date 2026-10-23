@@ -1,0 +1,11 @@
+{
+ "_about": "Case-by-case killer rules for killers.py, mostly boss maps. 'killer' = who a death on this map is blamed on; 'probably': true marks it a guess ('Died, probably to X'); 'ignore' = mobs never blamed on this map. Maps with one mob species or one clearly stronger mob need no entry (killers.py works those out from map_mobs.json). Map names as in maps_classic.json. Edit freely; the player's copy in the data folder wins.",
+ "maps": [
+  {"map": "The Cursed Sanctuary", "killer": "Jr. Balrog", "why": "Jr. Balrog's lair, nothing else spawns there"},
+  {"map": "The Grave of Mushmom", "killer": "Zombie Mushmom", "probably": true, "why": "Zombie Mushmom's arena (Lv 55); the Zombie Mushrooms around her are Lv 24"},
+  {"map": "Someone Else's House", "killer": "Mushmom", "probably": true, "why": "Mushmom's spawn map (Lv 40, every hour); Iron Hogs are Lv 28"},
+  {"map": "Parched Land", "killer": "Stumpy", "probably": true, "why": "Stumpy's spawn map (Lv 35); the Axe Stumps are Lv 17-23"},
+  {"map": "Thicket Around the Beach III", "killer": "Mano", "probably": true, "why": "Mano's spawn map (Lv 20); everything else there is Lv 8 or lower"},
+  {"map": "1st Accompaniment <Last Stage>", "killer": "King Slime", "probably": true, "why": "Kerning PQ boss stage"}
+ ]
+}

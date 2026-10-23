@@ -344,6 +344,14 @@ class App:
         except Exception as e:     # no pystray: the window still works, exit via right-click
             print(f"tray icon unavailable: {e}")
 
+        self.diary_popup = None       # diary pop-ups on new entries (diary_popup.py)
+        if not demo:
+            try:
+                from diary_popup import DiaryPopup
+                self.diary_popup = DiaryPopup(self)
+            except Exception as e:
+                print(f"diary pop-up unavailable: {e}")
+
         r.after(50, self.pump)
         r.after(100, self.refresh)
 
@@ -667,6 +675,11 @@ class App:
         self.update_discord(snap)
         if self.tray:
             self.tray.update(snap)
+        if self.diary_popup:
+            try:
+                self.diary_popup.check()
+            except Exception as e:
+                print(f"diary pop-up check failed: {e}")
         self.root.after(1000, self.refresh)
 
     def render(self, s):

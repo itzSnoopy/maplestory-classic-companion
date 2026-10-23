@@ -14,6 +14,8 @@ helper_settings.json
 !/discord_icon.png
 !/art/fluent_maple_leaf_3d.png
 screenshots/
+# Steam store capsules for the diary's game references (third-party art, cached locally)
+game_icons/
 crops/
 templates/
 
