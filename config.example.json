@@ -1,11 +1,4 @@
 {
-  "obs": {
-    "host": "localhost",
-    "port": 4455,
-    "password": "",
-    "source": "Maplestory Game Capture",
-    "timeout": 5
-  },
   "tesseract": "C:\\Program Files\\Tesseract-OCR\\tesseract.exe",
   "interval": 30,
   "fast_interval": 2,
@@ -58,10 +51,6 @@
       "psm": 6
     }
   },
-  "overlay": {
-    "enabled": false,
-    "text_source": "Maple Tracker Text"
-  },
   "notifications": {
     "enabled": false,
     "at_pct": 90,
@@ -71,9 +60,9 @@
     "close_after_absent_s": 600,
     "close_after_afk_s": 1800,
     "idle_poll_s": 10,
-    "obs_retry_s": 20,
     "digest_every_s": 300,
-    "retention_days": 14
+    "retention_days": 14,
+    "source_retry_s": 20
   },
   "afk_after_s": 300
 }

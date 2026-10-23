@@ -28,7 +28,7 @@ software does. It reads the numbers that are already on your screen: the EXP bar
 the job name and the map name on the minimap.
 
 1. **Capture**: Windows hands the app a copy of what the MapleStory window shows (Windows Graphics
-   Capture, the method OBS's Window Capture uses). It works while the window is covered, not while
+   Capture, the method screen recorders use). It works while the window is covered, not while
    it's minimized.
 2. **Read**: the EXP and level digits are matched pixel by pixel against shapes the app learned from
    your own screen during setup. The map name is read with Tesseract OCR, bundled with the app.

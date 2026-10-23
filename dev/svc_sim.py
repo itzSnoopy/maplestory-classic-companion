@@ -2,7 +2,7 @@
 history/, journal.md or sessions/.
 
   python dev/svc_sim.py OUT_DIR frames   screen source on saved frames: play, level-up,
-                                         OBS down, game gone (session closes), game back
+                                         source unreachable, game gone (session closes), game back
   python dev/svc_sim.py OUT_DIR csv PATH csv_replay source on a recorded exp_log.csv
 
 Fixture frames: a sessions/*/levelups/Lv*/ folder (before_*, at_*, after_*). Edit FIXTURE if
@@ -45,7 +45,7 @@ def main():
     cfg = json.loads((CODE / "config.json").read_text(encoding="utf-8"))
     cfg.update(interval=0.3, fast_interval=0.05)
     cfg["service"].update(close_after_absent_s=1, idle_poll_s=0.15, close_after_afk_s=999,
-                          obs_retry_s=0.1)
+                          source_retry_s=0.1)
     args = types.SimpleNamespace(level=None, interval=None, service=False)
     sink = CaptureSink()
 
@@ -62,7 +62,7 @@ def main():
         source = make_source(cfg)
 
     T.run(cfg, args, source=source, sinks=[sink])
-    print("\n===== overlay:", sink.texts[:2], "...", sink.texts[-2:])
+    print("\n===== live text:", sink.texts[:2], "...", sink.texts[-2:])
     for name in ("journal.md", "history/sessions.csv", "history/levels.csv", "status.json"):
         p = out / name
         print(f"===== {name}\n" + (p.read_text(encoding="utf-8") if p.exists() else "(none)"))

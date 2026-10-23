@@ -1,9 +1,9 @@
 """
-tracker.py - MapleStory Classic World EXP tracker (game window or OBS capture). No AI needed.
+tracker.py - MapleStory Classic World EXP tracker (reads the game window). No AI needed.
 
 Runs as a long-lived service. Data comes from a pluggable *source* (sources/: `wgc` reads the
-game window directly, `screen` reads OBS frames; see sources/base.py for the Observation model) and live
-text goes to *sinks* (sinks.py: OBS overlay). The tracker itself only sees Observations, so
+game window; see sources/base.py for the Observation model) and live text goes to *sinks*
+(sinks.py; none built in today). The tracker itself only sees Observations, so
 sources can be swapped without touching anything below.
 
 A play session opens when the game is present and EXP moves, and closes when the game has been
@@ -22,7 +22,7 @@ Writes:
 Capture rate follows time-to-level: ~`frames_before_level` frames before each level-up,
 between `fast_interval` and `interval` seconds.
 
-Passive only: reads screen frames (game window or OBS), never the game process or memory,
+Passive only: reads frames of the game window, never the game process or memory,
 never sends input.
 
 Run:   python tracker.py             (console, Ctrl+C to stop)

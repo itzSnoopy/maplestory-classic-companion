@@ -5,7 +5,7 @@ server). The player is a Magician heading for Cleric. This is **not** the v83 pr
 project in the parent folder. Don't use its `reference/` data (EXP tables, mob stats); Classic values differ.
 
 `tracker.py` runs on its own (no AI) as a background service. Data comes from a pluggable
-*source* (today: frames of the game window, or OBS frames, + OCR of the EXP bar / level badge / map title), normalized into
+*source* (today: frames of the game window + OCR of the EXP bar / level badge / map title), normalized into
 `Observation`s, so sources can be swapped later (APIs etc.) without touching the rest. Claude is only needed
 for questions, recommendations, and changing the code.
 
@@ -21,7 +21,7 @@ log), and the rules for parallel sessions. Before ending a session, append to
 
 1. **`digest.json`** (~1–2 KB): current level/%/ETA/EXP-hr/map, last 7 days, time per level,
    best maps by EXP/hr, projection for the next levels, recent sessions. Most questions end here.
-2. **`status.json`**: live snapshot. `state` is `playing` / `idle` / `waiting_for_obs` / `stopped`.
+2. **`status.json`**: live snapshot. `state` is `playing` / `idle` / `waiting_for_source` / `stopped`.
 3. **`diary.md`** (milestones: level-ups, deaths, job advancements, first visits, notes) or
    **`journal.md`**: readable event log (sessions, level-ups, map changes, deaths). Read the tail.
 4. Only if needed: `history/levels.csv`, `history/sessions.csv`, `history/map_stats.json`,
@@ -44,9 +44,8 @@ Don't read the PNGs unless asked. They're big, and the numbers are already in th
 - Starts at logon: Startup-folder shortcut "Maple Tracker" runs
   `pythonw.exe tracker.py --service`. `start_tracker.cmd` and `stop_tracker.cmd` do the same by hand.
   Only one copy runs at a time (`history/tracker.lock`).
-- It captures the game window directly (default) or reads OBS: Settings > General in the helper
-  (`helper_settings.json` capture.source; config.json `source.type` overrides). It opens a session
-  when the EXP bar is on screen and EXP moves, and closes it
+- It captures the game window (Windows Graphics Capture; config.json `source.type` can pick the
+  csv replay for tests). It opens a session when the EXP bar is on screen and EXP moves, and closes it
   after 10 min without the game on screen or 30 min AFK. Settings are in `config.json` → `service`.
 - Log: `tracker_live.log` (one line per minute plus events; rotated at 5 MB).
 - To restart after code changes, run `stop_tracker.cmd`, wait for `tracker service stopped` in
@@ -57,21 +56,19 @@ Don't read the PNGs unless asked. They're big, and the numbers are already in th
 | File | Role |
 |---|---|
 | `tracker.py` | Tracker (EXP/level/death logic, ETA, adaptive interval), Session, service loop. Consumes `Observation`s only |
-| `sources/` | Pluggable data sources: `base.py` (Observation, Source), `screen.py` (OBS frames → glyph/Tesseract reading), `wgc.py` (game window frames without OBS, type `wgc`), `csv_replay.py`. Select in config `source.type` |
+| `sources/` | Pluggable data sources: `base.py` (Observation, Source), `screen.py` (HUD reader: glyph/Tesseract), `wgc.py` (game window frames, type `wgc`, default), `csv_replay.py` |
 | `layout.py` / `layouts.json` | where HUD boxes sit at any window size (anchors + recorded per-size boxes; `python layout.py record`) |
 | `minimap.py` | map title from the full or collapsed minimap, found anywhere by its WORLD button |
-| `sinks.py` | Live outputs (OBS overlay) |
+| `sinks.py` | Live outputs hook (none built in today) |
 | `diary.py` / `diary_html.py` / `portrait.py` | Diary timeline (`history/timeline.jsonl` → `diary.md` + `diary.html` viewer, screenshots in `screenshots/diary/`) / character close-up from the name tag |
 | `history.py` | journal.md, sessions.csv, map_stats.json, digest.json, cleanup |
 | `glyphs.py` | exact pixel-font reader for EXP bar and level badge; learns new glyphs |
 | `ocr.py` / `parse.py` | Tesseract wrapper (map title) / text → numbers |
-| `capture_obs.py` | OBS WebSocket: screenshot, set overlay text |
 | `helper_ui.py` | floating info window + tray icon (read-only on status/digest; `start_helper.cmd`) |
 | `settings_ui.py` / `helper_settings.py` / `discord_rpc.py` | helper settings window, `helper_settings.json`, Discord Rich Presence (off by default) |
 | `jobread.py` | job name from the status bar, read only at start / when an advancement is possible |
 | `killers.py` / `killers.json` / `map_mobs.json` | who killed the player, guessed from the map's mob list (MeowDB, `dev/fetch_map_mobs.py`) + curated boss maps; `python killers.py audit` |
 | `maplist.py` / `maps_classic.json` | snaps map reads to the 453 real Classic map names (NiaMeowDB list) |
-| `obs_test.py` | connection test, crop/OCR check, `--learn` glyphs by hand |
 | `dev/svc_sim.py` | offline end-to-end test of the service with saved frames |
 | `paths.py` / `companion.py` | where shipped files vs player data live (packaged: %LOCALAPPDATA%) / single entry point (helper, `--service` = tracker) |
 | `calibrate.py` / `setup_ui.py` | first-run setup: cut minimap templates, learn digits from typed EXP, name tag from a dragged box |
@@ -85,8 +82,8 @@ not the real `history/`, `journal.md` or `sessions/`.
 
 - **Screenshots and frames are Nexon game imagery.** Keep them local. Never upload, commit to a
   public repo, or publish them. (Root project rule 1 applies.)
-- `config.json` holds the OBS WebSocket password. Never share or print it.
-- Data sources are pluggable (`sources/`), but the default stays passive (screen frames only: the game window or OBS).
+- `config.json` is local (may still hold an old OBS password from before 2026-10-23). Never share or print it.
+- Data sources are pluggable (`sources/`), but the default stays passive (frames of the game window only).
   Reading game memory or intercepting game traffic violates Nexon's terms on the official server
   (anti-cheat ban risk): don't build such a source unless the player explicitly decides to accept
   that risk, and flag it when asked. Never send input or automate gameplay.

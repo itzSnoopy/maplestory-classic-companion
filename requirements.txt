@@ -2,10 +2,8 @@ pillow>=10
 numpy>=1.26
 pytesseract>=0.3.10
 pystray>=0.19          # tray icon for helper_ui.py
-windows-capture>=2.0   # "wgc" source: game window capture without OBS (default)
+windows-capture>=2.0   # game window capture (Windows Graphics Capture)
 pywin32>=306           # window lookup for the wgc source
-# optional: OBS capture and the OBS text overlay (GPL-3.0; left out of the packaged app)
-obsws-python>=1.7
 # optional, only for Windows toast notifications:
 # winotify>=1.1
 # build only: pyinstaller==6.21.0  (python packaging/build.py)

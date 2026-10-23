@@ -3,7 +3,7 @@
 Everything downstream (Tracker, journal, history, digest) consumes `Observation`s and never
 knows where they came from. A source only has to turn "whatever it reads" into Observations.
 
-Today: `wgc` (game window frames) and `screen` (OBS frames), both read with glyphs/Tesseract.
+Today: `wgc` (game window frames, read with glyphs/Tesseract) and `csv_replay` (tests).
 Tomorrow: an official API, a game
 export, a replay of saved frames, etc. Register new sources in sources/__init__.py.
 
@@ -16,7 +16,7 @@ from typing import Any, Optional
 
 OK = "ok"                    # a reading of the game
 ABSENT = "absent"            # source works, but the game isn't there (closed, loading, cash shop)
-UNAVAILABLE = "unavailable"  # the source itself isn't reachable (OBS closed, API down)
+UNAVAILABLE = "unavailable"  # the source itself isn't reachable (capture failed, API down)
 
 
 @dataclass

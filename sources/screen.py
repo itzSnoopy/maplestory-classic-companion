@@ -1,7 +1,7 @@
-"""Screen source: reads the game HUD from frames (OBS today, saved images for replay/tests).
+"""Screen source: reads the game HUD from frames (the game window, or saved images for replay/tests).
 
-Frame providers (where frames come from) are separate from the HUD reader (how they're read),
-so the same reading runs on live OBS frames and on saved screenshots.
+Frame providers (where frames come from: sources/wgc.py, ImageFrames below) are separate from the
+HUD reader (how they're read), so the same reading runs on live frames and on saved screenshots.
 
 HUD reading:
   exp   -> glyphs.py exact pixel-font match; unknown digits solved from EXP needed (hints),
@@ -24,8 +24,7 @@ import jobread
 import maplist
 import ocr
 import parse
-from capture_obs import crop, from_config
-from layout import anchor_for, layouts
+from layout import anchor_for, crop, layouts
 import minimap
 from sources.base import ABSENT, OK, UNAVAILABLE, Observation, Source
 
@@ -35,29 +34,6 @@ def log(msg):
 
 
 # ------------------------------------------------------------------ frame providers
-class ObsFrames:
-    """Live frames from an OBS source over WebSocket. Raises if OBS isn't reachable."""
-    name = "obs"
-
-    def __init__(self, cfg):
-        self.cfg, self.src, self.client = cfg, cfg["obs"]["source"], None
-
-    def grab(self):
-        if self.client is None:
-            self.client = from_config(self.cfg)
-            log("connected to OBS")
-        try:
-            return self.client.screenshot(self.src)
-        except Exception:
-            self.close()
-            raise
-
-    def close(self):
-        if self.client:
-            self.client.close()
-        self.client = None
-
-
 class ImageFrames:
     """Replay: a list of image paths/PIL images; None means 'game not on screen' (black frame).
     Raises StopIteration when exhausted."""
@@ -71,7 +47,7 @@ class ImageFrames:
             raise StopIteration
         it = self.items[self.i]
         self.i += 1
-        if it == "unavailable":                 # simulate OBS being down
+        if it == "unavailable":                 # simulate the source being unreachable
             raise ConnectionError("replay: source unavailable")
         if it is None:
             return Image.new("RGB", self.size)
@@ -159,11 +135,11 @@ def exp_bar_visible(img, white_min=230):
 class ScreenSource(Source):
     name = "screen"
 
-    def __init__(self, cfg, frames=None):
+    def __init__(self, cfg, frames):
         self.cfg = cfg
-        self.frames = frames or ObsFrames(cfg)
+        self.frames = frames                # sources/wgc.WgcFrames live, ImageFrames in tests
         self.name = f"screen/{self.frames.name}"
-        self.retry_s = cfg.get("service", {}).get("obs_retry_s", 20)
+        self.retry_s = cfg.get("service", {}).get("source_retry_s", 20)
         self.regions = cfg["regions"]
         self.res = cfg.get("source_resolution")
         self.save_mode = cfg.get("save_frames", "suspect")    # True | False | "suspect"

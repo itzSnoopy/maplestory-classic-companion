@@ -4,9 +4,8 @@ Tesseract misreads this 5x7 font (e.g. '12' -> '42'), but every glyph is pure wh
 with a blank column between characters, so we segment by columns and look each glyph
 up by its exact pixel pattern. Green columns are the EXP bar's '[' and ']'.
 
-Unknown glyphs are read as '?' and saved under glyphs/unknown/ for labeling; teach them with
-  python obs_test.py --learn "1,234[56.78%]"          (fresh OBS frame)
-  python obs_test.py --learn "1,234[56.78%]" shot.png  (saved frame)
+Unknown glyphs are read as '?' and saved under glyphs/unknown/. The first-run setup teaches
+the digits on screen (calibrate.learn_typed); the tracker solves the rest from EXP needed.
 The level badge uses the same approach with its own templates (glyphs_level.json); the tracker
 teaches itself new level digits whenever it detects a level-up.
 """

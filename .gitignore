@@ -1,5 +1,5 @@
 # --- Secrets / personal settings (local only) ---
-# OBS WebSocket password lives here; copy config.example.json to config.json
+# local tracker settings; created from config.example.json on first run
 config.json
 # character name, Discord settings (helper_settings.py has built-in defaults)
 helper_settings.json
@@ -46,9 +46,10 @@ __pycache__/
 .venv/
 venv/
 
-# --- Claude Code local files (handoff docs ARE committed) ---
-.claude/settings.local.json
 
 # --- Build output ---
 /build/
 /dist/
+
+# --- Claude Code project files (handoff notes, skills): local only ---
+/.claude/

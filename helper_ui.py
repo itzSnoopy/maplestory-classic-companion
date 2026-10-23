@@ -1,7 +1,7 @@
 """Floating info window + tray icon for the Maple EXP tracker.
 
 Runs as its own process next to tracker.py and only *reads* its outputs
-(status.json, digest.json). It never touches OBS or the game.
+(status.json, digest.json). It never touches the game.
 
     pythonw helper_ui.py          normal start (start_helper.cmd does this)
     python  helper_ui.py --demo   show fake data, for testing the layout
@@ -43,9 +43,9 @@ GREEN = "#4cc38a"
 AMBER = "#e0a43a"
 RED = "#e5534b"
 GREY = "#6b7079"
-STATE_COLOR = {"playing": GREEN, "idle": AMBER, "waiting_for_obs": AMBER, "waiting_for_source": AMBER,
+STATE_COLOR = {"playing": GREEN, "idle": AMBER, "waiting_for_source": AMBER,
                "stale": RED, "stopped": GREY}
-STATE_LABEL = {"playing": "Playing", "idle": "Idle", "waiting_for_obs": "Waiting for OBS",
+STATE_LABEL = {"playing": "Playing", "idle": "Idle",
                "waiting_for_source": "Waiting for data source",
                "stale": "No updates", "stopped": "Tracker stopped"}
 
@@ -729,7 +729,7 @@ class App:
         note = ""
         if not playing:
             note = STATE_LABEL.get(s.state, s.state)
-            if s.state in ("idle", "waiting_for_obs", "waiting_for_source") and s.reason:
+            if s.state in ("idle", "waiting_for_source") and s.reason:
                 note += f": {s.reason}"
             if s.state == "stopped":
                 note += "  (right-click → Start tracker)"

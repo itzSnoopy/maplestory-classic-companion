@@ -17,7 +17,7 @@ import re
 import time
 
 import ocr
-from capture_obs import crop
+from layout import crop
 from layout import anchor_for
 
 # 1920x1080 status bar; same anchor as the level badge (bottom-center UI)

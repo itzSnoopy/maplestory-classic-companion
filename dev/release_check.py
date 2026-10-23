@@ -89,14 +89,23 @@ def check_privacy():
     bad = sorted(f for f in files if PRIVATE.search(f) and f not in ALLOWED_IMAGES
                  and not re.fullmatch(r"docs/img/[\w-]+\.png", f))
     check("nothing private/game-derived tracked or about to be", not bad, ", ".join(bad[:10]))
-    try:
-        pw = json.loads((ROOT / "config.json").read_text(encoding="utf-8"))["obs"]["password"]
+    try:   # any password left in a local config.json must never land in a tracked file
+        cfg = json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
+        secrets = [v for k, v in _walk(cfg) if "password" in k.lower() and isinstance(v, str) and v]
     except Exception:
-        pw = ""
-    if pw:
+        secrets = []
+    if secrets:
         hits = [f for f in files if (ROOT / f).is_file() and f != "config.json"
-                and pw in (ROOT / f).read_text(encoding="utf-8", errors="ignore")]
-        check("OBS password appears in no tracked file", not hits, ", ".join(hits))
+                and any(s in (ROOT / f).read_text(encoding="utf-8", errors="ignore") for s in secrets)]
+        check("no local password appears in a tracked file", not hits, ", ".join(hits))
+
+
+def _walk(d, key=""):
+    if isinstance(d, dict):
+        for k, v in d.items():
+            yield from _walk(v, k)
+    else:
+        yield key, d
 
 
 def ensure_fixture():

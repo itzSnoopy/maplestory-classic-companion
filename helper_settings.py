@@ -1,8 +1,7 @@
 """Settings for helper_ui (helper_settings.json) and the Discord presence text builder.
 
-Kept separate from config.json on purpose: config.json holds the OBS password and the
-tracker's crop boxes, and the settings window should never rewrite it.
-The tracker reads one value from here at start: capture.source (see sources.pick_type).
+Kept separate from config.json on purpose: config.json holds the tracker's crop boxes and
+timings, and the settings window should never rewrite it.
 """
 import copy
 import json
@@ -23,9 +22,6 @@ def uses_game_app(d):
 
 
 DEFAULTS = {
-    "capture": {
-        "source": "wgc",                # wgc = game window (no OBS) · obs = OBS Window Capture
-    },
     "character": {
         "name": "",
         "job": "Beginner",

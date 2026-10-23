@@ -10,7 +10,7 @@ window, exact pixel match), so a different window size *moves* the UI instead of
   `templates/minimap_header.png`, cut at MINIMAP_REF from a 1920x1080 frame) and the box is
   shifted by where the header is.
 - "top-left": no shift.
-- None / "scale": old behavior, scale the box (for an OBS canvas that resizes the picture).
+- None / "scale": scale the box (for a capture that resizes the picture).
 
 At the reference size the boxes are used as they are, except "minimap", which is still looked up
 (a moved minimap at 1920x1080 is handled too).
@@ -94,6 +94,11 @@ def place(img, box, ref=None, anchor=None, name=None):
         return [box[0] + dx, box[1] + dy, box[2] + dx, box[3] + dy]
     sx, sy = W / RW, H / RH                  # "scale" / None
     return [round(box[0] * sx), round(box[1] * sy), round(box[2] * sx), round(box[3] * sy)]
+
+
+def crop(img, box, expected_res=None, anchor=None, name=None):
+    """Crop [x1, y1, x2, y2] (in config pixels), moved for this frame's size by `place`."""
+    return img.crop(tuple(place(img, box, expected_res, anchor, name)))
 
 
 def make_minimap_template(frame_path, out=MINIMAP_TEMPLATE):

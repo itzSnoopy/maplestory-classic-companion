@@ -1,28 +1,20 @@
 # Classic World EXP Tracker — working notes
 
 Passive EXP tracker for **MapleStory Classic World** (Nexon's official pre-Big Bang server).
-It grabs frames from OBS over WebSocket, OCRs fixed crop regions, logs per-session CSV and
-per-map stats, writes a live `status.json`, and can update an OBS text overlay.
+It reads frames of the game window (Windows Graphics Capture), reads the EXP bar, level badge,
+job and minimap title from fixed HUD spots, logs per-session CSV and per-map stats, and writes a
+live `status.json` for the floating window.
 
-It never reads game memory, never touches the game process, and never sends input.
+It never reads game memory, never touches the game process or its files, and never sends input.
 
 Game-data sources (Classic values only): MeowDB/NiaDB (meowdb.com/msclassic),
 classic.maplestorywiki.net, OSMS Data Explorer, Henesys.GG, Metaroad. **Don't use** modern GMS or
 private-server wikis (including the v83 MoopleDEV `ExpTable` in the sibling server project).
 Their values differ.
 
-## Files
-
-| File | Role |
-|---|---|
-| `config.json` | OBS connection, source name, crop regions (in OBS source pixels), feature toggles |
-| `capture_obs.py` | OBS WebSocket client: version, list inputs, source screenshot, set text |
-| `ocr.py` | Tesseract wrapper and per-region preprocessing |
-| `parse.py` | Text → numbers: EXP bar, level, map name, chat gain lines, chat dedupe |
-| `tracker.py` | Main loop: stats, CSV, summary, status.json, overlay, notifications |
-| `obs_test.py` | Connection test (grabs `frame.png`), offline crop/OCR check, `--learn` for EXP glyphs |
-| `glyphs.py` / `glyphs.json` / `glyphs_level.json` | Exact pixel-font reader; learned templates for the EXP bar and the level badge |
-| `history/` | Long-term: `levels.csv` (time per level), `exp_table.json` (EXP needed per level, learned), `state.json` (resume) |
+The code map is in `CLAUDE.md`; this file is the lab notebook: formats, OCR findings, decisions.
+Entries below are dated and kept as written, so early ones mention OBS, which was the capture
+method until 2026-10-23 (removed, see the last entry).
 
 ## Setup
 
@@ -31,44 +23,17 @@ pip install -r requirements.txt
 ```
 Install Tesseract (UB Mannheim build): https://github.com/UB-Mannheim/tesseract/wiki
 (default path `C:\Program Files\Tesseract-OCR\tesseract.exe`; otherwise set `tesseract` in config).
+Then run `pythonw companion.py`; the first-run setup learns the HUD pieces from your screen.
 
-In OBS: Tools → WebSocket Server Settings → Enable, note port and password.
+## Open questions
 
-## Status of requirements
-
-| # | Requirement | State |
-|---|---|---|
-| 1 | EXP bar: cur/needed/%, level-up detection | Coded, untested on real frames |
-| 2 | Map name above minimap, tag rows and sessions | Coded (2-frame confirmation before switching map), untested |
-| 3 | Chat EXP per kill, party bonus separate, dedupe across frames | Coded (overlap-based dedupe), wording unconfirmed |
-| 4a | CSV per session and `summary.json` with per-map stats | Coded |
-| 4b | Live `status.json` | Coded |
-| 4c | OBS Text overlay via `SetInputSettings` | Coded, off until the source name is set |
-| 4d | Windows notifications (90%, ~10 min left, level up) | Coded, **off** until the player confirms they want them |
-
-## Need from the player
-
-- [ ] OBS **Game Capture source name** (exact, case-sensitive)
-- [ ] WebSocket **port** (default 4455) and **password**
-- [ ] A **full-resolution Classic World screenshot** (ideally straight from OBS via `python obs_test.py`)
-      with the EXP bar, minimap title, and a few EXP gain lines visible, in solo and in party if possible
-- [ ] Current **level** (or crop the level number on the status bar so it's read automatically)
-- [ ] Overlay, notifications, or both? If overlay: name of the OBS Text (GDI+) source to update
-- [ ] OBS canvas/source resolution and whether the game runs windowed at a fixed size
-
-## Unknowns to confirm from real frames
-
-- EXP bar text format: `1234/5678 [21.73%]`? `1234[21.73%]`? Is the needed value shown at all?
 - EXP gain message wording and party bonus format (handoff guess: `+12 (+3)`)
 - Whether gains show in the chat box, the side system-message area, or both
-- Minimap title font, color, position; does it truncate long map names?
-- Does `GetSourceScreenshot` work when the Game Capture source isn't in the active scene?
 
 ## Design decisions
 
-- **Capture via OBS `GetSourceScreenshot`** (not mss): immune to window moves, overlap, and DPI;
-  crops are in game pixels. Calls go through `ReqClient.send(..., raw=True)` to avoid wrapper drift.
-  If the source resolution differs from `source_resolution` in config, crops are scaled and a warning is printed.
+- **Capture the game window with Windows Graphics Capture** (since 2026-10-23; before that OBS
+  `GetSourceScreenshot`): works with the window covered or moved, crops are in game pixels.
 - **EXP bar is the source of truth for totals.** Chat is only for per-kill and party breakdown.
 - **Chat dedupe:** treat each frame's chat box as a scrolling list. Find the longest overlap between the
   end of the previous frame's lines and the start of the current one; only lines after it are new.
@@ -219,3 +184,10 @@ whitelist, threshold).
   Always search every pixel (`layout.best_match`) or pre-filter on exact pixels (`minimap._prefiltered`).
 - Collapsed minimap: scan for the bar's left edge on the row *above* the text (wy-3); the row
   below hits descenders ("y" in Henesys). Tesseract read `Victoria Road :-Henesys`: strip ` -.` after the split.
+
+### 2026-10-23: OBS removed
+- Window capture (`sources/wgc.py`) had been the default since earlier the same day and the packaged
+  app never had OBS. Removed: `capture_obs.py`, `obs_test.py`, the OBS frame source, the OBS text
+  overlay sink, the Settings capture choice, config keys `obs` / `overlay`, `obsws-python`.
+  `crop()` moved to `layout.py`; `service.obs_retry_s` is now `service.source_retry_s`.
+  Glyphs are taught by the first-run setup (`calibrate.py`) instead of `obs_test.py --learn`.

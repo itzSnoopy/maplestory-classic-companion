@@ -33,9 +33,7 @@ HIDDEN = ["setup_ui", "settings_ui", "calibrate", "discord_rpc", "diary_html", "
           "diary_popup", "killers", "game_refs",
           "sources.wgc", "sources.screen", "sources.csv_replay", "windows_capture", "win32gui",
           "pystray._win32"]
-# OBS support (obsws-python) is GPL-3.0: left out of the build, window capture only
-EXCLUDE = ["obsws_python",
-           "cv2",        # only used by windows-capture to save files; replaced by rthook_cv2.py
+EXCLUDE = ["cv2",        # only used by windows-capture to save files; replaced by rthook_cv2.py
            "pkg_resources", "setuptools"]   # not used; its runtime hook breaks the build
 FORBIDDEN = ["config.json", "helper_settings.json", "glyphs.json", "glyphs_level.json",
              "minimap_world.png", "minimap_header.png", "nametag.png", "icon.png"]

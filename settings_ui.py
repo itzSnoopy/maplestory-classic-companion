@@ -161,7 +161,7 @@ class SettingsWindow:
 
     # ---------------------------------------------------------------- pages
     def page_general(self, f):
-        self.title(f, "General", "How the floating window behaves, and where the tracker reads the game from.")
+        self.title(f, "General", "How the floating window behaves.")
         row = tk.Frame(f, bg=BG)
         row.pack(fill="x", pady=(0, self.px(12)))
         self.label(row, "Window opacity", muted=True).pack(anchor="w")
@@ -177,23 +177,7 @@ class SettingsWindow:
                            activebackground=BG, activeforeground=TEXT, selectcolor=FIELD,
                            anchor="w", highlightthickness=0, bd=0).pack(anchor="w", pady=(0, self.px(6)))
         tk.Frame(f, bg=BG, height=self.px(10)).pack()
-        self.capture_section(f)
         return f
-
-    def capture_section(self, f):
-        try:
-            import obsws_python  # noqa: F401
-        except ImportError:      # packaged app: window capture only
-            self.form_row(f, "Capture the game from",
-                          lambda p: self.label(p, "Game window"),
-                          "Works with the window covered or moved, not minimized.")
-            return
-        self.form_row(f, "Capture the game from",
-                      lambda p: self.radios(p, "capture.source",
-                                            [("wgc", "Game window (no OBS)"), ("obs", "OBS")]),
-                      "Takes effect when the tracker restarts. Game window works with the window "
-                      "covered or moved, not minimized. OBS needs OBS running with its Window "
-                      "Capture source. The on-screen OBS text overlay only works with OBS running.")
 
     def page_character(self, f):
         self.title(f, "Character",

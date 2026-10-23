@@ -1,6 +1,6 @@
-"""Frames straight from the game window via Windows Graphics Capture (no OBS needed).
+"""Frames straight from the game window via Windows Graphics Capture.
 
-Same outside-the-game method OBS's Window Capture uses: Windows composites the window and hands
+The same outside-the-game method screen recorders use: Windows composites the window and hands
 us a copy. Nothing is injected into the game and nothing is sent to it. Works when the window
 is covered or moved; not when it's minimized (Windows stops drawing it).
 
@@ -8,9 +8,9 @@ Needs `pip install windows-capture`. Use with config: "source": {"type": "wgc"}.
 Optional config "wgc": {"window_class": "MapleStoryClass", "max_age_s": 5}.
 
 Frames are the game's *client area* (title bar and borders cut off in windowed mode), so crop
-boxes stay in game pixels like the OBS frames. When the game window isn't there, grab()
+boxes stay in game pixels. When the game window isn't there, grab()
 returns a black frame, so the screen source reports ABSENT ("EXP bar not visible") exactly as
-it did with OBS showing a closed game.
+the game being closed.
 """
 import ctypes
 import threading
