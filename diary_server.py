@@ -92,9 +92,33 @@ class Handler(BaseHTTPRequestHandler):
                                    ensure_ascii=False))
 
 
+_thread_server = None
+
+
+def url(port=PORT):
+    return f"http://127.0.0.1:{(_thread_server.server_port if _thread_server else port)}/"
+
+
+def start_thread(port=PORT):
+    """Serve from a daemon thread of the calling process (the helper); lives as long as it does.
+    Returns the page's URL. A second call reuses the same server."""
+    global _thread_server
+    if _thread_server is None:
+        try:
+            httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+        except OSError:                   # port busy (not ours): any free one
+            httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        httpd.last_hit = time.time()
+        threading.Thread(target=httpd.serve_forever, daemon=True, name="diary-server").start()
+        _thread_server = httpd
+    return url()
+
+
 def running(port=PORT):
     """True when a diary server already answers on this PC."""
     import urllib.request
+    if _thread_server is not None:
+        port = _thread_server.server_port
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=0.6) as r:
             return r.status == 200 and b"diary" in r.read(4000).lower()

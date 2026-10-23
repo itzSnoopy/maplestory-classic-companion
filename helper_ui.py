@@ -614,7 +614,7 @@ class App:
     def open_diary(self):
         try:
             import diary
-            diary.open_diary()
+            diary.open_diary(in_process=True)
         except Exception as e:
             print(f"open diary failed: {e}")
 

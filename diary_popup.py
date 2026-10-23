@@ -201,7 +201,7 @@ class Card:
             self.close()
 
     def open_diary(self):
-        self.owner.app.open(diary.ROOT / "diary.html")
+        open_it(self.owner.app)
         self.close()
 
     def close(self):
@@ -250,13 +250,24 @@ def page(win, f):
     if pop is not None:
         win.button(row, "Show a test pop-up", pop.test).pack(side="left", padx=(px(16), 0))
 
+    win.form_row(f, "Open the diary",
+                 lambda p: win.radios(p, "diary.open_via",
+                                      [("localhost", "Through localhost"), ("file", "As a file")]),
+                 "Localhost opens http://127.0.0.1 in the browser: no folder paths in the address "
+                 "bar, and the page has Edit / Generate buttons for captions and the game filter. "
+                 "As a file opens diary.html from your data folder (read-only page).")
     btns = tk.Frame(f, bg=win.w["bg"])
-    btns.pack(anchor="w", pady=(px(8), 0))
-    win.button(btns, "Open diary", lambda: win.app.open(diary.ROOT / "diary.html")).pack(side="left")
-    win.label(f, "Captions, which games they reference, and editing them: run open_diary.cmd "
-                 "(the diary page with Edit / Generate buttons).", muted=True, size=8,
-              wrap=px(560)).pack(anchor="w", pady=(px(6), 0))
+    btns.pack(anchor="w", pady=(px(2), 0))
+    win.button(btns, "Open diary", lambda: open_it(win.app, win.s["diary"].get("open_via"))).pack(side="left")
     return f
+
+
+def open_it(app, via=None):
+    """Open the diary the way Settings > Diary says (served from the helper's own process)."""
+    try:
+        diary.open_diary(via=via, in_process=True)
+    except Exception as ex:
+        print(f"open diary failed: {ex}")
 
 
 def _num(win, parent, key, lo, hi):

@@ -311,28 +311,45 @@ def generate_caption(eid=None, kind=None):
     return pick
 
 
-def open_diary(editable=True):
-    """Open the diary in the browser: the editable page (Edit / Generate buttons) when the diary
-    server runs or can be started, else the static diary.html. For the tray's "Open diary" and
-    any later caller (the tracker, a hotkey). Returns what was opened."""
+def open_via():
+    """"localhost" (default: http://127.0.0.1, the address bar shows no folder paths, and the page
+    has the Edit / Generate buttons) or "file" (diary.html straight from disk).
+    Settings > Diary in the helper (helper_settings.json -> diary.open_via)."""
+    v = _read_json(DATA / "helper_settings.json", {}).get("diary", {}).get("open_via", "localhost")
+    return v if v in ("localhost", "file") else "localhost"
+
+
+def open_diary(via=None, in_process=False):
+    """Open the diary in the browser. For the tray's "Open diary", Settings > Diary, the pop-up and
+    any later caller (the tracker, a hotkey). Returns what was opened.
+
+    localhost: reuse a running diary server, else start one. in_process=True (the helper: a
+    long-running process) serves from a thread there, which also works in the packaged build;
+    otherwise a background `diary.py serve --idle-exit=30` (from source only). Falls back to the
+    file when no server can run."""
     import os
-    import subprocess
     import webbrowser
     import paths
-    if editable and not paths.FROZEN:           # the packaged build has no Python to serve with
+    via = via or open_via()
+    if via == "localhost":
         try:
             import diary_server
-            url = f"http://127.0.0.1:{diary_server.PORT}/"
+            url = diary_server.url()
             if diary_server.running():
                 webbrowser.open(url)
                 return url
+            if in_process or paths.FROZEN:
+                url = diary_server.start_thread()
+                webbrowser.open(url)
+                return url
+            import subprocess
             exe = Path(sys.executable)
             exe = exe.with_name("pythonw.exe") if exe.with_name("pythonw.exe").exists() else exe
             subprocess.Popen([str(exe), str(CODE / "diary.py"), "serve", "--idle-exit=30"],
                              cwd=str(ROOT), creationflags=0x00000008 | 0x00000200, close_fds=True)
             return url + " (starting; it opens the browser itself)"
         except Exception as ex:
-            print(f"diary server not started: {ex}", file=sys.stderr)
+            print(f"diary server not started, opening the file: {ex}", file=sys.stderr)
     _rebuild_html()
     page = ROOT / "diary.html"
     os.startfile(str(page))
@@ -620,7 +637,7 @@ if __name__ == "__main__":
         diary_server.serve(open_browser="--no-open" not in sys.argv,
                            idle_exit_s=float(idle) * 60 if idle else None)
     elif cmd == "open":
-        print(open_diary())
+        print(open_diary(via="file" if "--file" in sys.argv else None))
     elif cmd == "killed-by" and len(sys.argv) > 2:
         e = annotate_last_death(" ".join(sys.argv[2:]))
         print(f"Updated: {e['text']}" if e else "No death in the diary yet.")

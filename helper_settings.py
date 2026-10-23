@@ -48,6 +48,7 @@ DEFAULTS = {
         "moment_max": 120,
         "popup": True,                  # card next to the helper window on new diary entries
         "popup_seconds": 8,
+        "open_via": "localhost",        # localhost (127.0.0.1, no folder paths shown) or file
     },
 }
 
