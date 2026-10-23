@@ -13,6 +13,15 @@ from pathlib import Path
 from paths import DATA as ROOT
 SETTINGS = ROOT / "helper_settings.json"
 
+# Discord's own "MapleStory" entry (detectable-games list, matches maplestory.exe). Sending
+# presence under it puts our lines on the "Playing MapleStory" card Discord already shows.
+MAPLESTORY_APP_ID = "359510095811444736"
+
+
+def uses_game_app(d):
+    return str(d.get("client_id") or "").strip() == MAPLESTORY_APP_ID
+
+
 DEFAULTS = {
     "capture": {
         "source": "wgc",                # wgc = game window (no OBS) · obs = OBS Window Capture
@@ -25,8 +34,8 @@ DEFAULTS = {
     },
     "discord": {
         "enabled": False,               # stays off until the user turns it on
-        "client_id": "",                # Application ID from discord.com/developers
-        "app_name": "MapleStory Classic",   # preview only; Discord shows the app's real name
+        "client_id": MAPLESTORY_APP_ID, # the game's own Discord entry; or your own app's ID
+        "app_name": "MapleStory Classic",   # preview only, own app; Discord shows its real name
         "details": "{name} · Lv {level} {job}",
         "state": "{map} · Ch {channel} · {pct}",
         "large_text": "MapleStory Classic World",
@@ -178,7 +187,9 @@ def build_activity(snap, settings):
     if len(state) >= 2:
         act["state"] = state[:128]
     large = render(d.get("large_text"), vals)
-    if d.get("large_image") and len(large) >= 2:      # hover text needs an image to show on
+    if d.get("large_image") and len(large) >= 2 and not uses_game_app(d):
+        # hover text needs an image to show on; the game's app has no art we may use,
+        # so Discord shows the game's own icon there
         act["assets"] = {"large_image": d["large_image"], "large_text": large[:128]}
     if playing and d.get("show_elapsed") and getattr(snap, "session_start", None):
         act["timestamps"] = {"start": int(snap.session_start)}

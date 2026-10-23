@@ -225,9 +225,10 @@ class SettingsWindow:
         en.pack(anchor="w")
         self.en_note = self.label(left, "", muted=True, size=8, wrap=px(320))
         self.en_note.pack(anchor="w", pady=(0, px(8)))
-        self.form_row(left, "Application ID", lambda p: self.entry(p, "discord.client_id", 26),
-                      "Create an app at discord.com/developers → Applications → New Application. "
-                      "Its name is what shows as \"Playing …\". Copy the Application ID here.")
+        self.form_row(left, "Application ID", self.app_id_row,
+                      "MapleStory's own ID adds your lines to the \"Playing MapleStory\" card "
+                      "Discord already shows, with the game's icon. For a custom name and icon, "
+                      "create an app at discord.com/developers and paste its Application ID.")
         self.form_row(left, "Line 1", lambda p: self.entry(p, "discord.details"))
         self.form_row(left, "Line 2", lambda p: self.entry(p, "discord.state"))
         self.form_row(left, "Icon hover text", lambda p: self.entry(p, "discord.large_text"))
@@ -283,6 +284,15 @@ class SettingsWindow:
         self.pv_status = self.label(right, "", muted=True, size=8, wrap=px(300))
         self.pv_status.pack(anchor="w", pady=(px(8), 0))
         return f
+
+    def app_id_row(self, parent):
+        row = tk.Frame(parent, bg=BG)
+        self.entry(row, "discord.client_id", 22).pack(side="left")
+        b = self.button(row, "Use MapleStory's", lambda: self.vars["discord.client_id"].set(
+            HS.MAPLESTORY_APP_ID))
+        b.configure(padx=self.px(8), pady=self.px(2), font=(F, 9))
+        b.pack(side="left", padx=(self.px(6), 0))
+        return row
 
     def show_toggles(self, parent):
         row = tk.Frame(parent, bg=BG)
@@ -348,10 +358,12 @@ class SettingsWindow:
             snap = copy.copy(snap)
             snap.state = "idle"
         act = HS.build_activity(snap, self.s)
-        self.pv["app"].configure(text=d.get("app_name") or "MapleStory Classic")
-        if hasattr(self, "pv_icon"):          # no image when the Discord app has none
-            self.pv_icon.configure(image=self.pv_img if d.get("large_image") else "",
-                                   width=0 if d.get("large_image") else 1)
+        game_app = HS.uses_game_app(d)
+        self.pv["app"].configure(text="MapleStory" if game_app else
+                                 (d.get("app_name") or "MapleStory Classic"))
+        img = d.get("large_image") and not game_app   # game app: Discord shows the game's icon
+        if hasattr(self, "pv_icon"):
+            self.pv_icon.configure(image=self.pv_img if img else "", width=0 if img else 1)
         if act is None:
             self.pv_head.configure(text="(NO STATUS SHOWN)")
             for k in ("details", "state", "time"):
