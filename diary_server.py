@@ -11,6 +11,7 @@ server beyond localhost.
 import json
 import mimetypes
 import threading
+import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -42,6 +43,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
+        self.server.last_hit = time.time()
         if not self._host_ok():
             return self._send(403, '{"error": "host"}')
         path = self.path.split("?", 1)[0]
@@ -56,6 +58,7 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, f.read_bytes(), mimetypes.guess_type(f.name)[0] or "application/octet-stream")
 
     def do_POST(self):
+        self.server.last_hit = time.time()
         if not self._host_ok() or self.headers.get("X-Diary") != "1":
             return self._send(403, '{"error": "forbidden"}')
         try:
@@ -89,15 +92,33 @@ class Handler(BaseHTTPRequestHandler):
                                    ensure_ascii=False))
 
 
-def serve(port=PORT, open_browser=True):
+def running(port=PORT):
+    """True when a diary server already answers on this PC."""
+    import urllib.request
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=0.6) as r:
+            return r.status == 200 and b"diary" in r.read(4000).lower()
+    except Exception:
+        return False
+
+
+def serve(port=PORT, open_browser=True, idle_exit_s=None):
+    """idle_exit_s: stop after this many seconds without a request (background starts)."""
     try:
         httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     except OSError:                       # port busy: any free one
         httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    httpd.last_hit = time.time()
     url = f"http://127.0.0.1:{httpd.server_port}/"
     print(f"Diary at {url}  (this PC only; Ctrl+C or close this window to stop)")
     if open_browser:
         threading.Timer(0.5, webbrowser.open, (url,)).start()
+    if idle_exit_s:
+        def watch():
+            while time.time() - httpd.last_hit < idle_exit_s:
+                time.sleep(15)
+            httpd.shutdown()
+        threading.Thread(target=watch, daemon=True).start()
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

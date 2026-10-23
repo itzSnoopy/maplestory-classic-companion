@@ -17,6 +17,7 @@ The tracker adds entries automatically. By hand:
   python diary.py icons [--force]                 game icons from Steam for the caption tags
   python diary.py refs [on|off "Game" ...]         which games' lines random captions may use
   python diary.py nickname Snoopy                 what {name} says in captions ("" = character name)
+  python diary.py open                            the editable diary (starts the server if needed)
   python diary.py serve                           diary.html with Edit / Generate buttons (localhost)
   python diary.py render                          rebuild diary.md (and diary.html)
   python diary.py html                            rebuild diary.html and open it in the browser
@@ -310,6 +311,34 @@ def generate_caption(eid=None, kind=None):
     return pick
 
 
+def open_diary(editable=True):
+    """Open the diary in the browser: the editable page (Edit / Generate buttons) when the diary
+    server runs or can be started, else the static diary.html. For the tray's "Open diary" and
+    any later caller (the tracker, a hotkey). Returns what was opened."""
+    import os
+    import subprocess
+    import webbrowser
+    import paths
+    if editable and not paths.FROZEN:           # the packaged build has no Python to serve with
+        try:
+            import diary_server
+            url = f"http://127.0.0.1:{diary_server.PORT}/"
+            if diary_server.running():
+                webbrowser.open(url)
+                return url
+            exe = Path(sys.executable)
+            exe = exe.with_name("pythonw.exe") if exe.with_name("pythonw.exe").exists() else exe
+            subprocess.Popen([str(exe), str(CODE / "diary.py"), "serve", "--idle-exit=30"],
+                             cwd=str(ROOT), creationflags=0x00000008 | 0x00000200, close_fds=True)
+            return url + " (starting; it opens the browser itself)"
+        except Exception as ex:
+            print(f"diary server not started: {ex}", file=sys.stderr)
+    _rebuild_html()
+    page = ROOT / "diary.html"
+    os.startfile(str(page))
+    return str(page)
+
+
 def _rebuild_html():
     try:
         import diary_html
@@ -587,7 +616,11 @@ if __name__ == "__main__":
         print(f"Captions now call you {nickname()}.")
     elif cmd == "serve":
         import diary_server
-        diary_server.serve(open_browser="--no-open" not in sys.argv)
+        idle = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--idle-exit=")), None)
+        diary_server.serve(open_browser="--no-open" not in sys.argv,
+                           idle_exit_s=float(idle) * 60 if idle else None)
+    elif cmd == "open":
+        print(open_diary())
     elif cmd == "killed-by" and len(sys.argv) > 2:
         e = annotate_last_death(" ".join(sys.argv[2:]))
         print(f"Updated: {e['text']}" if e else "No death in the diary yet.")

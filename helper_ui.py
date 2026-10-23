@@ -269,6 +269,7 @@ class Tray:
                 M("Start tracker", lambda: app.post("start"), enabled=lambda _: not app.running),
                 M("Stop tracker", lambda: app.post("stop"), enabled=lambda _: app.running),
                 pystray.Menu.SEPARATOR,
+                M("Open diary", lambda: app.post("diary")),
                 M("Open journal", lambda: app.post("journal")),
                 M("Open folder", lambda: app.post("folder")),
                 pystray.Menu.SEPARATOR,
@@ -610,6 +611,13 @@ class App:
         if tracker_running():
             STOP_FILE.touch()
 
+    def open_diary(self):
+        try:
+            import diary
+            diary.open_diary()
+        except Exception as e:
+            print(f"open diary failed: {e}")
+
     def open(self, path):
         try:
             os.startfile(str(path))
@@ -647,6 +655,8 @@ class App:
                     self.stop_tracker()
                 elif cmd == "settings":
                     self.open_settings()
+                elif cmd == "diary":
+                    self.open_diary()
                 elif cmd == "journal":
                     self.open(JOURNAL)
                 elif cmd == "folder":
