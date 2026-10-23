@@ -9,6 +9,7 @@ Fixture frames: a sessions/*/levelups/Lv*/ folder (before_*, at_*, after_*). Edi
 the original (pruned after 14 days) is gone. Local only: Nexon imagery.
 """
 import json
+import os
 import sys
 import types
 from pathlib import Path
@@ -19,7 +20,11 @@ import tracker as T                                  # noqa: E402
 from sources import make_source                      # noqa: E402
 from sources.screen import ImageFrames, ScreenSource  # noqa: E402
 
-FIXTURE = CODE / "sessions" / "20261023_021038" / "levelups" / "Lv5_021225"
+# the original is pruned after 14 days; dev/fixtures/ keeps a local copy (git-ignored, Nexon imagery)
+FIXTURE = next((p for p in (Path(os.environ["SVC_SIM_FIXTURE"]) if os.environ.get("SVC_SIM_FIXTURE") else None,
+                            CODE / "sessions" / "20261023_021038" / "levelups" / "Lv5_021225",
+                            CODE / "dev" / "fixtures" / "levelup_lv5") if p and p.exists()),
+               CODE / "dev" / "fixtures" / "levelup_lv5")
 
 
 class CaptureSink:
