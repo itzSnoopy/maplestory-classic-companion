@@ -85,7 +85,9 @@ def check_privacy():
     files = set(run(["git", "ls-files"]).stdout.split())
     files |= set(run(["git", "diff", "--cached", "--name-only"]).stdout.split())
     files |= set(run(["git", "ls-files", "--others", "--exclude-standard"]).stdout.split())
-    bad = sorted(f for f in files if PRIVATE.search(f) and f not in ALLOWED_IMAGES)
+    # docs/img/ = app-only screenshots (anonymized, no game imagery); review new ones by eye
+    bad = sorted(f for f in files if PRIVATE.search(f) and f not in ALLOWED_IMAGES
+                 and not re.fullmatch(r"docs/img/[\w-]+\.png", f))
     check("nothing private/game-derived tracked or about to be", not bad, ", ".join(bad[:10]))
     try:
         pw = json.loads((ROOT / "config.json").read_text(encoding="utf-8"))["obs"]["password"]

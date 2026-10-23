@@ -14,6 +14,13 @@ A leveling tracker for Nexon's official **MapleStory Classic World**. A small wi
 level, EXP per hour and time to the next level, and the app keeps a journal and a diary of your
 milestones (level-ups, deaths, job advancements, new regions) with screenshots and silly captions.
 
+## Components
+
+- **[Tracker](docs/tracker.md)**: reads the status bar and minimap, works out EXP per hour, time to
+  level, best maps and sessions; floating window, tray icon, settings, Discord status.
+- **[Diary](docs/diary.md)**: your character's scrapbook of level-ups, deaths, job advancements and
+  new places, with pictures and silly captions.
+
 ## How it works
 
 The app works **only by looking at the game window**, the same way screen recording or streaming
