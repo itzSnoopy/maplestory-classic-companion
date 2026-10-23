@@ -1,0 +1,199 @@
+{
+ "reference": [
+  1920,
+  1080
+ ],
+ "note": "Per window size: exact crop boxes (game pixels of the client area). Written by `python layout.py record`; sizes not listed are computed from the anchors in layout.py. The minimap is always located live.",
+ "sizes": {
+  "1920x1080": {
+   "recorded": "2026-10-23",
+   "verified": true,
+   "boxes": {
+    "exp": [
+     1023,
+     1048,
+     1120,
+     1063
+    ],
+    "level": [
+     608,
+     1054,
+     642,
+     1070
+    ],
+    "job": [
+     643,
+     1049,
+     775,
+     1062
+    ]
+   },
+   "check": {
+    "exp": "348[10.82%]",
+    "level": "12",
+    "job": "Magician"
+   },
+   "minimap_seen": {
+    "state": "full",
+    "box": [
+     62,
+     39,
+     560,
+     68
+    ]
+   }
+  },
+  "800x600": {
+   "recorded": "2026-10-23",
+   "verified": true,
+   "boxes": {
+    "exp": [
+     463,
+     568,
+     560,
+     583
+    ],
+    "level": [
+     48,
+     574,
+     82,
+     590
+    ],
+    "job": [
+     83,
+     569,
+     215,
+     582
+    ]
+   },
+   "check": {
+    "exp": "348[10.82%]",
+    "level": "12",
+    "job": "Magician"
+   },
+   "minimap_seen": {
+    "state": "collapsed",
+    "box": [
+     9,
+     5,
+     154,
+     19
+    ]
+   }
+  },
+  "1024x768": {
+   "recorded": "2026-10-23",
+   "verified": true,
+   "boxes": {
+    "exp": [
+     575,
+     736,
+     672,
+     751
+    ],
+    "level": [
+     160,
+     742,
+     194,
+     758
+    ],
+    "job": [
+     195,
+     737,
+     327,
+     750
+    ]
+   },
+   "check": {
+    "exp": "348[10.82%]",
+    "level": "12",
+    "job": "Magician"
+   },
+   "minimap_seen": {
+    "state": "full",
+    "box": [
+     55,
+     37,
+     553,
+     66
+    ]
+   }
+  },
+  "1280x720": {
+   "recorded": "2026-10-23",
+   "verified": true,
+   "boxes": {
+    "exp": [
+     703,
+     688,
+     800,
+     703
+    ],
+    "level": [
+     288,
+     694,
+     322,
+     710
+    ],
+    "job": [
+     323,
+     689,
+     455,
+     702
+    ]
+   },
+   "check": {
+    "exp": "348[10.82%]",
+    "level": "12",
+    "job": "Magician"
+   },
+   "minimap_seen": {
+    "state": "full",
+    "box": [
+     1000,
+     463,
+     1280,
+     492
+    ]
+   }
+  },
+  "1366x768": {
+   "recorded": "2026-10-23",
+   "verified": true,
+   "boxes": {
+    "exp": [
+     746,
+     736,
+     843,
+     751
+    ],
+    "level": [
+     331,
+     742,
+     365,
+     758
+    ],
+    "job": [
+     366,
+     737,
+     498,
+     750
+    ]
+   },
+   "check": {
+    "exp": "348[10.82%]",
+    "level": "12",
+    "job": "Magician"
+   },
+   "minimap_seen": {
+    "state": "full",
+    "box": [
+     49,
+     35,
+     547,
+     64
+    ]
+   }
+  }
+ }
+}

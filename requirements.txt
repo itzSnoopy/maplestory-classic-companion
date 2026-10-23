@@ -1,0 +1,9 @@
+obsws-python>=1.7
+pillow>=10
+numpy>=1.26           # layout.py, minimap.py, portrait.py
+pytesseract>=0.3.10
+pystray>=0.19        # tray icon for helper_ui.py
+# optional, only for Windows toast notifications:
+# winotify>=1.1
+# optional, only for the "wgc" source (game window capture without OBS):
+# windows-capture>=2.0

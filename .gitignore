@@ -1,0 +1,44 @@
+# --- Secrets / personal settings (local only) ---
+# OBS WebSocket password lives here; copy config.example.json to config.json
+config.json
+# character name, Discord settings (helper_settings.py has built-in defaults)
+helper_settings.json
+
+# --- Nexon game imagery: NEVER commit (screenshots, frames, UI crops, game art) ---
+*.png
+*.jpg
+*.jpeg
+*.bmp
+*.gif
+# Allowed: Microsoft Fluent Emoji maple leaf (MIT) and the placeholder built from it. Not Nexon art.
+!/discord_icon.png
+!/art/fluent_maple_leaf_3d.png
+screenshots/
+crops/
+templates/
+
+# Glyph bitmaps read from the game's HUD font (learned locally)
+glyphs.json
+glyphs_level.json
+glyphs/
+
+# --- Personal play data and live state ---
+/sessions/
+/history/
+/digest.json
+/status.json
+/diary.md
+/diary.html
+/journal.md
+/stop
+
+# --- Logs, caches ---
+*.log
+*.log.*
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# --- Claude Code local files (handoff docs ARE committed) ---
+.claude/settings.local.json

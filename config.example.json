@@ -1,0 +1,79 @@
+{
+  "obs": {
+    "host": "localhost",
+    "port": 4455,
+    "password": "",
+    "source": "Maplestory Game Capture",
+    "timeout": 5
+  },
+  "tesseract": "C:\\Program Files\\Tesseract-OCR\\tesseract.exe",
+  "interval": 30,
+  "fast_interval": 2,
+  "frames_before_level": 15,
+  "save_frames": "suspect",
+  "level": null,
+  "source_resolution": [
+    1920,
+    1080
+  ],
+  "regions": {
+    "exp": {
+      "box": [
+        1023,
+        1048,
+        1120,
+        1063
+      ],
+      "psm": 7,
+      "scale": 5,
+      "white_min": 230,
+      "glyphs": true
+    },
+    "level": {
+      "box": [
+        608,
+        1054,
+        642,
+        1070
+      ],
+      "glyphs": true,
+      "templates": "glyphs_level.json",
+      "white_min": 240,
+      "fallback": false
+    },
+    "map": {
+      "box": [
+        62,
+        39,
+        560,
+        68
+      ],
+      "psm": 6,
+      "scale": 4,
+      "threshold": 180,
+      "trim_border": true
+    },
+    "chat": {
+      "box": null,
+      "psm": 6
+    }
+  },
+  "overlay": {
+    "enabled": true,
+    "text_source": "Maple Tracker Text"
+  },
+  "notifications": {
+    "enabled": false,
+    "at_pct": 90,
+    "minutes_left": 10
+  },
+  "service": {
+    "close_after_absent_s": 600,
+    "close_after_afk_s": 1800,
+    "idle_poll_s": 10,
+    "obs_retry_s": 20,
+    "digest_every_s": 300,
+    "retention_days": 14
+  },
+  "afk_after_s": 300
+}
