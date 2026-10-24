@@ -537,3 +537,11 @@ Names: black text (lum < 32) on your map; DSius on another map was grey, darkest
 under the box 100+ (lum < 100 & sat < 35 catches it, ragged in JPEG). Leader star: ~37 gold pixels
 (R>200, G>110, R-B>100) in the icon box, member sun ~14. Tesseract (mask x4, psm 7, alnum
 whitelist) read both names exactly on lossless frames, "or" for the grey name in JPEG.
+
+## 2026-10-24 01:15 · Status-bar HP/MP digits = EXP digits
+
+Compared the learned tables: every HUD HP/MP digit (glyphs_hud.json) is exactly an EXP digit
+(glyphs.json) once empty top/bottom rows are trimmed (the HUD crop starts 2 rows higher). Only '/'
+is extra: a 3-wide diagonal, `.../.../.../..#/..#/.#./.#./#../#..`. A fresh install learns the EXP
+digits within minutes, so HP/MP now read from the first frame; the Stat window then learns from
+HP/MP ("408/408" teaches '/', 0, 4, 8, ...). Fixtures: one Stat window -> all of 0-9 / ( ) %.

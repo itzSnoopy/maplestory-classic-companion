@@ -419,6 +419,28 @@ class ScreenSource(Source):
         except Exception as e:
             log(f"party box read failed: {type(e).__name__}: {e}")
 
+    def _teach_window_digits(self, stat, hud_img):
+        """The other way round: the status bar's HP / MP (readable on a fresh install from the
+        EXP digits, vitals.py) teach the Stat window's digits and '/' (fresh installs could only
+        learn them from EXP/level before, so '/' and some digits never came). True if learned."""
+        if not hud_img:
+            return False
+        raw, crops = stat.get("raw") or {}, stat.get("_crops") or {}
+        if not any("?" in (raw.get(k) or "") for k in ("hp", "mp")):
+            return False
+        img, origin = hud_img
+        try:
+            r = vitals.read(img, tuple(self.res or (1920, 1080)), origin, learn=False)
+        except Exception:
+            return False
+        learned = False
+        for k in ("hp", "mp"):
+            if r.get(k) and k in crops and "?" in (raw.get(k) or ""):
+                learned |= panels.try_learn(crops[k], f"{r[k][0]}/{r[k][1]}")
+        if learned:
+            log("learned window digit(s) from the status bar's HP/MP")
+        return learned
+
     def _teach_vitals(self, stat, hud_img):
         """The Stat window shows the same HP / MP as the status bar: teach its digits."""
         if not hud_img:
@@ -485,6 +507,11 @@ class ScreenSource(Source):
                     if hud and "stat" in res and self._teach(a, res["stat"], hud):
                         res["stat"] = panels.read_stat(a, cands["stat"]) or res["stat"]
                     self.panels_due = False
+            if "stat" in res and self._teach_window_digits(res["stat"], hud_img):
+                if frame is None:
+                    res["stat"] = panels.read_at("stat", *spot_imgs["stat"]) or res["stat"]
+                else:
+                    res["stat"] = panels.read_stat(a, cands["stat"]) or res["stat"]
             self._remember_spots(res)
             if "stat" in res:
                 self._teach_vitals(res["stat"], hud_img)

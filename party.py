@@ -69,8 +69,8 @@ def find_bars(a):
             continue
         for x0, x1 in _runs(wh[y]):
             n = x1 - x0 + 1
-            if not (INNER_W - 2 <= n <= INNER_W + 1):
-                continue
+            if not (INNER_W - 2 <= n <= INNER_W + 1) or x0 < 1 or x1 + 1 >= W:
+                continue                            # wrong length, or the side border is cut off
             yb = y + INNER_H + 1
             if wh[yb, x0:x1 + 1].mean() < 0.9:              # bottom border
                 continue

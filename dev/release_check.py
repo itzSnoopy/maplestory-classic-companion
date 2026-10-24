@@ -159,6 +159,62 @@ calibrate.learn_typed(c, cfg, '78[84.78%]', '4')
           f"learned {''.join(learned)}" + (f"; wrong {wrong}" if wrong else ""))
 
 
+# what the window fixtures show (read by hand 2026-10-23, NOTES 20:40): file -> expected reads
+WINDOW_EXPECT = {
+    "lv12_stat.png": {"vitals": "349/376 487/507", "stat": "12 349/376 487/507 4 4 62 5 5"},
+    "allcommitted_ch31.png": {"vitals": "408/408 606/606", "stat": "14 408/408 606/606 4 4 77 5 0",
+                              "skills": "5 1 0 0 1 6"},
+}
+
+
+def check_fresh_windows():
+    """Fresh install that knows only its EXP digits (2026-10-24 bug: the skill bar never showed
+    on a new install): HP/MP must read from the first frame, and one Stat window must teach every
+    window digit, so stats and skill levels read too."""
+    wins = ROOT / "dev" / "fixtures" / "windows"
+    if not check("window test frames available (dev/fixtures/windows)",
+                 all((wins / f).exists() for f in WINDOW_EXPECT), str(wins)):
+        return
+    data = TMP / "fresh_windows"
+    shutil.rmtree(data, ignore_errors=True)
+    shutil.copytree(TMP / "fresh_data", data)
+    for f in ("glyphs_hud.json", "glyphs_ui.json"):
+        (data / f).unlink(missing_ok=True)
+    # a fresh install learns the EXP digits within minutes of play; give it the full set
+    import paths
+    exp = json.loads((paths.DATA / "glyphs.json").read_text(encoding="utf-8"))
+    (data / "glyphs.json").write_text(json.dumps(exp), encoding="utf-8")
+    code = f"""
+import sys, json; sys.path.insert(0, r'{ROOT}')
+import paths, ocr
+cfg = paths.load_config(); ocr.setup(cfg.get('tesseract'))
+from sources.screen import ScreenSource, ImageFrames
+from PIL import Image
+out = {{}}
+for f in {list(WINDOW_EXPECT)!r}:
+    src = ScreenSource(cfg, ImageFrames([Image.open(r'{wins}/' + f).convert('RGB')]))
+    src.read({{}})
+    got = {{}}
+    for t, k, v in src.take_facts():
+        if k == 'vitals':
+            got['vitals'] = ' '.join('%d/%d' % tuple(v[x]) for x in ('hp', 'mp'))
+        elif k == 'stat':
+            got['stat'] = ' '.join(str(v['raw'].get(x)) for x in
+                                   ('level', 'hp', 'mp', 'str', 'dex', 'int', 'luk', 'ap'))
+        elif k == 'skills':
+            got['skills'] = ' '.join(str(s.get('level')) for s in v.get('skills') or [])
+    out[f] = got
+print('RESULT ' + json.dumps(out))
+"""
+    r = run([sys.executable, "-c", code], {"MAPLE_COMPANION_DATA": str(data)})
+    m = re.search(r"^RESULT (.+)$", r.stdout, re.M)
+    got = json.loads(m.group(1)) if m else {}
+    bad = [f"{f} {k}: {got.get(f, {}).get(k)!r} != {v!r}" for f, exp_ in WINDOW_EXPECT.items()
+           for k, v in exp_.items() if got.get(f, {}).get(k) != v]
+    check("fresh install reads HP/MP and the game windows", m and not bad,
+          "; ".join(bad) if m else (r.stderr or r.stdout)[-300:])
+
+
 def check_killers():
     r = run([sys.executable, "killers.py", "audit"])
     check("killers audit runs", r.returncode == 0 and "Traceback" not in r.stderr, r.stderr[-200:])
@@ -246,6 +302,7 @@ def main():
     if ensure_fixture():
         check_sim_regular()
         check_sim_fresh()
+        check_fresh_windows()
     check_killers()
     if "--build" in sys.argv and all(ok for _, ok in results):
         z = do_build()

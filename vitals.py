@@ -102,13 +102,63 @@ def _solve(text, frac):
     return out
 
 
+def _trim(key):
+    """A glyph key without its empty top/bottom rows (the HUD crop sits 2 rows lower than EXP's)."""
+    rows = key.split("/")
+    while rows and "#" not in rows[0]:
+        rows.pop(0)
+    while rows and "#" not in rows[-1]:
+        rows.pop()
+    return "/".join(rows)
+
+
+def _is_slash(key):
+    """'/' by shape: one thin diagonal from top-right to bottom-left (2 px per column step)."""
+    rows = _trim(key).split("/")
+    if len(rows) < 5 or len(rows[0]) > 4:
+        return False
+    cols = []
+    for r in rows:
+        on = [i for i, c in enumerate(r) if c == "#"]
+        if not on or on[-1] - on[0] > 1:
+            return False
+        cols.append(on[0])
+    return (cols[0] == len(rows[0]) - 1 and cols[-1] == 0
+            and all(b <= a for a, b in zip(cols, cols[1:])))
+
+
+def _guess(keys):
+    """Unknown HUD glyphs from what a fresh install already knows (2026-10-24): the HP/MP digits
+    are the same shapes as the EXP bar's (glyphs.json, learned within minutes of play), just
+    cropped 2 rows lower; '/' is recognised by its shape. -> {key: char}"""
+    exp = {_trim(k): c for k, c in glyphs.load().items() if c.isdigit()}
+    out = {}
+    for k in keys:
+        c = exp.get(_trim(k))
+        if c is None and _is_slash(k):
+            c = "/"
+        if c is not None:
+            out[k] = c
+    return out
+
+
 def read_text(img, name, ref=REF, origin=None):
-    """'408/408', with '?' for unknown glyphs; None if the bracketed text isn't there."""
+    """'408/408', with '?' for unknown glyphs; None if the bracketed text isn't there.
+    Unknown glyphs that match an EXP digit (or the '/' shape) are learned when the whole
+    value then reads as a valid cur/max."""
     keys = _keys(_crop(img, name, ref, origin))
     if keys is None:
         return None
     t = glyphs.load(TEMPLATES)
-    return "".join(t.get(k, "?") for k in keys)
+    text = "".join(t.get(k, "?") for k in keys)
+    if "?" in text:
+        g = _guess([k for k in keys if k not in t])
+        filled = "".join(t.get(k) or g.get(k, "?") for k in keys)
+        if parse(filled):
+            t.update(g)
+            glyphs.save(t, TEMPLATES)
+            text = filled
+    return text
 
 
 def parse(text):

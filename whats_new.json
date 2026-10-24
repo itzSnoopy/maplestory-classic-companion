@@ -1,4 +1,7 @@
 {
+ "0.6.1": [
+  "Fixed: on a new install the skill bar never appeared and MP regen wasn't tracked. HP/MP now read right away, and opening the Stat window once teaches the app every number it needs."
+ ],
  "0.6.0": [
   "Party panel over the game: bigger HP bars for everyone in your party, read from the game's party box (shows when you're in a party).",
   "Party link: partners who also run this app see each other's exact HP, MP and EXP. Set the server and party code in Settings > Internet > Party link."
