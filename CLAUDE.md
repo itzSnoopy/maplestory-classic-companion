@@ -26,6 +26,8 @@ log), and the rules for parallel sessions. Before ending a session, append to
    **`journal.md`**: readable event log (sessions, level-ups, map changes, deaths). Read the tail.
 4. Only if needed: `history/levels.csv`, `history/sessions.csv`, `history/map_stats.json`,
    `sessions/<ts>/exp_log.csv` (every frame, large), `sessions/<ts>/summary.json`.
+   Stats / skill levels / channel: `digest.json` "character", full detail per character in `history/characters.json`
+   (only as fresh as the last time the player opened those windows: see the `seen` times).
 
 Don't read the PNGs unless asked. They're big, and the numbers are already in the CSVs.
 
@@ -66,12 +68,16 @@ Don't read the PNGs unless asked. They're big, and the numbers are already in th
 | `ocr.py` / `parse.py` | Tesseract wrapper (map title) / text → numbers |
 | `helper_ui.py` | floating info window + tray icon (read-only on status/digest; `start_helper.cmd`) |
 | `settings_ui.py` / `helper_settings.py` / `discord_rpc.py` | helper settings window, `helper_settings.json`, Discord Rich Presence (off by default) |
+| `panels.py` / `character.py` | game windows with long-lived facts: Character Stat, Skill, Change Channel (spotted in a 1/4-scale overview each quick look, read at full size; digits exact via `glyphs_ui.json`, skill names snapped to `skills_classic.json`) / what to believe, **per character** -> `history/characters.json` (stats, skills, channel, change log), `digest.json` "character" |
+| `charname.py` | who is playing: pixel fingerprint of the status-bar name (OCR garbles it); the real name comes from the Stat window |
 | `jobread.py` | job name from the status bar, read only at start / when an advancement is possible |
 | `hpbar.py` | HP % from the red HP bar fill (no OCR); logged as raw.hp, not used for decisions yet |
 | `deathbox.py` | spots the "You have died." box (shape/colour, no stored art); polled ~1/s between readings (`Source.poll`) |
 | `killers.py` / `killers.json` / `map_mobs.json` | who killed the player, guessed from the map's mob list (MeowDB, `dev/fetch_map_mobs.py`) + curated boss maps; `python killers.py audit` |
 | `internet.py` | the one gate for internet use: master switch + a toggle per feature (`FEATURES`), Settings > Internet. Every online feature calls `internet.allowed("name")` right before connecting |
 | `updater.py` | packaged app only: installs itself under %LOCALAPPDATA%\Programs (versions/<ver> + `latest` junction), polls GitHub releases (30 s -> 5 min), downloads + checks .sha256, swaps, restarts when not playing. Tests: `dev/update_sim.py` |
+| `perf.py` | the tracker measures itself: history/perf.csv one row a minute (CPU, RAM, checks/s, cost per step, death-box on-screen time). `python perf.py report`. **New per-frame features: wrap their work in `perf.timed("name")`** |
+| `capture.py` | "Screen checks per second" (Settings > General slider, 1-5 for now, default 1): WGC frame rate + the tracker's quick-look loop; followed live. Measured CPU table + `describe()` for the slider |
 | `mapwatch.py` | when to check the map name: every 1 s after a change, slowing to 15 s the longer you stay (Settings > General, `helper_settings.json` map_check) |
 | `maplist.py` / `maps_classic.json` | snaps map reads to the 453 real Classic map names (NiaMeowDB list) |
 | `dev/svc_sim.py` | offline end-to-end test of the service with saved frames |

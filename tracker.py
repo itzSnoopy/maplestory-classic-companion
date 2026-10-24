@@ -45,7 +45,10 @@ from collections import deque
 from datetime import datetime
 from pathlib import Path
 
+import capture
+import character
 import diary
+import perf
 import history as H
 import killers
 import parse
@@ -829,7 +832,10 @@ def run(cfg, args, source=None, sinks=None):
     afk_close = svc.get("close_after_afk_s", 1800)
     idle_poll = svc.get("idle_poll_s", 10)
     box_cfg = cfg.get("death_box", {})
-    box_poll = box_cfg.get("poll_s", 1.0) if box_cfg.get("enabled", True) else 0
+    box_on = box_cfg.get("enabled", True)
+
+    def box_poll():          # seconds between quick looks: Settings "Screen checks per second"
+        return 1.0 / capture.fps() if box_on else 0
     was_dead = False
     digest_every = svc.get("digest_every_s", 300)
 
@@ -842,6 +848,19 @@ def run(cfg, args, source=None, sinks=None):
     last_state = None
     last_digest = 0.0
     log(f"tracker service started (pid {os.getpid()}, source {source.name})")
+    perf.start(HISTORY / "perf.csv")          # self-measurement, one row a minute (perf.py)
+    # stats / skills / channel from game windows the player opens (panels.py, character.py)
+    prof = character.Profile(note=lambda s: (log("character: " + s), journal.write(s)),
+                             log=lambda s: log("character: " + s))
+
+    def take_facts():
+        try:
+            facts = source.take_facts()
+            if facts:
+                prof.update(facts)
+        except Exception:
+            log("character update failed: " + traceback.format_exc())
+    box_since = None                          # when the death box was first seen
 
     def show(text):
         for s in sinks:
@@ -872,6 +891,7 @@ def run(cfg, args, source=None, sinks=None):
                 log("stop file found")
                 break
             t = time.time()
+            perf.tick(last_state, capture.fps())
             sleep_for = idle_poll
             for req in diary.take_requests():          # `python diary.py note "..."`
                 try:
@@ -884,10 +904,12 @@ def run(cfg, args, source=None, sinks=None):
                     log("diary note failed: " + traceback.format_exc())
             try:
                 try:
-                    obs = source.read(session.tr.hints() if session else {})
+                    with perf.timed("read"):
+                        obs = source.read(session.tr.hints() if session else {})
                 except StopIteration:               # replay sources end
                     log("source exhausted")
                     break
+                take_facts()
                 if obs.status == UNAVAILABLE:
                     went_away(t, "waiting_for_source", obs.note or "source unavailable")
                     sleep_for = source.retry_s
@@ -921,13 +943,21 @@ def run(cfg, args, source=None, sinks=None):
             # once a second (it can be gone in a second or two if the player clicks Revive)
             end = t + sleep_for
             while (left := end - time.time()) > 0:
-                if box_poll and session and last_state == "playing":
+                if box_on and session and last_state == "playing":
                     now = time.time()
                     try:
-                        dead = source.poll(now)
+                        with perf.timed("poll"):
+                            dead = source.poll(now)
                     except Exception:
                         log("death box poll failed: " + traceback.format_exc())
                         dead = None
+                    take_facts()
+                    if dead and not was_dead:
+                        box_since = now
+                    elif dead is False and was_dead and box_since:
+                        # on screen at most this long (first seen -> first look without it)
+                        perf.sample("death_box_visible_s", now - box_since)
+                        box_since = None
                     if dead and not was_dead:
                         log("death box seen")
                         session.tr.death_box(now)
@@ -942,7 +972,7 @@ def run(cfg, args, source=None, sinks=None):
                     if left <= 0:
                         break
                     # the poll itself may have waited for a frame (wgc min_update_ms): keep ~1/s
-                    time.sleep(min(max(0.0, box_poll - (time.time() - now)), left))
+                    time.sleep(min(max(0.0, box_poll() - (time.time() - now)), left))
                 else:
                     time.sleep(left)
                     break
@@ -955,6 +985,7 @@ def run(cfg, args, source=None, sinks=None):
         for s in sinks:
             s.close()
         source.close()
+        perf.tick(last_state, capture.fps(), force=True)
         H.build_digest()
         log("tracker service stopped")
         lock.close()

@@ -214,11 +214,21 @@ def build_digest():
         "best_maps": ranking,
         "projection": {"basis_exp_per_hour": basis, "levels": proj},
         "recent_sessions": recent,
+        "character": _character(),
         "totals": {"sessions": len(sessions), "level_ups_logged": len(levels),
                    "played": fmt_secs(sum(_num(s.get("active_s"), int) or 0 for s in sessions))},
     }
     write_json(DIGEST, digest, indent=1)
     return digest
+
+
+def _character():
+    """Stats / skills / channel last seen in the game's windows (character.py)."""
+    try:
+        import character
+        return character.summary()
+    except Exception:
+        return None
 
 
 # ------------------------------------------------------------------ cleanup

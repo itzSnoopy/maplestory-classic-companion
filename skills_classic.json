@@ -1,0 +1,984 @@
+{
+ "source": "https://meowdb.com/msclassic/skills",
+ "fetched": "2026-10-23",
+ "skills": {
+  "0001000": {
+   "name": "Three Snails",
+   "class": "Beginner",
+   "job": "Beginner",
+   "max": 3
+  },
+  "0001001": {
+   "name": "Recovery",
+   "class": "Beginner",
+   "job": "Beginner",
+   "max": 3
+  },
+  "0001002": {
+   "name": "Nimble Feet",
+   "class": "Beginner",
+   "job": "Beginner",
+   "max": 3
+  },
+  "1000000": {
+   "name": "Improved HP Recovery",
+   "class": "Warrior",
+   "job": "1st Job",
+   "max": 15
+  },
+  "1000001": {
+   "name": "Max HP Increase",
+   "class": "Warrior",
+   "job": "1st Job",
+   "max": 15
+  },
+  "1000002": {
+   "name": "Precise Strikes",
+   "class": "Warrior",
+   "job": "1st Job",
+   "max": 15
+  },
+  "1001000": {
+   "name": "Iron Body",
+   "class": "Warrior",
+   "job": "1st Job",
+   "max": 20
+  },
+  "1001001": {
+   "name": "Power Strike",
+   "class": "Warrior",
+   "job": "1st Job",
+   "max": 20
+  },
+  "1001002": {
+   "name": "Slash Blast",
+   "class": "Warrior",
+   "job": "1st Job",
+   "max": 20
+  },
+  "1100000": {
+   "name": "Sword Mastery",
+   "class": "Fighter",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "1100001": {
+   "name": "Axe Mastery",
+   "class": "Fighter",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "1101000": {
+   "name": "Final Attack: Sword",
+   "class": "Fighter",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "1101001": {
+   "name": "Final Attack: Axe",
+   "class": "Fighter",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "1101002": {
+   "name": "Sword Booster",
+   "class": "Fighter",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "1101003": {
+   "name": "Axe Booster",
+   "class": "Fighter",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "1101004": {
+   "name": "Rage",
+   "class": "Fighter",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "1101005": {
+   "name": "Rush",
+   "class": "Fighter",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "1110000": {
+   "name": "Improved MP Recovery",
+   "class": "Crusader",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "1111000": {
+   "name": "Combo Attack",
+   "class": "Crusader",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "1111001": {
+   "name": "Panic",
+   "class": "Crusader",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "1111002": {
+   "name": "Coma",
+   "class": "Crusader",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "1111003": {
+   "name": "Shout",
+   "class": "Crusader",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "1111004": {
+   "name": "Armor Crash",
+   "class": "Crusader",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "1111005": {
+   "name": "Power Guard",
+   "class": "Crusader",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "1200000": {
+   "name": "Sword Mastery",
+   "class": "Page",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "1200001": {
+   "name": "Blunt Weapon Mastery",
+   "class": "Page",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "1201000": {
+   "name": "Final Attack: Sword",
+   "class": "Page",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "1201001": {
+   "name": "Final Attack: Blunt Weapon",
+   "class": "Page",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "1201002": {
+   "name": "Sword Booster",
+   "class": "Page",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "1201003": {
+   "name": "Blunt Weapon Booster",
+   "class": "Page",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "1201004": {
+   "name": "Threaten",
+   "class": "Page",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "1201005": {
+   "name": "Rush",
+   "class": "Page",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "1210000": {
+   "name": "Improved MP Recovery",
+   "class": "White Knight",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "1211000": {
+   "name": "Charged Blow",
+   "class": "White Knight",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "1211001": {
+   "name": "Fire Charge",
+   "class": "White Knight",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "1211002": {
+   "name": "Ice Charge",
+   "class": "White Knight",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "1211003": {
+   "name": "Lightning Charge",
+   "class": "White Knight",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "1211004": {
+   "name": "Elemental Crash",
+   "class": "White Knight",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "1211005": {
+   "name": "Power Guard",
+   "class": "White Knight",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "1300000": {
+   "name": "Spear Mastery",
+   "class": "Spearman",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "1300001": {
+   "name": "Polearm Mastery",
+   "class": "Spearman",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "1301000": {
+   "name": "Final Attack: Spear",
+   "class": "Spearman",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "1301001": {
+   "name": "Final Attack: Polearm",
+   "class": "Spearman",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "1301002": {
+   "name": "Spear Booster",
+   "class": "Spearman",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "1301003": {
+   "name": "Polearm Booster",
+   "class": "Spearman",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "1301004": {
+   "name": "Iron Will",
+   "class": "Spearman",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "1301005": {
+   "name": "Rush",
+   "class": "Spearman",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "1310000": {
+   "name": "Partial Resistance",
+   "class": "Dragon Knight",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "1311000": {
+   "name": "Piercing Crusher",
+   "class": "Dragon Knight",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "1311001": {
+   "name": "Dragon Fury",
+   "class": "Dragon Knight",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "1311002": {
+   "name": "Dragon Roar",
+   "class": "Dragon Knight",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "1311003": {
+   "name": "Power Crash",
+   "class": "Dragon Knight",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "1311004": {
+   "name": "Dragon Blood",
+   "class": "Dragon Knight",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "1311005": {
+   "name": "Hyper Body",
+   "class": "Dragon Knight",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "2000000": {
+   "name": "Improved MP Recovery",
+   "class": "Magician",
+   "job": "1st Job",
+   "max": 15
+  },
+  "2000001": {
+   "name": "Max MP Increase",
+   "class": "Magician",
+   "job": "1st Job",
+   "max": 15
+  },
+  "2001000": {
+   "name": "Magic Guard",
+   "class": "Magician",
+   "job": "1st Job",
+   "max": 15
+  },
+  "2001001": {
+   "name": "Magic Armor",
+   "class": "Magician",
+   "job": "1st Job",
+   "max": 20
+  },
+  "2001002": {
+   "name": "Energy Bolt",
+   "class": "Magician",
+   "job": "1st Job",
+   "max": 20
+  },
+  "2001003": {
+   "name": "Magic Claw",
+   "class": "Magician",
+   "job": "1st Job",
+   "max": 20
+  },
+  "2100000": {
+   "name": "MP Eater",
+   "class": "F/P Wizard",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "2101000": {
+   "name": "Meditation",
+   "class": "F/P Wizard",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "2101001": {
+   "name": "Teleport",
+   "class": "F/P Wizard",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "2101002": {
+   "name": "Slow",
+   "class": "F/P Wizard",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "2101003": {
+   "name": "Fire Arrow",
+   "class": "F/P Wizard",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "2101004": {
+   "name": "Poison Breath",
+   "class": "F/P Wizard",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "2110000": {
+   "name": "Elemental Resistance",
+   "class": "F/P Mage",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "2111000": {
+   "name": "Element Amplification",
+   "class": "F/P Mage",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "2111001": {
+   "name": "Explosion",
+   "class": "F/P Mage",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "2111002": {
+   "name": "Poison Mist",
+   "class": "F/P Mage",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "2111003": {
+   "name": "Element Composition",
+   "class": "F/P Mage",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "2111004": {
+   "name": "Seal",
+   "class": "F/P Mage",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "2111005": {
+   "name": "Spell Booster",
+   "class": "F/P Mage",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "2200000": {
+   "name": "MP Eater",
+   "class": "I/L Wizard",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "2201000": {
+   "name": "Meditation",
+   "class": "I/L Wizard",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "2201001": {
+   "name": "Teleport",
+   "class": "I/L Wizard",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "2201002": {
+   "name": "Slow",
+   "class": "I/L Wizard",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "2201003": {
+   "name": "Cold Beam",
+   "class": "I/L Wizard",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "2201004": {
+   "name": "Thunder Bolt",
+   "class": "I/L Wizard",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "2210000": {
+   "name": "Elemental Resistance",
+   "class": "I/L Mage",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "2211000": {
+   "name": "Element Amplification",
+   "class": "I/L Mage",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "2211001": {
+   "name": "Ice Strike",
+   "class": "I/L Mage",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "2211002": {
+   "name": "Thunder Spear",
+   "class": "I/L Mage",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "2211003": {
+   "name": "Element Composition",
+   "class": "I/L Mage",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "2211004": {
+   "name": "Seal",
+   "class": "I/L Mage",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "2211005": {
+   "name": "Spell Booster",
+   "class": "I/L Mage",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "2300000": {
+   "name": "MP Eater",
+   "class": "Cleric",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "2301000": {
+   "name": "Teleport",
+   "class": "Cleric",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "2301001": {
+   "name": "Heal",
+   "class": "Cleric",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "2301002": {
+   "name": "Invincible",
+   "class": "Cleric",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "2301003": {
+   "name": "Bless",
+   "class": "Cleric",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "2301004": {
+   "name": "Holy Arrow",
+   "class": "Cleric",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "2310000": {
+   "name": "Elemental Resistance",
+   "class": "Priest",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "2311000": {
+   "name": "Dispel",
+   "class": "Priest",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "2311001": {
+   "name": "Mystic Door",
+   "class": "Priest",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "2311002": {
+   "name": "Holy Symbol",
+   "class": "Priest",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "2311003": {
+   "name": "Shining Ray",
+   "class": "Priest",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "2311004": {
+   "name": "Doom",
+   "class": "Priest",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "2311005": {
+   "name": "Summon Dragon",
+   "class": "Priest",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "3000000": {
+   "name": "Critical Shot",
+   "class": "Bowman",
+   "job": "1st Job",
+   "max": 15
+  },
+  "3000001": {
+   "name": "The Eye of Amazon",
+   "class": "Bowman",
+   "job": "1st Job",
+   "max": 15
+  },
+  "3001000": {
+   "name": "Focus",
+   "class": "Bowman",
+   "job": "1st Job",
+   "max": 20
+  },
+  "3001001": {
+   "name": "Arrow Blow",
+   "class": "Bowman",
+   "job": "1st Job",
+   "max": 20
+  },
+  "3001002": {
+   "name": "Double Shot",
+   "class": "Bowman",
+   "job": "1st Job",
+   "max": 20
+  },
+  "3001003": {
+   "name": "Power Knockback",
+   "class": "Bowman",
+   "job": "1st Job",
+   "max": 15
+  },
+  "3100000": {
+   "name": "Bow Mastery",
+   "class": "Hunter",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "3100001": {
+   "name": "Amazon's Judgement",
+   "class": "Hunter",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "3101000": {
+   "name": "Final Attack: Bow",
+   "class": "Hunter",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "3101001": {
+   "name": "Bow Booster",
+   "class": "Hunter",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "3101003": {
+   "name": "Soul Arrow: Bow",
+   "class": "Hunter",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "3101004": {
+   "name": "Arrow Bomb",
+   "class": "Hunter",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "3110000": {
+   "name": "Mortal Blow",
+   "class": "Ranger",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "3111000": {
+   "name": "Puppet",
+   "class": "Ranger",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "3111001": {
+   "name": "Inferno",
+   "class": "Ranger",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "3111002": {
+   "name": "Arrow Rain",
+   "class": "Ranger",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "3111003": {
+   "name": "Strafe",
+   "class": "Ranger",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "3111004": {
+   "name": "Silver Hawk",
+   "class": "Ranger",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "3111005": {
+   "name": "Wind Step",
+   "class": "Ranger",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "3200000": {
+   "name": "Crossbow Mastery",
+   "class": "Crossbowman",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "3200001": {
+   "name": "Amazon's Judgement",
+   "class": "Crossbowman",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "3201000": {
+   "name": "Final Attack: Crossbow",
+   "class": "Crossbowman",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "3201001": {
+   "name": "Crossbow Booster",
+   "class": "Crossbowman",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "3201003": {
+   "name": "Soul Arrow: Crossbow",
+   "class": "Crossbowman",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "3201004": {
+   "name": "Iron Arrow",
+   "class": "Crossbowman",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "3210000": {
+   "name": "Mortal Blow",
+   "class": "Sniper",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "3211000": {
+   "name": "Puppet",
+   "class": "Sniper",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "3211001": {
+   "name": "Blizzard",
+   "class": "Sniper",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "3211002": {
+   "name": "Arrow Eruption",
+   "class": "Sniper",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "3211003": {
+   "name": "Strafe",
+   "class": "Sniper",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "3211004": {
+   "name": "Golden Eagle",
+   "class": "Sniper",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "3211005": {
+   "name": "Evasion Step",
+   "class": "Sniper",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "4000000": {
+   "name": "Nimble Body",
+   "class": "Thief",
+   "job": "1st Job",
+   "max": 15
+  },
+  "4000001": {
+   "name": "Keen Eyes",
+   "class": "Thief",
+   "job": "1st Job",
+   "max": 15
+  },
+  "4001000": {
+   "name": "Disorder",
+   "class": "Thief",
+   "job": "1st Job",
+   "max": 20
+  },
+  "4001001": {
+   "name": "Dark Sight",
+   "class": "Thief",
+   "job": "1st Job",
+   "max": 20
+  },
+  "4001002": {
+   "name": "Double Stab",
+   "class": "Thief",
+   "job": "1st Job",
+   "max": 20
+  },
+  "4001003": {
+   "name": "Lucky Seven",
+   "class": "Thief",
+   "job": "1st Job",
+   "max": 20
+  },
+  "4100000": {
+   "name": "Claw Mastery",
+   "class": "Assassin",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "4100001": {
+   "name": "Critical Throw",
+   "class": "Assassin",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "4100002": {
+   "name": "Critical Recovery",
+   "class": "Assassin",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "4101000": {
+   "name": "Claw Booster",
+   "class": "Assassin",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "4101001": {
+   "name": "Haste",
+   "class": "Assassin",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "4101002": {
+   "name": "Drain",
+   "class": "Assassin",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "4110000": {
+   "name": "Claw Guard",
+   "class": "Hermit",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "4111000": {
+   "name": "Meso Saver",
+   "class": "Hermit",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "4111001": {
+   "name": "Shadow Partner",
+   "class": "Hermit",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "4111002": {
+   "name": "Shadow Web",
+   "class": "Hermit",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "4111003": {
+   "name": "Shadow Meso",
+   "class": "Hermit",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "4111004": {
+   "name": "Avenger",
+   "class": "Hermit",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "4111005": {
+   "name": "Flash Jump",
+   "class": "Hermit",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "4200000": {
+   "name": "Dagger Mastery",
+   "class": "Bandit",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "4200001": {
+   "name": "Nimble Recovery",
+   "class": "Bandit",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "4201000": {
+   "name": "Dagger Booster",
+   "class": "Bandit",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "4201001": {
+   "name": "Haste",
+   "class": "Bandit",
+   "job": "2nd Job",
+   "max": 20
+  },
+  "4201002": {
+   "name": "Steal",
+   "class": "Bandit",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "4201003": {
+   "name": "Savage Blow",
+   "class": "Bandit",
+   "job": "2nd Job",
+   "max": 30
+  },
+  "4210000": {
+   "name": "Chakra",
+   "class": "Chief Bandit",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "4211000": {
+   "name": "Meso Guard",
+   "class": "Chief Bandit",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "4211001": {
+   "name": "Assaulter",
+   "class": "Chief Bandit",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "4211002": {
+   "name": "Band of Thieves",
+   "class": "Chief Bandit",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "4211003": {
+   "name": "Pickpocket",
+   "class": "Chief Bandit",
+   "job": "3rd Job",
+   "max": 20
+  },
+  "4211004": {
+   "name": "Meso Explosion",
+   "class": "Chief Bandit",
+   "job": "3rd Job",
+   "max": 30
+  },
+  "4211005": {
+   "name": "Flash Jump",
+   "class": "Chief Bandit",
+   "job": "3rd Job",
+   "max": 20
+  }
+ }
+}

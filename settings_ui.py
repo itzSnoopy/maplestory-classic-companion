@@ -162,7 +162,7 @@ class SettingsWindow:
     # ---------------------------------------------------------------- pages
     def page_general(self, f):
         self.title(f, "General", "How the floating window behaves, and how often the tracker "
-                                 "checks the map name.")
+                                 "looks at the game.")
         row = tk.Frame(f, bg=BG)
         row.pack(fill="x", pady=(0, self.px(12)))
         self.label(row, "Window opacity", muted=True).pack(anchor="w")
@@ -178,8 +178,34 @@ class SettingsWindow:
                            activebackground=BG, activeforeground=TEXT, selectcolor=FIELD,
                            anchor="w", highlightthickness=0, bd=0).pack(anchor="w", pady=(0, self.px(6)))
         tk.Frame(f, bg=BG, height=self.px(10)).pack()
+        self.capture_row(f)
         self.map_check_row(f)
         return f
+
+    def capture_row(self, f):
+        """Slider: screen checks per second (capture.py), with the CPU it costs on this PC."""
+        import capture
+        self.s.setdefault("capture", {}).setdefault("fps", HS.DEFAULTS["capture"]["fps"])
+        self.label(f, "Screen checks per second (while playing)", muted=True).pack(anchor="w")
+        v = tk.IntVar(value=capture.clamp(self.s["capture"]["fps"]))
+        note = self.label(f, "", muted=True, size=8, wrap=self.px(560))
+
+        def changed(*a):
+            n = capture.clamp(v.get())
+            self.s["capture"]["fps"] = n
+            note.configure(text=capture.describe(n))
+        tk.Scale(f, from_=capture.MIN_FPS, to=capture.MAX_FPS, orient="horizontal", variable=v,
+                 length=self.px(300), bg=SEL, fg=TEXT, troughcolor=FIELD, highlightthickness=0,
+                 bd=0, width=self.px(10), sliderlength=self.px(22), activebackground=GOLD,
+                 sliderrelief="flat").pack(anchor="w")
+        v.trace_add("write", changed)
+        note.pack(anchor="w")
+        self.label(f, "Higher catches short moments sooner and leaves room for more readings later. "
+                      "Up to 5 for now (the tracker measures what's needed; see perf.py). EXP readings "
+                      "keep their own pace. The tracker follows a change within a second.",
+                   muted=True, size=8, wrap=self.px(560)).pack(anchor="w", pady=(0, self.px(10)))
+        self.vars["capture.fps"] = v
+        changed()
 
     def page_internet(self, f):
         """Master switch + one toggle per online feature (internet.FEATURES). Feature toggles are

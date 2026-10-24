@@ -71,6 +71,12 @@ class Source:
         tell. Must be cheap; sources without live frames return None."""
         return None
 
+    def take_facts(self):
+        """Long-lived character facts seen since the last call: [(t, kind, value)], kind 'stat' |
+        'skills' | 'channel' (dicts as panels.py returns them) or 'away' (the game left the
+        screen: confirms a channel change). Consumed by character.Profile. Default: none."""
+        return []
+
     def end_session(self):
         pass
 

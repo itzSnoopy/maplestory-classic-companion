@@ -26,6 +26,7 @@ templates/
 # Glyph bitmaps read from the game's HUD font (learned locally)
 glyphs.json
 glyphs_level.json
+glyphs_ui.json
 glyphs/
 
 # --- Personal play data and live state ---

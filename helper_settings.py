@@ -50,6 +50,9 @@ DEFAULTS = {
         "popup_seconds": 8,
         "open_via": "localhost",        # localhost (127.0.0.1, no folder paths shown) or file
     },
+    "capture": {                        # Settings > General slider; capture.py (tracker follows live)
+        "fps": 1,                       # screen checks per second while playing, 1-60
+    },
     "internet": {                       # Settings > Internet; internet.py (one toggle per feature)
         "allowed": True,                # master switch: off = no internet connections at all
         "features": {"updates": True},  # automatic updates (updater.py, packaged app only)

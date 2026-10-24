@@ -312,3 +312,148 @@ shortcut) with the game minimized: **no frame from Windows** on every try (2 s t
 Windows stops drawing a minimized window, so there's nothing to copy. README's "not while it's
 minimized" is right; the IsIconic shortcut stays (it answers in ~3 ms instead of waiting 2 s).
 Covered / behind other windows / on another monitor still works.
+
+## 2026-10-23 20:00 · Screen checks per second: a setting (capture.py)
+
+User: now that the costs are known, make the capture rate a slider; MapleStory doesn't draw over
+60 fps, so 60 is the top. Settings > General "Screen checks per second (while playing)", 1-60,
+default 1, with a live line "about X% of one CPU core (Y% of this whole N-thread CPU)".
+Measured (poll loop: center grab + death box per frame, game running, 1920x1080):
+
+| /s | 1 | 5 | 10 | 20 | 30 | 60 |
+|---|---|---|---|---|---|---|
+| % of a core | 1.1 | 1.7 | 3.0 | 7.2 | 8.4 | 20.6 (Windows delivered ~48/s) |
+| RAM MB | 87 | 89 | 90 | 91 | 91 | 130 |
+
+Drives WGC `min_update_ms` (1000/fps; config wgc.min_update_ms still pins it for dev tools) and
+the tracker's quick-look loop (death box; map checks when due). EXP readings keep their 2-30 s
+schedule; idle stays 10 s. Read live (file time cache): a change restarts the capture session once
+(~116 ms CPU). Real service loop switched 1 -> 20 -> 5: 0.8 / 17.8 / 4.8 checks/s.
+`death_box.poll_s` in config.json is no longer used (`death_box.enabled` still is).
+
+## 2026-10-23 20:15 · Self-measurement (perf.py) and the 5/s cap
+
+Cap 5/s (user). The tracker now writes history/perf.csv once a minute. First sandbox run (L Forest
+II, 5 s rows): poll 5.1 ms CPU avg, read 17.9 ms, map_check 9.6 ms CPU / 172 ms wall, deathbox
+0.3 ms, grab_center 0.16 ms, grab_full 4.1 ms; process 4.9% of a core at both 1/s and 5/s over a
+minute that included map checks. **Tesseract ran on 13 of 13 map checks** there (the title crop
+changes between checks), so the md5 cache doesn't help on that map: ~165 ms wall + ~105 ms CPU
+in tesseract.exe per check (not in the process CPU). Death box timing resolution = 1/fps.
+
+## 2026-10-23 20:40 · Game windows: Character Stat, Skill, Change Channel (panels.py)
+
+Goal (user): catch short-lived windows that show long-lived facts. Fixtures (local, gitignored):
+`dev/fixtures/windows/` allcommitted_ch31.png (all three open, AP/SP 0, ch 31), lv12_stat.png (AP 5),
+lv12_skills.png (SP 3), lv14_skills.png (SP 2, mouse tooltip over Magic Claw). The Lv 12/14 ones
+were already in sessions/*/levelups/ (level-up evidence frames): the player opens these right
+after leveling.
+
+**Window facts (1920x1080; the windows don't scale, they can be dragged anywhere):**
+- Every window: white outer frame, white title bar 14 px tall 4 px below it (stat 175 wide, skill
+  187, channel 560, minimap 173), blue close button in the bar.
+- Text inside windows is a **pure-black pixel font** (text px exactly (0,0,0), no smoothing),
+  digit advance 7 px ("1" is 3 wide, gap 4), a space is a 5+ px gap. Tesseract is bad at it
+  (408 -> 405, 77 -> "if", Max -> "hax", Bolt -> "Balt") -> digits by exact glyph lookup
+  (glyphs_ui.json, all 0-9 / ( ) % learned from the fixtures). Words still Tesseract + snapping.
+- Stat: pink labels (203,79,130) 44x14 (JOB 44x24) at ly+0/18/46/64/82/100/118 (NAME, JOB, LEVEL,
+  HP, MP, EXP, FAME); green labels (patterned, ~(138,149,58)) 48x16 at lx-2, ly+141+18k (STR DEX
+  INT LUK); values x lx+47..lx+134; AP box white 29x15 at (lx+78, ly+225). JOB shows "MAGICIAN" in
+  black + a small pink second line (ignored). EXP shows "1328 (24%)" (whole %). The DETAIL panel
+  (attack, magic, acc, avoid, speed, jump; blue labels) opens to the right: not read yet.
+- Skill: rows 125x35 at (tx+39, ty+94+40k), k=0..5 visible, bg (205,217,227), selected/hovered row
+  (235,235,235); name on top (long ones cut: "Improved MP Reco..."), level 18 px lower; SP box white
+  29x15 at (tx+78, ty+344). Tabs: beginner (circle) and 1st job ("I", pink when active); the
+  "+" buttons turn orange when SP is free. Same name in two jobs (Improved MP Recovery =
+  Magician and Crusader) -> pick the job most of the tab's other skills belong to.
+- Change Channel: header blue (74,131,188) with the world name ("WINDIA") in white; cells 66x16
+  gray (177,177,177) with white "CH.n", 70x22 grid, 8 a row, 40 channels on Windia; the highlighted
+  cell is (54,170,221). Channel = row*8 + col + 1, no text read. Assumed: the window opens with the
+  current channel highlighted (ch 31 here, the channel the player said they're on).
+
+**Cost:** each quick look (1/s) now copies a 1/4-scale overview of the same frame (step-4 slice
+in the WGC callback, 480x270) next to the death-box square: copy 0.5 ms + to PIL 0.2 ms + scan
+0.85 ms = ~1.6 ms (~0.16% of a core at 1/s). While a window is open: a full grab + read each look
+(stat 3 ms, skills 11 ms, channel 3 ms; Tesseract ~1 s total the first time per distinct crop,
+then cached). False candidates: 0 on 61 lossless full frames without windows.
+
+**Not verified yet:** a real channel change (does the screen go black / EXP bar vanish long enough
+for a look to see it? that's what confirms the new channel), the login screen's channel list,
+the Beginner tab, a scrolled skill list (2nd job has more than 6 skills), other resolutions.
+
+## 2026-10-23 20:55 · Character windows: one glance is enough, per character
+
+User: these windows are glanced at rarely (at a level-up, or once in 30 min), maybe for a moment;
+values only change at milestones, so make sure they're consistent. A player may have several
+characters: keep stats/skills per character. Channel switching has no confirmation, only the screen
+changing.
+
+- **Consistency instead of "seen twice"** (character.py): one read is kept when it adds up.
+  Stats: STR+DEX+INT+LUK+AP = 25 + 5 x (level-1) (Lv 12: 4+4+62+5+5 = 80; Lv 14: 4+4+77+5+0 = 90),
+  or no stat went down. Skills: level not lower than before and not above the skill's max. A drop
+  (reset items, or a misread) needs two matching reads. SP total looked like 1 + 3 x (level-10) for
+  1st job (Lv 12: 7, Lv 14: 13) but isn't used as a rule yet (other tiers unknown).
+- **Same-frame reads at remembered spots** (screen.py, panels.window_box/read_at): the game reopens
+  a window where it was closed, so every quick look also copies those boxes at full size from the
+  same frame (stat ~195x290, skills ~207x380, channel ~580x220; ~1 MB, ~0.2 ms) and reads a window
+  there as soon as the overview says it's open. A window open for one frame is read. A window at a
+  new spot needs one more look (full grab). Spots persist in history/panel_spots.json.
+- **Who is playing** (charname.py): the status-bar name, one text line (14 px) below the job.
+  Tesseract reads "SnoopySparda" as "SsnhoopySparda", and names can't be snapped to a list, so the
+  key is a 10-hex SHA-1 of the trimmed white-pixel mask (white_min 220): the same on all frames
+  Lv 5-14 (13 checked), unaffected by open windows. Checked on every reading (~0.1 ms); a new one
+  becomes a "who" fact. The display name comes from the Stat window (OCR reads it right). Two
+  characters with the same name on different worlds would share a key (not handled).
+- history/character.json (first version) was migrated into history/characters.json (kept as
+  character.json.migrated).
+
+## 2026-10-23 21:05 · Channel switching, recorded at 10 fps (dev/fixtures/burst/20261023_205652)
+
+The player switched channel and cancelled once while dev/burst.py recorded (JPEG, so exact-color
+window detection doesn't work on these frames; channel read with a +-30 color tolerance):
+
+| time | Change Channel window | after |
+|---|---|---|
+| 20:57:05 | opens on 30 (current), highlight never moves, open ~1.0 s | closes; screen dark 1.14 s -> now on 21 |
+| 20:57:12 | opens on 21 (current), highlight 21 -> 17 -> 21 -> 18, open ~1.2 s | closes; dark 1.14 s -> now on 19 |
+| 20:57:17 | opens on 19 (current), open ~0.5 s | Cancel: no dark |
+
+Facts: the window **always opens on the current channel**. The picked channel is **often never on
+screen** (double-click switches at once: the 1st switch went to 21 with 30 highlighted until the
+window closed). A switch = window closes, then the whole screen fades to black: mean brightness
+100 -> 61 -> 24 -> 0, ~0.9 s fully black, back up; < 30 for ~1.15 s, starting ~0.4 s after the
+window is gone. Cancel: no fade. The EXP bar isn't visible while dark. Players start clicking
+~0.6 s after opening.
+
+Rules now (character.py): first read after opening = current channel ("sure"), except when it
+contradicts a sure saved channel: then it waits (saved one highlighted while open -> keep it;
+cancelled without -> take the first read). A dark look (center square mean < 30, sources/screen.py
+poll) within 3 s of the window's last sighting = a switch: channel becomes "ch ? (switched from
+21, maybe 18)" until the window is opened again. Replay of the recorded timeline at 1 look/s,
+1000 random phases: both switches detected 1000/1000; in 29% the only look into the 2nd window
+landed on a browsed cell (17/18), shown as the channel for ~1 s and then as "switched from 17"
+(the real 21 was never seen; a 1/s look can't do better). Dark check on 774 recorded frames: on
+only during the 2 switches + one 0.7 s fade in an older recording (portal?), harmless (only
+counts within 3 s of the channel window). A portal taken within 3 s of a *cancelled* channel
+window would count as a switch (rare; then "ch ?" until the next window).
+The live profile said ch 21 after the test (old logic); corrected to 19 by hand from the recording.
+
+## 2026-10-23 21:15 · Screenshot scores (user's rule: under 8 waits for the next screenshot)
+
+Every window read and every status-bar name check gets a score 0-10 with reasons
+(character.py `score_stat` / `score_skills` / `score_channel` / `score_who`). >= 8: committed at
+once. 4-7: each changed value waits; the next screenshot showing the same value commits it.
+< 4: never used. The last score per window is kept in characters.json `last_reads`; low scores
+are logged (tracker_live.log only, not the journal).
+
+| read | points off |
+|---|---|
+| stat | -1 per unreadable field (max -4); -3 STR+DEX+INT+LUK+AP != 25 + 5 x (level-1); -3 level != HUD badge; -2 EXP != HUD EXP (same frame only); -2 HP/MP current > max; -1 label fit < 0.6; -4 any base stat / level lower than saved |
+| skills | -1 per unrecognized name, unreadable level, unreadable SP; -4 per level above max; -4 any skill lower than saved |
+| channel | -2 fewer than 40 cells; -1 world unread; -3 contradicts a sure saved channel |
+| name | 0 covered (text taller than 11 px or touching the crop edge); 10 known character; 7 new after the game left the screen (tracker start, login, fade); 3 new mid-play. A pending name is confirmed by the next clean screenshot of it; facts wait meanwhile |
+
+Results: all 6 real window reads in dev/fixtures/windows score 10. Doctored: a box over the
+second "7" of INT 77 reads "7" -> 3/10 with history (doesn't add up + lower than saved: not
+used), 7/10 without (waits). A box over the status-bar name -> "covered", ignored. Edge-case
+script (16 checks) in the session scratchpad. Channel replay: unchanged (both switches 1000/1000;
+the ~29% "first look landed on a browsed cell" case is a 10/10 screenshot, so no score catches it).

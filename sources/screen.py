@@ -19,6 +19,7 @@ from pathlib import Path
 
 from PIL import Image
 
+import charname
 import deathbox
 import glyphs
 import hpbar
@@ -26,7 +27,9 @@ import jobread
 import maplist
 import mapwatch
 import ocr
+import panels
 import parse
+import perf
 from layout import anchor_for, crop, layouts
 import minimap
 from sources.base import ABSENT, OK, UNAVAILABLE, Observation, Source
@@ -157,11 +160,20 @@ class ScreenSource(Source):
         self._nametag = None
         self.maps = mapwatch.MapWatch()     # when to check the map name (sticky, mapwatch.py)
         self.read_now = False               # a poll saw a new map: the tracker reads right away
+        self.facts = []                     # [(t, kind, value)] for the character profile (panels.py)
+        self.panels_due = False             # the overview showed a window: next poll grabs it whole
+        self.panels_seen = frozenset()      # windows open at the last look (for the log)
+        self.spots = self._load_spots()     # {kind: box} where each window was last seen
+        self.who = None                     # status-bar name fingerprint (charname.py)
+        self._name_guess = {}               # fingerprint -> Tesseract's guess (once each)
+        self.away_since_who = True          # game left the screen since the last name check
+        self.last_level = (None, 0.0)       # (HUD level, time) for scoring stat-window reads
 
     def read(self, hints):
         t, now = time.time(), datetime.now()
         try:
-            frame = self.frames.grab()
+            with perf.timed("grab_full"):
+                frame = self.frames.grab()
         except StopIteration:
             raise
         except Exception as e:
@@ -172,6 +184,7 @@ class ScreenSource(Source):
         self.read_now = False
         if not exp_bar_visible(crops["exp"], exp_rc.get("white_min", 230)):
             self.maps.reset()               # loading / cash shop / gone: likely a new map after
+            self._away(t)
             return Observation(t, ABSENT, source=self.name, note="EXP bar not visible")
         if frame.size != self.warned_res:          # log each window-size change once
             how = ("recorded boxes from layouts.json" if f"{frame.size[0]}x{frame.size[1]}" in layouts()
@@ -194,7 +207,8 @@ class ScreenSource(Source):
             if name not in crops:
                 crops[name] = crop(frame, rc["box"], self.res, anchor_for(name, rc), name)
             if name == "exp":
-                raw[name], suspect = read_exp(crops[name], rc, hints)
+                with perf.timed("exp_read"):
+                    raw[name], suspect = read_exp(crops[name], rc, hints)
             else:
                 raw[name] = ocr.read(crops[name], rc, kind=name)
 
@@ -206,7 +220,12 @@ class ScreenSource(Source):
         level = parse.parse_level(raw["level"]) if raw.get("level") else None
         job = self.jobs.update(frame, level, t)       # reads only when due (start / advancement)
         map_name = self.maps.name
-        hp = hpbar.hp_pct(frame, tuple(self.res or (1920, 1080)))     # HP bar fill, no OCR
+        self._whoami(t, frame)
+        if level:
+            self.last_level = (level, t)
+        self._panels(t, frame, hud=(cur, pct, level))
+        with perf.timed("hp_bar"):
+            hp = hpbar.hp_pct(frame, tuple(self.res or (1920, 1080)))     # HP bar fill, no OCR
         rawlog = {k: v.replace("\n", " / ") for k, v in raw.items()}
         rawlog["hp"] = hp
         if self.maps.map_id:
@@ -221,6 +240,13 @@ class ScreenSource(Source):
         rc = self.regions.get("map", {})
         if not rc.get("box"):
             return False
+        with perf.timed("map_check"):
+            changed = self._check_map_inner(frame, t, rc, crops)
+        if changed:
+            perf.count("map_change")
+        return changed
+
+    def _check_map_inner(self, frame, t, rc, crops):
         state, box, read_rc = minimap.locate(frame, rc, self.res)
         if box is None:                # no minimap, or one without a name (compact view)
             return self.maps.update(t, None)
@@ -229,7 +255,8 @@ class ScreenSource(Source):
             crops["map"] = c
         h = hashlib.md5(c.tobytes()).hexdigest()
         if h != self.map_cache[0]:
-            text = ocr.read(c, read_rc, kind="map")
+            with perf.timed("ocr_map"):
+                text = ocr.read(c, read_rc, kind="map")
             if state == "collapsed":
                 text = minimap.to_two_lines(text)
             self.map_cache = (h, text)
@@ -251,17 +278,173 @@ class ScreenSource(Source):
         try:
             # only the center square is needed for the box, unless a diary picture or a map
             # check is due (then the whole frame, read once for all of them)
-            full = due or map_due
-            frame = self.frames.grab() if full else self.frames.grab(center=deathbox.PAD)
+            # a game window (stat/skills/channel) seen in the last overview: read it whole now
+            full = due or map_due or self.panels_due
+            small, spot_imgs = None, {}
+            with perf.timed("grab_full" if full else "grab_center"):
+                if full:
+                    frame = self.frames.grab()
+                elif hasattr(self.frames, "grab_parts"):
+                    # same frame: the center square for the box, a 1/4-scale overview to spot
+                    # windows, and full-size copies of where each window was last seen (the game
+                    # reopens them there), so a window open for a single frame is still read
+                    spots = list(self.spots.items())
+                    imgs = self.frames.grab_parts(
+                        [{"center": deathbox.PAD}, {"step": panels.SMALL}]
+                        + [{"box": b} for _, b in spots])
+                    frame, small = imgs[0], imgs[1]
+                    spot_imgs = {k: (img, b[:2]) for (k, b), img in zip(spots, imgs[2:])}
+                else:
+                    frame = self.frames.grab(center=deathbox.PAD)
         except Exception:
             return None
         if frame.getbbox() is None:
+            self._away(t)
             return None                 # game not on screen (black frame: gone / minimized)
+        # a channel switch (and a portal) fades the whole screen to black: mean < 30 for ~1.2 s,
+        # so a look once a second lands in it (character.py: dark right after the channel window)
+        if sum(frame.resize((16, 16), Image.NEAREST).convert("L").getdata()) < 30 * 256:
+            self._away(t)
         if due:
             self._take_due_shots(t, frame)
         if map_due and self._check_map(frame, t):
             self.read_now = True        # new map: take a reading now, so the tracker sees it
-        return deathbox.is_dead(frame)
+        self._panels(t, frame if full else None, small, spot_imgs=spot_imgs)
+        with perf.timed("deathbox"):
+            return deathbox.is_dead(frame)
+
+    # ---- game windows with long-lived facts (panels.py -> character.py)
+    def _away(self, t):
+        self.facts.append((t, "away", None))
+        self.away_since_who = True
+
+    def _whoami(self, t, frame):
+        """Who is playing: the status-bar name's pixel fingerprint (charname.py), sent on every
+        reading so a new one can be confirmed by the next screenshot (character.py scores it).
+        after_away: the game left the screen since the last check (login screen = a character
+        switch is possible); the tracker starting counts as that too."""
+        try:
+            with perf.timed("charname"):
+                fp, c, clean = charname.fingerprint(frame, tuple(self.res or (1920, 1080)))
+            if not fp:
+                return
+            if fp != self.who:
+                guess = self._name_guess.get(fp)
+                if guess is None:
+                    guess = self._name_guess[fp] = charname.guess(c) if clean else ""
+                log(f"character name on screen: {fp} (status bar reads {guess!r}"
+                    f"{'' if clean else ', looks covered'})")
+                self.who = fp
+            self.facts.append((t, "who", {"fp": fp, "guess": self._name_guess.get(fp, ""),
+                                          "clean": clean, "after_away": self.away_since_who}))
+            self.away_since_who = False
+        except Exception as e:
+            log(f"character name check failed: {type(e).__name__}: {e}")
+
+    @staticmethod
+    def _spots_path():
+        from paths import DATA
+        return DATA / "history" / "panel_spots.json"
+
+    def _load_spots(self):
+        try:
+            import json
+            d = json.loads(self._spots_path().read_text(encoding="utf-8"))
+            return {k: list(v) for k, v in d.items() if k in panels.EXTENT}
+        except (OSError, ValueError):
+            return {}
+
+    def _remember_spots(self, res):
+        changed = False
+        for kind, r in res.items():
+            b = panels.window_box(kind, r)
+            b = [max(0, b[0]), max(0, b[1]), b[2], b[3]]
+            if self.spots.get(kind) != b:
+                self.spots[kind] = b
+                changed = True
+        if changed:
+            try:
+                import json
+                p = self._spots_path()
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(json.dumps(self.spots), encoding="utf-8")
+            except OSError:
+                pass
+
+    def _panels(self, t, frame=None, small=None, hud=None, spot_imgs=None):
+        """Look for the Character Stat / Skill / Change Channel windows. With the overview
+        (`small`): read the ones that are at their remembered spot (`spot_imgs`, same frame);
+        others get a whole-frame grab next look. With a full frame: read them all.
+        `hud` = (cur, pct, level) from this same frame teaches unknown digits."""
+        try:
+            with perf.timed("panels_scan"):
+                if small is not None:
+                    cands = panels.scan(small)
+                elif frame is not None:
+                    cands = panels.scan(frame.resize(
+                        (frame.width // panels.SMALL, frame.height // panels.SMALL), Image.NEAREST))
+                else:
+                    return
+            if not cands:
+                self.panels_due = False
+                self.panels_seen = frozenset()
+                return
+            with perf.timed("panels_read"):
+                if frame is None:
+                    res = {}
+                    for kind in cands:
+                        if kind in (spot_imgs or {}):
+                            img, origin = spot_imgs[kind]
+                            r = panels.read_at(kind, img, origin)
+                            if r:
+                                res[kind] = r
+                    # moved / never seen: grab the whole frame next look
+                    self.panels_due = any(k not in res for k in cands)
+                else:
+                    import numpy as np
+                    a = np.asarray(frame.convert("RGB"))
+                    res = panels.read(a, cands)
+                    if hud and "stat" in res and self._teach(a, res["stat"], hud):
+                        res["stat"] = panels.read_stat(a, cands["stat"]) or res["stat"]
+                    self.panels_due = False
+            self._remember_spots(res)
+            kinds = frozenset(res)
+            if kinds != self.panels_seen:
+                if kinds:
+                    log("window(s) seen: " + ", ".join(sorted(kinds)))
+                self.panels_seen = kinds
+            for kind, v in res.items():
+                v = {k: x for k, x in v.items() if not k.startswith("_")}
+                if kind == "stat":
+                    # what the HUD says, to check the window against (character.py scoring)
+                    lv, lt = self.last_level
+                    v["hud"] = {"level": hud[2] if hud else (lv if t - lt < 120 else None),
+                                "exp": hud[0] if hud else None}
+                self.facts.append((t, kind, v))
+        except Exception as e:
+            self.panels_due = False
+            log(f"window read failed: {type(e).__name__}: {e}")
+
+    @staticmethod
+    def _teach(a, stat, hud):
+        """Unknown digits in the stat window: the HUD shows the same EXP and level right now."""
+        cur, pct, level = hud
+        crops, raw, learned = stat.get("_crops") or {}, stat.get("raw") or {}, False
+        if level and "?" in raw.get("level", ""):
+            learned |= panels.try_learn(crops["level"], str(level))
+        if cur is not None and pct is not None and "?" in raw.get("exp", ""):
+            for p in {int(pct), int(round(pct))}:           # whole % in the window
+                if panels.try_learn(crops["exp"], f"{cur} ({p}%)"):
+                    learned = True
+                    break
+        if learned:
+            log("learned window digit(s) from the HUD's EXP/level")
+        return learned
+
+    def take_facts(self):
+        """Facts gathered since the last call (for character.Profile.update)."""
+        f, self.facts = self.facts, []
+        return f
 
     def begin_session(self, session_dir, gallery_dir):
         self.session_dir, self.gallery = Path(session_dir), Path(gallery_dir)
