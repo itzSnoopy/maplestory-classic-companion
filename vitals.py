@@ -16,8 +16,9 @@ Drops (skills, hits) and big rises (potions, level-up refill) are not ticks.
 
   python vitals.py FRAME [FRAME...]      read HP/MP of saved frames (dev check)
 """
+import statistics
 import sys
-from collections import Counter, deque
+from collections import deque
 
 import glyphs
 from layout import place
@@ -167,125 +168,79 @@ def try_learn(img, name, value, ref=REF, origin=None):
 
 
 # ------------------------------------------------------------------ regen model
-def _common_phase(windows, P):
-    """Fold each (a, b] window to offsets in (-P, 0] before the last sighting and find the spot
-    covered by the most of them. Returns (count, lo, hi, ref) of that best overlap, or None."""
-    ref = windows[-1][1]
-    ivs = []
-    for a, b in windows:
-        k = round((ref - b) / P)
-        lo, hi = a + k * P - ref, b + k * P - ref
-        if hi - lo >= P:
-            continue                        # a window as long as the period says nothing
-        for s in (-P, 0.0, P):              # the fold can wrap around: try the neighbours too
-            ivs.append((lo + s, hi + s))
-    best = None
-    for lo0, _ in ivs:                      # the best overlap starts at some window's start
-        x = lo0 + 1e-6
-        inside = [(lo, hi) for lo, hi in ivs if lo < x <= hi]
-        if not inside:
-            continue
-        lo, hi = max(i[0] for i in inside), min(i[1] for i in inside)
-        if -P < (lo + hi) / 2 <= 0 and (best is None or len(inside) > best[0]):
-            best = (len(inside), lo, hi, ref)
-    return best
-
-
 class Meter:
-    """Learns one meter's regen tick (size, period, phase) from (t, cur, max) looks."""
+    """Learns one meter's regen tick from (t, cur, max) looks: its usual gap and its size, and
+    restarts the countdown at every tick it sees.
 
-    MAX_TICK_FRAC = 0.25    # a rise above 25% of max (or 30) is a potion or a refill; smaller
-                            # ones count as ticks only on a regular beat (HP +50 of 408 is one)
+    Measured 2026-10-23 (dev/vitals_log.py): standing still, MP ticks every 10.0 s like a clock;
+    while playing the same ticks come 9.8, 10.3, 9.8, 14.8, 12.3 s apart (what you do pushes the
+    next one back). So the next tick is "last tick + usual gap", re-anchored at each tick, and the
+    usual gap is the most common short gap between ticks (delayed and masked ticks only make gaps
+    longer). The tick size follows the max (1% of max MP + base) and what you do (+12 standing,
+    +9 moving), so `amount` is the last tick's size; a max change (level-up) keeps the gap.
+    """
+
+    MAX_TICK_FRAC = 0.25    # a rise above 25% of max (or 30) is a potion or a refill
     MIN_PERIOD, MAX_PERIOD = 2.0, 60.0
+    CLUSTER_S = 1.5         # gaps within this of each other are "the same gap" (looks are
+                            # 0.5-1 s apart, so a 10 s gap is measured as 9-11 s)
+    MIN_CLUSTER = 3         # this many similar gaps before the usual gap is trusted
 
-    def __init__(self):
+    def __init__(self, prior=None):
+        self.prior = prior                  # the rhythm the skill text promises ("every 10
+                                            # seconds"), used until enough ticks are measured
         self.prev = None                    # (t, cur, max)
-        self.rises = deque(maxlen=40)       # (t_prev, t, amount) for small rises
-        self.amount = None
-        self.period = None
-        self.phase = None                   # a tick time (epoch s); ticks at phase + k*period
-        self.width = None                   # how sure the phase is (s)
-        self.full = deque(maxlen=200)       # look times at full (ticks can't show then)
+        self.rises = deque(maxlen=40)       # (t_prev, t, amount): small rises (tick candidates)
+        self.amount = None                  # size of the last tick
+        self.period = None                  # the usual gap between ticks (s)
+        self.last = None                    # (lo, hi): the last tick happened in this window
+        self.width = None
 
     def feed(self, t, cur, mx):
         p, self.prev = self.prev, (t, cur, mx)
-        if p is None or mx != p[2]:
-            if p is not None:               # max changed (level-up, gear): start over
-                self.rises.clear()
-                self.amount = self.period = self.phase = None
+        if p is None:
             return
-        if cur >= mx:
-            self.full.append(t)
+        if mx != p[2]:                      # max changed (level-up, gear): sizes change, the
+            self.amount = None              # rhythm doesn't; the refill isn't a tick
+            return
         d = cur - p[1]
         if 0 < d <= max(30, self.MAX_TICK_FRAC * mx) and t - p[0] <= 3.0:
+            # a rise right after the last tick (well inside the usual gap) isn't the next tick
+            per = self.period or self.prior
+            if per and self.last and p[0] - self.last[1] < 0.6 * per:
+                return
             self.rises.append((p[0], t, d))
+            self.last, self.amount = (p[0], t), d
+            self.width = t - p[0]
             self._fit()
 
     def _fit(self):
-        amounts = Counter(d for _, _, d in self.rises)
-        amt, n = amounts.most_common(1)[0]
-        if n < 2:
-            return
-        ticks = [(a, b) for a, b, d in self.rises if d == amt][-15:]
-        if len(ticks) < 4:              # 3 sightings can't tell 10.0 s from 10.5 s
-            return
-        # period: the longest one (half-second steps) on which the tick windows (previous look,
-        # sighting] line up on one phase, ~1 in 10 strays allowed. A true period P also fits P/2,
-        # P/3.. (shorter ones line up with almost anything), so the longest fit wins. Strays only
-        # shorten gaps and masked ticks only lengthen them, so P is at most the longest gap.
-        # (2026-10-23: capping by the *shortest* gap let one stray collapse 10 s to 2 s.)
-        gaps = [b2 - b1 for (_, b1), (_, b2) in zip(ticks, ticks[1:])]
-        n = len(ticks)
-        need = n - (max(1, n // 4) if n >= 5 else 0)     # up to 1 in 4 strays (2x P fails half)
-        best = None
-        P = round(min(max(gaps) + 1.5, self.MAX_PERIOD) * 2) / 2
-        while P >= self.MIN_PERIOD - 1e-9:
-            fit = _common_phase(ticks, P)
-            if fit and fit[0] >= need and self._coverage(ticks, P) >= 0.45:
-                best = (P, fit)
-                break
-            P -= 0.5
-        if best is None:
-            return
-        # refine: with few ticks a range of periods fits (10.0 and 10.5 both fit 3 sightings);
-        # the sightings' own spacing, divided by the ticks in between, is closer
-        P0 = best[0]
-        ks = [round(g / P0) for g in gaps]
-        span = sum(g for g, k in zip(gaps, ks) if k >= 1 and abs(g - k * P0) <= 1.5)
-        cnt = sum(k for g, k in zip(gaps, ks) if k >= 1 and abs(g - k * P0) <= 1.5)
-        if cnt:
-            P1 = round(span / cnt * 2) / 2
-            if P1 != P0 and self.MIN_PERIOD <= P1 <= self.MAX_PERIOD:
-                fit = _common_phase(ticks, P1)
-                if fit and fit[0] >= need:
-                    best = (P1, fit)
-        P, (_, lo, hi, ref) = best
-        self.amount, self.period = amt, P
-        self.phase, self.width = ref + (lo + hi) / 2, hi - lo
-
-    def _coverage(self, ticks, P):
-        """Seen ticks / ticks the period predicts, over the gaps between sightings (gaps that
-        include time at full are skipped). A too-short period predicts ticks that never came."""
-        seen = pred = 0
-        for (_, b1), (_, b2) in zip(ticks, ticks[1:]):
-            if any(b1 < f < b2 for f in self.full):
-                continue
-            seen += 1
-            pred += max(1, round((b2 - b1) / P))
-        return seen / pred if pred else 1.0
+        mids = [(a + b) / 2 for a, b, _ in self.rises]
+        gaps = sorted(g for g in (y - x for x, y in zip(mids, mids[1:]))
+                      if self.MIN_PERIOD <= g <= self.MAX_PERIOD)
+        best = None                         # the gap most others agree with (ties: the shorter)
+        for g in gaps:
+            near = [h for h in gaps if abs(h - g) <= self.CLUSTER_S]
+            if len(near) >= self.MIN_CLUSTER and (best is None or len(near) > len(best)):
+                best = near
+        if best:
+            self.period = round(statistics.median(best) * 2) / 2
 
     def next_tick(self, now):
-        if self.phase is None or not self.period:
+        per = self.period or self.prior
+        if not per or not self.last:
             return None
-        k = max(0, int((now - self.phase) // self.period) + 1)
-        return self.phase + k * self.period
+        return (self.last[0] + self.last[1]) / 2 + per
 
     def state(self, now):
         p = self.prev
+        nxt = self.next_tick(now)
         return {
             "cur": p[1] if p else None, "max": p[2] if p else None,
-            "tick": self.amount, "period": self.period,
-            "next": round(self.next_tick(now), 2) if self.phase is not None else None,
+            "tick": self.amount, "period": self.period or self.prior,
+            "measured": self.period is not None,
+            "next": round(nxt, 2) if nxt else None,
+            "late": bool(nxt and now > nxt + 1.0),     # a tick is overdue (pushed back by play)
             "sure_s": round(self.width, 2) if self.width is not None else None,
             "ticks_seen": len(self.rises),
         }

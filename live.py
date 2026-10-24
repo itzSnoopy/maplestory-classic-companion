@@ -15,6 +15,7 @@ live.json:
 The skill bar (skillbar_ui.py) animates the wheels itself between updates.
 """
 import json
+import re
 import time
 
 import history as H
@@ -85,6 +86,11 @@ class Live:
                 lv = ((c.get("skills") or {}).get(sid) or {}).get("value") or 0
                 texts = (self.data.get(sid) or {}).get("levels") or []
                 if lv:
+                    # the skill's own rhythm ("every 10 seconds") until ticks are measured
+                    said = texts[lv - 1] if lv <= len(texts) else ""
+                    m = re.search(r"every (\d+) sec", said or "")
+                    if m and self.meters[k].prior is None:
+                        self.meters[k].prior = float(m.group(1))
                     icon = DATA / "templates" / "skill_icons" / f"{sid}.png"
                     regen[k] = {"skill": (self.data.get(sid) or {}).get("name"), "level": lv,
                                 "says": texts[lv - 1] if lv <= len(texts) else None,

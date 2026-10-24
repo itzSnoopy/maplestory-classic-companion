@@ -490,3 +490,17 @@ one phase, P <= longest gap + 1.5; refined from the sightings' spacing; a period
 any period is shown. Recording at 1/s, 100 offsets: MP 10.0 s 100/100 (HP: only 3 ticks before
 full -> "learning", correct). Synthetic 1200 with heavy same-size strays: ~98%. Live after 1 min:
 MP +9 / 10.0 s.
+
+## 2026-10-23 23:00 · Regen ticks aren't a strict clock while playing; level-up reset
+
+User: "MP recovery crashed once I leveled up" (Lv 15, max MP 606 -> 630). Not a crash: the Meter
+reset on the max change and never settled again. Recorded (dev/vitals_log.py, fighting around
+Perion): MP +9 at gaps 9.8, 10.3, 9.8, **14.8, 12.3** s. Standing still it was 10.0 s every time
+(22:15). So play pushes the next tick back, and a fixed phase lattice can't fit.
+New Meter: the next tick = last seen tick (window midpoint) + the usual gap; the usual gap = the
+cluster of gaps (+-1.5 s) most others agree with (>= 3), and until then the skill text's rhythm
+("every 10 seconds", live.py passes it as `prior`). A max change keeps the rhythm (only the size
+changes); the shown size is the last tick's (+12 standing, +9 moving). Overdue ticks hold the
+wheel at 0 instead of wrapping. Results: steady recording 10.0 s, next tick within 0.2-0.3 s
+(median); pushed-back recording 10.0 s, median 0.5-0.8 s (a 5 s push can't be foreseen); synthetic
+with delays + casts + a level-up: 294/300.

@@ -1,4 +1,8 @@
 {
+ "0.5.1": [
+  "MP/HP recovery countdown fixed after a level-up, and it now follows ticks that your playing pushes back (it waits at 0 for a late tick).",
+  "The number under the MP slot shows the size of the latest tick (+12 standing still, +9 moving)."
+ ],
  "0.5.0": [
   "The skill bar is now on by default. Drag it anywhere; right-click to lock it so clicks go to the game.",
   "Right-click a skill on the bar to remove it, and \"Add back\" to bring it back.",

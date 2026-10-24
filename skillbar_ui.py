@@ -163,8 +163,10 @@ class SkillBar:
             return self._slot(icon, mid="full", label=label)
         if not nxt or not per:
             return self._slot(icon, mid="…", label=label)       # still learning the tick
-        left = (nxt - now) % per
-        return self._slot(icon, frac_left=left / per, mid=f"{math.ceil(left):.0f}",
+        left = nxt - now
+        if left <= 0:               # overdue: what you're doing pushed the tick back; hold at 0
+            return self._slot(icon, mid="0", corner=f"{per:g}s", label=label)
+        return self._slot(icon, frac_left=min(1.0, left / per), mid=f"{math.ceil(left):.0f}",
                           corner=f"{per:g}s", label=label)
 
     def _caption(self, text, color):
