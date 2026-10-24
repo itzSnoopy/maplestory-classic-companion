@@ -38,6 +38,14 @@ from sources.base import ABSENT, OK, UNAVAILABLE, Observation, Source
 
 
 PARTY_EVERY_S = 1.0     # party box look (party.py, ~4 ms)
+STAT_TEACH_EVERY_S = 3.0    # Stat window with unknown digits: whole frame (HUD EXP/level) this often
+
+
+def _unknown_digits(stat):
+    """True if a number in the Stat window still has an unknown glyph."""
+    raw = stat.get("raw") or {}
+    return any("?" in (raw.get(k) or "") for k in ("level", "hp", "mp", "exp", "str", "dex",
+                                                     "int", "luk", "ap"))
 
 
 def log(msg):
@@ -176,6 +184,7 @@ class ScreenSource(Source):
         self.size = tuple(self.res or (1920, 1080))     # last full frame size (for part boxes)
         self.party_t = 0.0                  # last party box look (party.py, about once a second)
         self.party = party.Finder()         # remembers where the box is
+        self.stat_teach_t = 0.0             # last whole-frame grab to teach Stat window digits
 
     def read(self, hints):
         t, now = time.time(), datetime.now()
@@ -419,6 +428,26 @@ class ScreenSource(Source):
         except Exception as e:
             log(f"party box read failed: {type(e).__name__}: {e}")
 
+    def _hud_values(self, frame):
+        """(EXP cur, EXP %, level) from the status bar of a full frame, exact glyph reads only
+        (an unknown glyph gives None: nothing is taught from a guess)."""
+        cur = pct = level = None
+        try:
+            rc = self.regions["exp"]
+            text, _ = read_exp(crop(frame, rc["box"], self.res, anchor_for("exp", rc), "exp"), rc, {})
+            if text and "?" not in text:
+                cur, _, pct = parse.parse_exp(text)
+            lrc = self.regions.get("level") or {}
+            if lrc.get("box") and lrc.get("glyphs"):
+                import glyphs
+                lt = glyphs.read(crop(frame, lrc["box"], self.res, anchor_for("level", lrc), "level"),
+                                 lrc.get("white_min", 230), lrc.get("templates"))
+                if lt and "?" not in lt:
+                    level = parse.parse_level(lt)
+        except Exception as e:
+            log(f"HUD read for window digits failed: {type(e).__name__}: {e}")
+        return (cur, pct, level)
+
     def _teach_window_digits(self, stat, hud_img):
         """The other way round: the status bar's HP / MP (readable on a fresh install from the
         EXP digits, vitals.py) teach the Stat window's digits and '/' (fresh installs could only
@@ -498,12 +527,19 @@ class ScreenSource(Source):
                             r = panels.read_at(kind, img, origin)
                             if r:
                                 res[kind] = r
-                    # moved / never seen: grab the whole frame next look
+                    # moved / never seen: grab the whole frame next look; also when the Stat
+                    # window still has unknown digits: the whole frame has the HUD's EXP and
+                    # level to teach them (at most every few seconds)
                     self.panels_due = any(k not in res for k in cands)
+                    if "stat" in res and _unknown_digits(res["stat"])                             and t - self.stat_teach_t >= STAT_TEACH_EVERY_S:
+                        self.stat_teach_t = t
+                        self.panels_due = True
                 else:
                     import numpy as np
                     a = np.asarray(frame.convert("RGB"))
                     res = panels.read(a, cands)
+                    if hud is None and "stat" in res and _unknown_digits(res["stat"]):
+                        hud = self._hud_values(frame)       # a quick look: read EXP/level now
                     if hud and "stat" in res and self._teach(a, res["stat"], hud):
                         res["stat"] = panels.read_stat(a, cands["stat"]) or res["stat"]
                     self.panels_due = False

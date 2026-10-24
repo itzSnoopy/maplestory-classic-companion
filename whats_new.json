@@ -1,4 +1,7 @@
 {
+ "0.6.2": [
+  "Fixed: skill levels like Improved MP Recovery could stay unreadable on a new install, so the MP regen slot didn't show. Open your Stat window once, then the Skill window, and it fills in."
+ ],
  "0.6.1": [
   "Fixed: on a new install the skill bar never appeared and MP regen wasn't tracked. HP/MP now read right away, and opening the Stat window once teaches the app every number it needs."
  ],
