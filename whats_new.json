@@ -1,4 +1,8 @@
 {
+ "0.6.4": [
+  "Updates now wait until you've stopped playing for a minute before restarting the app (one restarted mid-play).",
+  "Fixed: a new level digit could be read as the wrong level, which made the app ignore your Stat window."
+ ],
  "0.6.3": [
   "Friends hangout: everyone with your code shows in a Friends list on the party panel (level, EXP, map, HP), on any map, no in-game party needed.",
   "Start menu and desktop shortcuts, and the tracker now always starts with the app (and comes back if it stops).",

@@ -32,6 +32,7 @@ HELPER_LOCK = HISTORY / "helper.lock"
 UI_STATE = HISTORY / "ui_state.json"
 STOP_FILE = ROOT / "stop"
 
+QUIET_RESTART_S = 60         # an update installs after this long without play
 STALE_AFTER_S = 120          # "playing" but no update for this long = tracker stuck or gone
 
 # colors
@@ -714,7 +715,7 @@ class App:
                 elif cmd == "update_ready":
                     self.on_update_ready()
                 elif cmd == "update":
-                    self.restart_into_update()
+                    self.restart_into_update("from the tray")
                     return
                 elif cmd in ("exit", "exit_all"):
                     self.exit(stop=cmd == "exit_all")
@@ -753,8 +754,13 @@ class App:
                 self.diary_popup.check()
             except Exception as e:
                 print(f"diary pop-up check failed: {e}")
-        if self.update_ready is not None and snap.state != "playing" and not self.restarting:
-            return self.restart_into_update()      # quiet moment: no play session going
+        # quiet moment: a whole minute of status files that say "not playing" (a failed read of
+        # status.json or a loading screen isn't one: 2026-10-24 an update restarted mid-play)
+        quiet = bool(status) and snap.state in ("idle", "stopped", "waiting_for_source")
+        self.quiet_since = (self.quiet_since or now) if quiet else None
+        if (self.update_ready is not None and not self.restarting and self.quiet_since
+                and now - self.quiet_since >= QUIET_RESTART_S):
+            return self.restart_into_update(f"not playing for {QUIET_RESTART_S} s")
         self.root.after(1000, self.refresh)
 
     # ---------------------------------------------------------------- skill bar
@@ -819,6 +825,7 @@ class App:
 
     # ---------------------------------------------------------------- updates (updater.py)
     restarting = False
+    quiet_since = None              # since when the status files say "not playing"
 
     def start_updater(self):
         import paths
@@ -853,7 +860,7 @@ class App:
         except Exception:
             pass
 
-    def restart_into_update(self):
+    def restart_into_update(self, why="from the tray"):
         """Stop the tracker, start the new version (latest), and close this one."""
         import updater
         self.restarting = True
@@ -868,7 +875,7 @@ class App:
                     raise FileNotFoundError("latest version missing")
                 at = [f"--at={self.dev_at[0]},{self.dev_at[1]}"] if self.dev_at else []
                 updater._launch([str(exe), "--after-update", *at])
-                updater.log(f"restarting into {self.update_label()}")
+                updater.log(f"restarting into {self.update_label()} ({why})")
             except Exception as e:
                 updater.log(f"restart into update failed: {e}")
                 self.restarting = False

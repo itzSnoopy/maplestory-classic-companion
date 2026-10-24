@@ -38,6 +38,8 @@ def parse_exp(text):
 
 
 def parse_level(text):
+    if "?" in (text or ""):         # an unknown badge digit ('1?' at Lv 17) is not level 1
+        return None
     m = re.search(r"\d{1,3}", text)
     if m and 1 <= int(m.group()) <= 200:
         return int(m.group())
