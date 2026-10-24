@@ -1,0 +1,15 @@
+{
+ "0.5.0": [
+  "The skill bar is now on by default. Drag it anywhere; right-click to lock it so clicks go to the game.",
+  "Right-click a skill on the bar to remove it, and \"Add back\" to bring it back.",
+  "After an update, this card tells you what's new."
+ ],
+ "0.4.0": [
+  "Skill bar over the game: measured MP/HP regen with a countdown to the next tick, and casts left for each skill.",
+  "Exact HP and MP from the status bar.",
+  "Screen checks per second now default to 2."
+ ],
+ "0.3.0": [
+  "Your stats, skill levels and channel are remembered per character from the game's windows."
+ ]
+}

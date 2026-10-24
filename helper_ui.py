@@ -308,7 +308,7 @@ class Tray:
 class App:
     W = 290
 
-    def __init__(self, demo=False, details=None, at=None):
+    def __init__(self, demo=False, details=None, at=None, after_update=False):
         self.demo = demo
         self.dev_at = at              # (x, y) for dev/test runs: place windows there, don't save
         self.q = queue.Queue()
@@ -367,6 +367,14 @@ class App:
                 print(f"diary pop-up unavailable: {e}")
 
         self.skillbar = None          # skillbar_ui.SkillBar over the game (Settings > General)
+        if not demo and not at:       # "Updated to x.y.z" card after an update (whats_new.py)
+            def _whats_new():
+                try:
+                    import whats_new
+                    self.whats_new = whats_new.check(self, after_update)
+                except Exception as e:
+                    print(f"what's new card failed: {e}")
+            r.after(1500, _whats_new)
         self.at_bar = (at[0], at[1] + 400) if at else None
         r.after(50, self.pump)
         r.after(100, self.refresh)
@@ -923,7 +931,8 @@ def main():
         if lock is None:
             return            # already running
     try:
-        app = App(demo=args.demo, details=True if args.details else None, at=at)
+        app = App(demo=args.demo, details=True if args.details else None, at=at,
+                  after_update=args.after_update)
         if args.settings:
             app.root.after(300, lambda: app.open_settings(args.settings))
         if not args.demo:

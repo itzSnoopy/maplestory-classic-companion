@@ -27,11 +27,11 @@ DIST = ROOT / "dist"
 TESSERACT_DIR = Path(os.environ.get("TESSERACT_DIR", r"C:\Program Files\Tesseract-OCR"))
 DATA_FILES = ["maps_classic.json", "exp_table_classic.json", "layouts.json", "config.example.json",
               "map_mobs.json", "killers.json", "captions.json", "important_maps.json",
-              "game_refs.json", "skills_classic.json"]
+              "game_refs.json", "skills_classic.json", "whats_new.json"]
 # imported lazily inside functions; listed so the bundle has them for sure
 HIDDEN = ["setup_ui", "settings_ui", "calibrate", "discord_rpc", "diary_html", "jobread",
           "diary_popup", "killers", "game_refs", "internet", "capture", "perf",
-          "panels", "character", "charname", "vitals", "live", "skillbar_ui",
+          "panels", "character", "charname", "vitals", "live", "skillbar_ui", "whats_new",
           "sources.wgc", "sources.screen", "sources.csv_replay", "windows_capture", "win32gui",
           "pystray._win32"]
 EXCLUDE = ["cv2",        # only used by windows-capture to save files; replaced by rthook_cv2.py

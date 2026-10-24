@@ -70,6 +70,7 @@ Don't read the PNGs unless asked. They're big, and the numbers are already in th
 | `settings_ui.py` / `helper_settings.py` / `discord_rpc.py` | helper settings window, `helper_settings.json`, Discord Rich Presence (off by default) |
 | `panels.py` / `character.py` | game windows with long-lived facts: Character Stat, Skill, Change Channel (spotted in a 1/4-scale overview each quick look, read at full size; digits exact via `glyphs_ui.json`, skill names snapped to `skills_classic.json`) / what to believe, **per character** -> `history/characters.json` (stats, skills, channel, change log), `digest.json` "character" |
 | `vitals.py` / `live.py` / `skillbar_ui.py` | exact HP/MP from the status bar + regen tick model / `live.json` feed (~1/s) / the movable skill bar over the game (regen wheels, casts left). Component handoff: `.claude/handoff/components/skillbar.md` |
+| `whats_new.py` / `whats_new.json` | "Updated to x.y.z" card in the helper after a self-update (information only, no diary); add lines for every release |
 | `charname.py` | who is playing: pixel fingerprint of the status-bar name (OCR garbles it); the real name comes from the Stat window |
 | `jobread.py` | job name from the status bar, read only at start / when an advancement is possible |
 | `hpbar.py` | HP % from the red HP bar fill (no OCR); logged as raw.hp, not used for decisions yet |
