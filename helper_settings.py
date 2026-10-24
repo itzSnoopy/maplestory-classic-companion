@@ -50,6 +50,20 @@ DEFAULTS = {
         "popup_seconds": 8,
         "open_via": "localhost",        # localhost (127.0.0.1, no folder paths shown) or file
     },
+    "internet": {                       # Settings > Internet; internet.py (one toggle per feature)
+        "allowed": True,                # master switch: off = no internet connections at all
+        "features": {"updates": True},  # automatic updates (updater.py, packaged app only)
+    },
+    "updates": {                        # Settings > Internet > Automatic updates; updater.py
+        "min_s": 30,                    # first check 30 s after start, then doubling while
+        "max_s": 300,                   # nothing is new, up to every 5 min
+    },
+    "map_check": {                      # Settings > General; the tracker re-reads it (mapwatch.py)
+        "min_s": 1,                     # check the map name every min_s right after a change,
+        "max_s": 15,                    # slowing to every max_s the longer you stay:
+        "step_s": 1,                    # +step_s for each every_s in the map (file only)
+        "every_s": 5,
+    },
 }
 
 PLACEHOLDERS = {

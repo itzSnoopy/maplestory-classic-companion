@@ -22,9 +22,18 @@ near the clock. Right-click the small window for Settings, the journal, and "Run
 
 To stop it: right-click the small window > "Exit and stop tracker".
 
+Updates
+-------
+On first start the app copies itself to %LOCALAPPDATA%\Programs\MapleClassicCompanion and runs
+from there, so you can delete this unzipped folder afterwards (starting it again just opens the
+newest version). New versions download by themselves in the background and switch over when
+you're not playing (or right away: tray icon > "Restart to update"). Your data is kept.
+Turn it off in Settings > Internet (one switch for all internet use, and one per feature).
+
 Your data (stats, diary, settings) is saved in:
     %LOCALAPPDATA%\MapleClassicCompanion
-Delete that folder to start over.
+Delete that folder to start over. To uninstall, also delete
+    %LOCALAPPDATA%\Programs\MapleClassicCompanion
 
 This is a personal test build, not a finished product.
 MapleStory is a trademark of Nexon. This app is not affiliated with or endorsed by Nexon.

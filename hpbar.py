@@ -23,7 +23,7 @@ REF = (1920, 1080)
 def hp_pct(img, ref=REF):
     """HP 0-100 (1 decimal), or None when the bar isn't there (no red and no grey interior)."""
     x0, y0, x1, y1 = place(img, list(BOX), ref, "bottom-center", "hp")
-    a = np.asarray(img.convert("RGB").crop((x0, y0, x1 + 1, y1 + 1)), dtype=np.int16)
+    a = np.asarray(img.crop((x0, y0, x1 + 1, y1 + 1)).convert("RGB"), dtype=np.int16)
     if a.size == 0:
         return None
     r, g, b = a[..., 0], a[..., 1], a[..., 2]

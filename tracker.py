@@ -29,6 +29,7 @@ Run:   python tracker.py             (console, Ctrl+C to stop)
        pythonw tracker.py --service  (background; logs to tracker_live.log)
 Stop:  create a file named `stop` in this folder (stop_tracker.cmd does that)
 """
+import lean  # noqa: F401,I001  (first: caps math threads, stubs OpenCV; keeps RAM down)
 import argparse
 import csv
 import difflib
@@ -317,14 +318,16 @@ class Tracker:
             return m
         return name
 
-    def update_map(self, name, t):
+    def update_map(self, name, t, sure=False):
+        """sure: the source already confirmed the name (two checks agree, mapwatch.py), so a new
+        map counts at once instead of after two readings."""
         if not name:
             return
         self.map_counts[name] = self.map_counts.get(name, 0) + 1   # raw reads
         name = self.snap_map(name)
         if name == self.map:
             self.map_candidate = None
-        elif name == self.map_candidate or self.map is None:
+        elif sure or name == self.map_candidate or self.map is None:
             old = self.close_stint()
             self.map, self.map_candidate = name, None
             self.stint = {"map": name, "start": t, "active": 0.0, "exp": 0}
@@ -356,7 +359,7 @@ class Tracker:
         Returns (event, d_exp, gains); event is None, 'levelup', 'death' or 'rejected'."""
         t, cur, pct, level_read = obs.t, obs.exp_cur, obs.exp_pct, obs.level
         chat_text = obs.raw.get("chat")
-        self.update_map(obs.map, t)
+        self.update_map(obs.map, t, obs.map_confirmed)
         if obs.job and obs.job != self.job:
             if self.job:
                 self.events.append({"type": "job", "from": self.job, "to": obs.job,
@@ -931,12 +934,15 @@ def run(cfg, args, source=None, sinks=None):
                         end = now                    # read the EXP bar right away
                     if dead is not None:
                         was_dead = dead
+                    if getattr(source, "read_now", False):   # poll saw a new map (mapwatch.py)
+                        end = now
                     if session.tr.box_pending is not None:   # read again when it settles
                         end = min(end, session.tr.box_pending + BOX_SETTLE_S + 0.1)
                     left = end - time.time()
                     if left <= 0:
                         break
-                    time.sleep(min(box_poll, left))
+                    # the poll itself may have waited for a frame (wgc min_update_ms): keep ~1/s
+                    time.sleep(min(max(0.0, box_poll - (time.time() - now)), left))
                 else:
                     time.sleep(left)
                     break

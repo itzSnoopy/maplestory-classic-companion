@@ -22,7 +22,7 @@ def main():
     out = CODE / "dev" / "fixtures" / "burst" / datetime.now().strftime("%Y%m%d_%H%M%S")
     out.mkdir(parents=True, exist_ok=True)
     print(f"saving to {out}", flush=True)
-    src = WgcFrames({})
+    src = WgcFrames({"wgc": {"min_update_ms": 100}})    # bursts need several frames a second
     t0, n = time.time(), 0
     try:
         while time.time() - t0 < secs and not (out / "stop").exists():

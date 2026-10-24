@@ -27,6 +27,8 @@ class Observation:
     exp_pct: Optional[float] = None          # % of the current level, 2 decimals
     level: Optional[int] = None
     map: Optional[str] = None
+    map_confirmed: bool = False              # the source already checked this name twice: the
+                                             # tracker takes a new map at once (else 2 readings)
     exp_needed: Optional[int] = None         # set only by sources that know it exactly
     job: Optional[str] = None
     hp_pct: Optional[float] = None           # HP bar fill 0-100 (0 = empty: dead, or under ~1%)

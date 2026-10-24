@@ -5,7 +5,7 @@ us a copy. Nothing is injected into the game and nothing is sent to it. Works wh
 is covered or moved; not when it's minimized (Windows stops drawing it).
 
 Needs `pip install windows-capture`. Use with config: "source": {"type": "wgc"}.
-Optional config "wgc": {"window_class": "MapleStoryClass", "max_age_s": 5}.
+Optional config "wgc": {"window_class": "MapleStoryClass", "max_age_s": 5, "min_update_ms": 1000}.
 
 Frames are the game's *client area* (title bar and borders cut off in windowed mode), so crop
 boxes stay in game pixels. When the game window isn't there, grab()
@@ -56,25 +56,36 @@ class WgcFrames:
         c = cfg.get("wgc", {})
         self.cls = c.get("window_class", "MapleStoryClass")
         self.max_age = c.get("max_age_s", 5)      # a frame older than this is "no picture"
+        # how often Windows may hand us a frame. Each delivered frame costs ~4 ms CPU even if
+        # nobody asked for it; skipped ones cost nothing. The tracker needs at most one a second
+        # (death-box poll), so 1000 ms: ~0.4% of a core instead of ~4% at 100 ms (dev/bench.py).
+        # A grab waits for the next frame, so up to this long.
+        self.min_update_ms = int(c.get("min_update_ms", 1000))
         self.fallback = tuple(cfg.get("source_resolution") or (1920, 1080))
         self.hwnd = self.ctl = None
         self.lock = threading.Lock()
         self.want = threading.Event()
         self.ready = threading.Event()
-        self.buf, self.buf_t, self.closed = None, 0.0, False
+        self.want_box = None                     # (x0, y0, x1, y1) in captured-image pixels
+        self.buf, self.closed = None, False      # raw BGRA copy of just want_box
+        self.last = (None, 0.0, None)            # (box, time, RGB image) of the last good grab
 
     # -- capture session ----------------------------------------------------------
     def _start(self, hwnd):
         from windows_capture import WindowsCapture     # imported late: optional dependency
         self.stop()
         cap = WindowsCapture(cursor_capture=False, draw_border=False, window_hwnd=hwnd,
-                             minimum_update_interval=100)
+                             minimum_update_interval=self.min_update_ms)
 
         @cap.event
         def on_frame_arrived(frame, control):
             if self.want.is_set():
+                # the buffer is only valid inside this call: copy just the part asked for
+                fb = frame.frame_buffer
+                x0, y0, x1, y1 = self.want_box
+                x1, y1 = min(x1, fb.shape[1]), min(y1, fb.shape[0])
                 with self.lock:
-                    self.buf, self.buf_t = frame.frame_buffer.copy(), time.time()
+                    self.buf = fb[y0:y1, x0:x1].copy() if x1 > x0 and y1 > y0 else None
                 self.want.clear()
                 self.ready.set()
 
@@ -96,31 +107,47 @@ class WgcFrames:
         self.ctl, self.hwnd = None, None
 
     # -- provider API -------------------------------------------------------------
-    def grab(self, timeout=2.0):
+    def grab(self, timeout=2.0, box=None, center=None):
+        """The game's client area as an RGB image. box=(x0, y0, x1, y1) in client pixels, or
+        center=n for the 2n x 2n square around the client's center, grabs only that part: a
+        few hundred KB copied instead of the whole frame (8 MB at 1920x1080)."""
         hwnd = find_window(self.cls)
         if not hwnd or win32gui.IsIconic(hwnd):
             self.stop()
-            return self._black()
+            return self._black(box, center)
         if hwnd != self.hwnd or self.closed:
             self._start(hwnd)
+        cx, cy, cw, ch = client_box(hwnd)
+        if cw <= 0 or ch <= 0:
+            return self._black(box, center)
+        if center is not None:
+            box = (cw // 2 - center, ch // 2 - center, cw // 2 + center, ch // 2 + center)
+        x0, y0, x1, y1 = box or (0, 0, cw, ch)
+        x0, y0, x1, y1 = max(0, x0), max(0, y0), min(cw, x1), min(ch, y1)
+        want = (cx + x0, cy + y0, cx + x1, cy + y1)
+        self.want_box = want
         self.ready.clear()
         self.want.set()
-        if not self.ready.wait(timeout) or self.closed:
+        if not self.ready.wait(timeout) or self.closed or self.buf is None:
             # no new frame (the game draws constantly, so this means it's stuck or gone);
-            # fall back to the last frame if it's recent
+            # fall back to the last grab of the same area if it's recent
             self.want.clear()
-            with self.lock:
-                if self.buf is None or time.time() - self.buf_t > self.max_age:
-                    return self._black()
+            lb, lt, limg = self.last
+            if lb == want and limg is not None and time.time() - lt <= self.max_age:
+                return limg
+            return self._black(box, center)
         with self.lock:
-            buf = self.buf
-        img = Image.fromarray(buf[..., 2::-1])               # BGRA -> RGB
-        x, y, w, h = client_box(hwnd)
-        if (x, y, w, h) != (0, 0, img.width, img.height) and w > 0 and h > 0:
-            img = img.crop((x, y, x + w, y + h))
+            buf, self.buf = self.buf, None
+        h, w = buf.shape[:2]
+        img = Image.frombuffer("RGB", (w, h), buf, "raw", "BGRX", 0, 1)   # one pass, no extra copy
+        self.last = (want, time.time(), img)
         return img
 
-    def _black(self):
+    def _black(self, box=None, center=None):
+        if center is not None:
+            return Image.new("RGB", (2 * center, 2 * center))
+        if box:
+            return Image.new("RGB", (max(1, box[2] - box[0]), max(1, box[3] - box[1])))
         return Image.new("RGB", self.fallback)
 
     def close(self):

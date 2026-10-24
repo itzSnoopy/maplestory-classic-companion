@@ -246,3 +246,69 @@ so HP% = last red column / 105 px. Checked: 329/376 -> 92 px = 87.6%; works on J
 HP rules for death/level-up were built and then **removed the same hour** (user: too much; level +
 EXP bar are enough). HP is still read and logged (raw.hp in exp_log.csv, `hp` on death events) for
 later use.
+
+## 2026-10-23 18:45 · Resource use: measured, then cut (dev/bench.py)
+
+PC: 28 cores. "% of a core" = 100 is one core busy. Numbers from `python dev/bench.py` against the
+live game at 1920x1080 (player AFK or grinding in West Domain of Perion).
+
+**Before:** live tracker 6.4% of a core, **1,034 MB RAM** (private 898 MB).
+- ~850 MB: numpy's OpenBLAS starts one thread per core (24 max), each with a 32 MB buffer; they
+  fill on first use. Our arrays are tiny. `OPENBLAS_NUM_THREADS=1`: numpy import 790 -> 49 MB.
+- 83 MB: `cv2.pyd`, imported by windows-capture for `save_as_image` only (never used). The
+  release build already stubbed it (packaging/rthook_cv2.py); source runs didn't.
+- CPU: every frame Windows delivers costs ~4 ms (the library copies it out of the GPU), wanted or
+  not. At `minimum_update_interval=100` that's up to 10/s = 1-5% of a core depending on how busy
+  the game is. Skipped frames cost nothing (2000 ms: 0.00%). Opening a session per grab instead:
+  ~116 ms CPU each, so keep one open.
+- Each grab copied the full frame 2-3 times (8 MB BGRA copy, BGRA->RGB, crop to client area).
+
+**Changes:** `lean.py` (thread caps + cv2 stand-in), imported first by every entry point;
+`wgc.min_update_ms` default 1000 (the death poll needs 1/s; the loop now subtracts the poll's own
+wait so the cadence stays 1.0 s, measured); `WgcFrames.grab(box=, center=)` copies only the
+requested part, one BGRX->RGB pass (`Image.frombuffer`, pixel-identical to before); the death poll
+grabs only the 276x276 center (`deathbox.PAD`) unless a diary shot is due; deathbox/hpbar crop
+before converting. Death box + HP results identical on all 365 fixture frames.
+
+**After:** live tracker **0.47% of a core, 108 MB** (private 144 MB). Remaining RAM: ~40 MB
+DLLs (Python, numpy, PIL, GPU driver), ~5 full frames at 8 MB each (PIL keeps RGB as 4 bytes/px):
+3 kept for level-up evidence (`recent`), the current one, one transient. Compressing the kept ones
+was measured and rejected: zlib/PNG ~80-110 ms CPU per reading to save ~12 MB.
+
+**Cost table (per call, CPU):** full grab ~5-9 ms (+ up to 1 s wait for the next frame), center
+grab ~1 ms, glyph read (EXP/level) <1 ms, HP bar <1 ms, death box ~1.5 ms, find minimap ~6 ms,
+whole `ScreenSource.read` ~7 ms (map cached), **Tesseract ~105 ms in tesseract.exe + ~15 ms here**
+(~160 ms wall; map read only when the title crop changes; job read only at start/advancement).
+Tesseract thread caps made no measurable difference.
+
+**Capacity, for new readers:** add them to the *same* frame, never a second capture session.
+A pixel/glyph reader on every reading costs ~0.01-0.05% of a core; at 1/s polling ~0.1-0.2% each.
+A Tesseract reader is ~1,000x a glyph reader: only behind a crop-hash cache. Faster capture: each
+extra frame per second ~0.4% (delivery) + what's read from it; e.g. full readings at 5/s would be
+~10% of a core, region-only checks at 5/s ~3%. Each full frame kept in memory: 8 MB.
+
+## 2026-10-23 19:00 · Map name on its own schedule ("stickiness", mapwatch.py)
+
+User: the longer you're in a map the less likely you leave (long grinds); check every 1 s after a
+change, slowing +1 s per 5 s in the map up to 15 s; min/max as settings to play with.
+- interval = min_s + step_s * (stay // every_s), capped at max_s. Defaults 1 / 15 / 1 / 5: gaps
+  1,1,1,1,1,2,2,2,3,3,4,5,6,7,8,10,12,14,15... (15 s from ~70 s); 20 checks in the first 100 s.
+- Live cost: a check with an unchanged title ~4 ms (full grab + find minimap + md5); Tesseract
+  only on a crop change (~160 ms wall; it re-ran twice in 45 s in West Domain of Perion, the title
+  crop changed without the text changing). Tracker 0.83% of a core in its first minute.
+- Two checks in a row must agree (1 s apart while a candidate is pending): one garbled read
+  (fade between maps) doesn't count. Confirmed names skip the tracker's 2-readings rule.
+- Before: the map was read only on readings (every 2-30 s), and the tracker needed 2 of them, so a
+  map passed through in under ~1 min could be missed (no first-visit diary entry, no stint).
+- Settings re-read on every check (file time cached): changes in Settings > General apply without
+  restarting the tracker. Range in the UI: min 1-60 s, max 1-120 s; step/every are file-only.
+- Only while the death poll runs (playing, `death_box.enabled`); with it off, checks happen on
+  readings only.
+
+## 2026-10-23 19:03 · Minimized: confirmed no capture
+
+`dev/minimized_check.py` (asks Windows Graphics Capture directly, skipping wgc.py's IsIconic
+shortcut) with the game minimized: **no frame from Windows** on every try (2 s timeout each).
+Windows stops drawing a minimized window, so there's nothing to copy. README's "not while it's
+minimized" is right; the IsIconic shortcut stays (it answers in ~3 ms instead of waiting 2 s).
+Covered / behind other windows / on another monitor still works.

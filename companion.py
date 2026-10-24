@@ -8,6 +8,7 @@ Run from source the same way: `pythonw companion.py`. `python tracker.py` and
 
 A crash is written to crash.log in the data folder (the packaged app has no console).
 """
+import lean  # noqa: F401,I001  (first: caps math threads, stubs OpenCV; keeps RAM down)
 import sys
 import traceback
 from datetime import datetime
@@ -16,9 +17,12 @@ from datetime import datetime
 def main():
     args = sys.argv[1:]
     try:
+        import updater                     # packaged: run the newest installed version
+        if updater.adopt(args):
+            return
         if "--service" in args:
             import tracker
-            tracker.main(args)
+            tracker.main([a for a in args if a not in ("--no-handoff", "--after-update")])
         else:
             import helper_ui
             helper_ui.main()

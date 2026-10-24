@@ -26,6 +26,7 @@ The tracker adds entries automatically. By hand:
 
 Screenshots are Nexon game imagery: local only, never publish or upload.
 """
+import lean  # noqa: F401,I001  (first: caps math threads, stubs OpenCV; keeps RAM down)
 import json
 import sys
 from datetime import datetime

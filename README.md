@@ -43,9 +43,11 @@ It doesn't touch the game, directly or indirectly:
   folder, and doesn't use the game's data files.
 - **No memory**: it never reads or writes the game's memory.
 - **No injection**: no DLLs, hooks, overlays drawn inside the game, or attaching to the process.
-- **No network**: it never looks at, intercepts or sends game traffic. The app makes no internet
-  connections at all. (Optional Discord status talks only to the Discord app on your PC, and is off
-  by default.)
+- **No network**: it never looks at, intercepts or sends game traffic. Its only internet use is
+  checking this project's GitHub releases for a new version and downloading it. Settings >
+  Internet has one switch for all internet use and a toggle per feature, each listing the
+  addresses it connects to. Nothing about you or your game is sent. (Optional Discord status talks
+  only to the Discord app on your PC, and is off by default.)
 - **No input**: it never presses keys, clicks or moves the mouse for you. Nothing is automated.
 
 It only sees pixels, like a person watching your screen.
@@ -68,12 +70,19 @@ the first-run setup, and they stay on your PC.
 After setup, the tracker runs in the background with an icon in the tray. Right-click the small
 window for Settings, the journal, the diary and "Run setup…".
 
+**Updates are automatic** (from version 0.2.0 on). On first start the app copies itself to
+`%LOCALAPPDATA%\Programs\MapleClassicCompanion`, so the unzipped folder can be deleted afterwards
+(starting it again just opens the newest version). New versions download in the background, are
+checked against their published checksum, and take over the next time you're not playing, or
+right away from the tray menu ("Restart to update"). Your data is kept.
+
 ## Your data
 
 Everything is saved on your PC in `%LOCALAPPDATA%\MapleClassicCompanion`: settings, stats, journal,
 diary and its screenshots. Nothing is uploaded anywhere.
 
-**Uninstall**: delete the unzipped folder and that data folder.
+**Uninstall**: delete `%LOCALAPPDATA%\Programs\MapleClassicCompanion`, the unzipped folder (if
+you kept it) and that data folder.
 
 ## Running from source (developers)
 

@@ -14,6 +14,7 @@ own pixels, so they are never shipped (Nexon imagery). This module finds them in
 Command line (development):
   python calibrate.py check FRAME.png     report what would be found, save nothing
 """
+import lean  # noqa: F401,I001  (first: caps math threads, stubs OpenCV; keeps RAM down)
 from pathlib import Path
 
 import numpy as np

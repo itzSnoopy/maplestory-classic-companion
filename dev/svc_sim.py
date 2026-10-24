@@ -16,6 +16,7 @@ from pathlib import Path
 
 CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
+import lean  # noqa: F401,I001  (first: caps math threads, stubs OpenCV; keeps RAM down)
 import tracker as T                                  # noqa: E402
 from sources import make_source                      # noqa: E402
 from sources.screen import ImageFrames, ScreenSource  # noqa: E402

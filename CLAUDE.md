@@ -70,8 +70,13 @@ Don't read the PNGs unless asked. They're big, and the numbers are already in th
 | `hpbar.py` | HP % from the red HP bar fill (no OCR); logged as raw.hp, not used for decisions yet |
 | `deathbox.py` | spots the "You have died." box (shape/colour, no stored art); polled ~1/s between readings (`Source.poll`) |
 | `killers.py` / `killers.json` / `map_mobs.json` | who killed the player, guessed from the map's mob list (MeowDB, `dev/fetch_map_mobs.py`) + curated boss maps; `python killers.py audit` |
+| `internet.py` | the one gate for internet use: master switch + a toggle per feature (`FEATURES`), Settings > Internet. Every online feature calls `internet.allowed("name")` right before connecting |
+| `updater.py` | packaged app only: installs itself under %LOCALAPPDATA%\Programs (versions/<ver> + `latest` junction), polls GitHub releases (30 s -> 5 min), downloads + checks .sha256, swaps, restarts when not playing. Tests: `dev/update_sim.py` |
+| `mapwatch.py` | when to check the map name: every 1 s after a change, slowing to 15 s the longer you stay (Settings > General, `helper_settings.json` map_check) |
 | `maplist.py` / `maps_classic.json` | snaps map reads to the 453 real Classic map names (NiaMeowDB list) |
 | `dev/svc_sim.py` | offline end-to-end test of the service with saved frames |
+| `dev/minimized_check.py` | does window capture still give frames while the game is minimized (asks Windows directly) |
+| `lean.py` / `dev/bench.py` | import first in every entry point (1 math thread, no OpenCV: ~900 MB less RAM) / CPU, RAM and per-step cost (`tracker`, `where`, `stages`, `idle`) |
 | `paths.py` / `companion.py` | where shipped files vs player data live (packaged: %LOCALAPPDATA%) / single entry point (helper, `--service` = tracker) |
 | `calibrate.py` / `setup_ui.py` | first-run setup: cut minimap templates, learn digits from typed EXP, name tag from a dragged box |
 | `packaging/` | `build.py` (PyInstaller release zip, bundled Tesseract), START_HERE.txt, THIRD_PARTY.txt |

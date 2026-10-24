@@ -24,6 +24,7 @@ import glyphs
 import hpbar
 import jobread
 import maplist
+import mapwatch
 import ocr
 import parse
 from layout import anchor_for, crop, layouts
@@ -154,6 +155,8 @@ class ScreenSource(Source):
         self.jobs = jobread.JobWatcher(cfg.get("job_read"), tuple(self.res or (1920, 1080)), log)
         self.pending_shots = []             # [(due_t, out_dir, stem)] for diary snapshots
         self._nametag = None
+        self.maps = mapwatch.MapWatch()     # when to check the map name (sticky, mapwatch.py)
+        self.read_now = False               # a poll saw a new map: the tracker reads right away
 
     def read(self, hints):
         t, now = time.time(), datetime.now()
@@ -166,7 +169,9 @@ class ScreenSource(Source):
 
         exp_rc = self.regions["exp"]
         crops = {"exp": crop(frame, exp_rc["box"], self.res, anchor_for("exp", exp_rc), "exp")}
+        self.read_now = False
         if not exp_bar_visible(crops["exp"], exp_rc.get("white_min", 230)):
+            self.maps.reset()               # loading / cash shop / gone: likely a new map after
             return Observation(t, ABSENT, source=self.name, note="EXP bar not visible")
         if frame.size != self.warned_res:          # log each window-size change once
             how = ("recorded boxes from layouts.json" if f"{frame.size[0]}x{frame.size[1]}" in layouts()
@@ -181,25 +186,15 @@ class ScreenSource(Source):
         for name, rc in self.regions.items():
             if not rc.get("box"):
                 continue
-            read_rc = rc
-            if name == "map":      # full or collapsed minimap, found wherever it is (minimap.py)
-                state, box, read_rc = minimap.locate(frame, rc, self.res)
-                if box is None:            # no minimap, or one without a name (compact view)
-                    raw[name] = ""
-                    continue
-                crops[name] = frame.crop(tuple(box))
-            elif name not in crops:
+            if name == "map":      # only when due (mapwatch.py); else the confirmed name
+                if self.maps.due(t):
+                    self._check_map(frame, t, crops)
+                raw[name] = self.maps.raw or ""
+                continue
+            if name not in crops:
                 crops[name] = crop(frame, rc["box"], self.res, anchor_for(name, rc), name)
             if name == "exp":
                 raw[name], suspect = read_exp(crops[name], rc, hints)
-            elif name == "map":
-                h = hashlib.md5(crops[name].tobytes()).hexdigest()
-                if h != self.map_cache[0]:
-                    text = ocr.read(crops[name], read_rc, kind="map")
-                    if state == "collapsed":
-                        text = minimap.to_two_lines(text)
-                    self.map_cache = (h, text)
-                raw[name] = self.map_cache[1]
             else:
                 raw[name] = ocr.read(crops[name], rc, kind=name)
 
@@ -210,30 +205,62 @@ class ScreenSource(Source):
         cur, _, pct = parse.parse_exp(exp_text) if "?" not in exp_text else (None, None, None)
         level = parse.parse_level(raw["level"]) if raw.get("level") else None
         job = self.jobs.update(frame, level, t)       # reads only when due (start / advancement)
-        # map: snap to the real Classic map list (maps_classic.json); else the cleaned raw read
-        known = maplist.snap(raw["map"]) if raw.get("map") else None
-        map_name = known["name"] if known else (parse.parse_map(raw["map"]) if raw.get("map") else None)
+        map_name = self.maps.name
         hp = hpbar.hp_pct(frame, tuple(self.res or (1920, 1080)))     # HP bar fill, no OCR
         rawlog = {k: v.replace("\n", " / ") for k, v in raw.items()}
         rawlog["hp"] = hp
-        if known:
-            rawlog["map_id"] = known["id"]
+        if self.maps.map_id:
+            rawlog["map_id"] = self.maps.map_id
         return Observation(
             t, OK, exp_cur=cur, exp_pct=pct, level=level, job=job, map=map_name, hp_pct=hp,
-            suspect=suspect, source=self.name, raw=rawlog)
+            map_confirmed=map_name is not None, suspect=suspect, source=self.name, raw=rawlog)
+
+    def _check_map(self, frame, t, crops=None):
+        """Read the minimap title (full or collapsed, found wherever it is: minimap.py) and tell
+        the MapWatch. Tesseract runs only when the title crop changed. True on a new map."""
+        rc = self.regions.get("map", {})
+        if not rc.get("box"):
+            return False
+        state, box, read_rc = minimap.locate(frame, rc, self.res)
+        if box is None:                # no minimap, or one without a name (compact view)
+            return self.maps.update(t, None)
+        c = frame.crop(tuple(box))
+        if crops is not None:
+            crops["map"] = c
+        h = hashlib.md5(c.tobytes()).hexdigest()
+        if h != self.map_cache[0]:
+            text = ocr.read(c, read_rc, kind="map")
+            if state == "collapsed":
+                text = minimap.to_two_lines(text)
+            self.map_cache = (h, text)
+        text = self.map_cache[1]
+        if not text:
+            return self.maps.update(t, None)
+        # snap to the real Classic map list (maps_classic.json); else the cleaned raw read
+        known = maplist.snap(text)
+        name = known["name"] if known else parse.parse_map(text)
+        return self.maps.update(t, name or None, text, known["id"] if known else None)
 
     def poll(self, t):
         """Between readings: is the "You have died." box up? (deathbox.py, ~20 ms a frame).
         Also takes diary pictures that came due (the ghost + tombstone shot ~2 s after death)."""
         if not getattr(self.frames, "pollable", False):
             return None                 # saved frames in tests: polling would eat them
+        due = any(p[0] <= t for p in self.pending_shots)
+        map_due = self.maps.due(t)
         try:
-            frame = self.frames.grab()
+            # only the center square is needed for the box, unless a diary picture or a map
+            # check is due (then the whole frame, read once for all of them)
+            full = due or map_due
+            frame = self.frames.grab() if full else self.frames.grab(center=deathbox.PAD)
         except Exception:
             return None
         if frame.getbbox() is None:
             return None                 # game not on screen (black frame: gone / minimized)
-        self._take_due_shots(t, frame)
+        if due:
+            self._take_due_shots(t, frame)
+        if map_due and self._check_map(frame, t):
+            self.read_now = True        # new map: take a reading now, so the tracker sees it
         return deathbox.is_dead(frame)
 
     def begin_session(self, session_dir, gallery_dir):

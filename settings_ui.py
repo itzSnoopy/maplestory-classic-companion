@@ -24,7 +24,7 @@ DC_GREEN = "#23a55a"
 
 
 class SettingsWindow:
-    CATEGORIES = ("General", "Character", "Discord", "Diary", "About")
+    CATEGORIES = ("General", "Character", "Discord", "Diary", "Internet", "About")
 
     def __init__(self, app, start="Discord"):
         self.app = app
@@ -161,7 +161,8 @@ class SettingsWindow:
 
     # ---------------------------------------------------------------- pages
     def page_general(self, f):
-        self.title(f, "General", "How the floating window behaves.")
+        self.title(f, "General", "How the floating window behaves, and how often the tracker "
+                                 "checks the map name.")
         row = tk.Frame(f, bg=BG)
         row.pack(fill="x", pady=(0, self.px(12)))
         self.label(row, "Window opacity", muted=True).pack(anchor="w")
@@ -177,7 +178,99 @@ class SettingsWindow:
                            activebackground=BG, activeforeground=TEXT, selectcolor=FIELD,
                            anchor="w", highlightthickness=0, bd=0).pack(anchor="w", pady=(0, self.px(6)))
         tk.Frame(f, bg=BG, height=self.px(10)).pack()
+        self.map_check_row(f)
         return f
+
+    def page_internet(self, f):
+        """Master switch + one toggle per online feature (internet.FEATURES). Feature toggles are
+        greyed out while the master switch is off."""
+        import internet
+        self.s.setdefault("internet", {})
+        self.s["internet"].setdefault("allowed", HS.DEFAULTS["internet"]["allowed"])
+        feats = self.s["internet"].setdefault("features", {})
+        for n in internet.FEATURES:
+            feats.setdefault(n, HS.DEFAULTS["internet"]["features"].get(n, True))
+        self.title(f, "Internet", "What the app may connect to online. Reading the game never "
+                                  "uses the internet: the app only looks at the game window.")
+        self.check(f, "internet.allowed", "Allow internet connection").pack(anchor="w")
+        self.label(f, "Off: the app makes no internet connections at all. Every feature below "
+                      "is then off too.", muted=True, size=8, wrap=self.px(560)).pack(
+            anchor="w", padx=(self.px(22), 0), pady=(0, self.px(12)))
+        boxes = []
+        for name, spec in internet.FEATURES.items():
+            box = tk.Frame(f, bg=BG)
+            box.pack(fill="x", padx=(self.px(22), 0), pady=(0, self.px(10)))
+            c = self.check(box, f"internet.features.{name}", spec["label"])
+            c.pack(anchor="w")
+            self.label(box, f"{spec['what']} Connects to: {', '.join(spec['hosts'])}.",
+                       muted=True, size=8, wrap=self.px(540)).pack(anchor="w", padx=(self.px(22), 0))
+            extra = getattr(self, f"internet_{name}_extra", None)
+            if extra:
+                extra(box)
+            boxes.append(box)
+
+        def sync(*a):
+            on = bool(self.vars["internet.allowed"].get())
+            for b in boxes:
+                for wdg in b.winfo_children() + [g for c in b.winfo_children() for g in c.winfo_children()]:
+                    try:
+                        wdg.configure(state="normal" if on else "disabled")
+                        if isinstance(wdg, tk.Entry):       # keep the dark field when greyed out
+                            wdg.configure(disabledbackground=FIELD, disabledforeground=MUTED)
+                    except tk.TclError:
+                        pass
+        self.vars["internet.allowed"].trace_add("write", sync)
+        sync()
+        return f
+
+    def internet_updates_extra(self, f):
+        """Under "Automatic updates" on the Internet page: how often, and what's happening."""
+        from diary_popup import _num
+        self.s.setdefault("updates", {})
+        for k, v in HS.DEFAULTS["updates"].items():
+            self.s["updates"].setdefault(k, v)
+        self.s["updates"].pop("enabled", None)       # replaced by internet.features.updates
+        row = tk.Frame(f, bg=BG)
+        row.pack(anchor="w", pady=(self.px(4), self.px(2)), padx=(self.px(22), 0))
+        self.label(row, "Check every").pack(side="left")
+        _num(self, row, "updates.min_s", 30, 3600).pack(side="left", padx=self.px(6))
+        self.label(row, "to").pack(side="left")
+        _num(self, row, "updates.max_s", 30, 3600).pack(side="left", padx=self.px(6))
+        self.label(row, "seconds").pack(side="left")
+        up = getattr(self.app, "updater", None)
+        ready = getattr(self.app, "update_ready", None)
+        if ready:
+            note = (f"Version {'.'.join(map(str, ready))} is installed and starts when you're not "
+                    f"playing (or now: tray menu > Restart to update).")
+        elif up is None:
+            note = "Off while running from source (the packaged app updates itself)."
+        else:
+            note = ("Checks GitHub for a new release (soon after start, then less often), "
+                    "downloads it in the background and switches over when you're not playing. "
+                    "Your data is kept.")
+            if up.last_error:
+                note += f" Last check failed: {up.last_error}"
+        self.label(f, note, muted=True, size=8, wrap=self.px(540)).pack(
+            anchor="w", padx=(self.px(22), 0))
+
+    def map_check_row(self, f):
+        from diary_popup import _num
+        self.s.setdefault("map_check", {})
+        for k, v in HS.DEFAULTS["map_check"].items():
+            self.s["map_check"].setdefault(k, v)
+        mc = self.s["map_check"]
+        self.label(f, "Map check", muted=True).pack(anchor="w")
+        row = tk.Frame(f, bg=BG)
+        row.pack(anchor="w", pady=(self.px(2), self.px(2)))
+        self.label(row, "Every").pack(side="left")
+        _num(self, row, "map_check.min_s", 1, 60).pack(side="left", padx=self.px(6))
+        self.label(row, "to").pack(side="left")
+        _num(self, row, "map_check.max_s", 1, 120).pack(side="left", padx=self.px(6))
+        self.label(row, "seconds").pack(side="left")
+        self.label(f, f"Fast right after you enter a map, then slower the longer you stay "
+                      f"(+{mc['step_s']:g} s for every {mc['every_s']:g} s in the map), since long "
+                      f"grinds rarely change maps. The tracker picks up changes on its next check.",
+                   muted=True, size=8, wrap=self.px(560)).pack(anchor="w", pady=(0, self.px(10)))
 
     def page_character(self, f):
         self.title(f, "Character",

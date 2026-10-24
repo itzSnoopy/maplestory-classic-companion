@@ -30,7 +30,7 @@ DATA_FILES = ["maps_classic.json", "exp_table_classic.json", "layouts.json", "co
               "game_refs.json"]
 # imported lazily inside functions; listed so the bundle has them for sure
 HIDDEN = ["setup_ui", "settings_ui", "calibrate", "discord_rpc", "diary_html", "jobread",
-          "diary_popup", "killers", "game_refs",
+          "diary_popup", "killers", "game_refs", "internet",
           "sources.wgc", "sources.screen", "sources.csv_replay", "windows_capture", "win32gui",
           "pystray._win32"]
 EXCLUDE = ["cv2",        # only used by windows-capture to save files; replaced by rthook_cv2.py
@@ -112,7 +112,10 @@ def main():
         for p in sorted(top.rglob("*")):
             if p.is_file():
                 z.write(p, Path(NAME) / p.relative_to(top))
-    print(f"built {top}\nzip   {zpath} ({zpath.stat().st_size / 1e6:.1f} MB)")
+    import hashlib
+    h = hashlib.sha256(zpath.read_bytes()).hexdigest()
+    (zpath.parent / (zpath.name + ".sha256")).write_text(f"{h}  {zpath.name}\n", encoding="ascii")
+    print(f"built {top}\nzip   {zpath} ({zpath.stat().st_size / 1e6:.1f} MB)\nsha256 {h}")
 
 
 if __name__ == "__main__":

@@ -22,6 +22,8 @@ PANEL = (-122, -44, 123, 21)        # blue panel, inclusive box, from the 1920x1
 BUTTON = (-56, 33, 44, 44)          # orange button
 ICON = (-90, -38, -40, 20)          # tombstone + halo, left part of the panel
 SEARCH = 8                          # px the panel may be off center
+PAD = SEARCH + 130                  # half-size of the center square that's checked; a frame
+                                    # provider can grab just that square (WgcFrames center=PAD)
 
 # thresholds (a dead frame scored panel 0.84, button 0.57+, icon gray 0.25+; see NOTES)
 MIN_PANEL, MIN_BUTTON, MIN_ICON = 0.70, 0.35, 0.10
@@ -49,13 +51,20 @@ def _frac(mask, box, dx, dy, cx, cy):
 def score(img):
     """(panel, button, icon) fractions at the best spot near the center, or None if the frame
     is too small. `img` is a PIL image or an RGB array of the game window."""
-    a = np.asarray(img.convert("RGB") if hasattr(img, "convert") else img)
-    h, w = a.shape[:2]
-    cx, cy = w // 2, h // 2
-    pad = SEARCH + 130
-    if w < 2 * pad or h < 2 * pad:
-        return None
-    sub = a[cy - pad: cy + pad, cx - pad: cx + pad].astype(np.int16)
+    pad = PAD
+    if hasattr(img, "crop"):                    # PIL: cut the center first, then convert
+        w, h = img.size
+        cx, cy = w // 2, h // 2
+        if w < 2 * pad or h < 2 * pad:
+            return None
+        sub = np.asarray(img.crop((cx - pad, cy - pad, cx + pad, cy + pad)).convert("RGB"),
+                         dtype=np.int16)
+    else:
+        h, w = img.shape[:2]
+        cx, cy = w // 2, h // 2
+        if w < 2 * pad or h < 2 * pad:
+            return None
+        sub = img[cy - pad: cy + pad, cx - pad: cx + pad].astype(np.int16)
     c = pad                                     # center inside `sub`
     blue = _blue(sub)
     best = (0.0, 0, 0)

@@ -6,6 +6,7 @@ Everything it cuts from the screen stays in the player's data folder (paths.DATA
 Steps: 1 welcome + name · 2 grab the game window, cut the minimap pieces · 3 type what the EXP bar
 and level badge show · 4 (optional) box the character's name tag · 5 done.
 """
+import lean  # noqa: F401,I001  (first: caps math threads, stubs OpenCV; keeps RAM down)
 import tkinter as tk
 
 from PIL import Image, ImageTk

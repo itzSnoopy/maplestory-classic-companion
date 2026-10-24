@@ -9,6 +9,7 @@ Runs as its own process next to tracker.py and only *reads* its outputs
 Window: drag to move, double-click to show/hide details, right-click for the menu,
 the x hides it to the tray. Tray: left-click shows/hides the window.
 """
+import lean  # noqa: F401,I001  (first: caps math threads, stubs OpenCV; keeps RAM down)
 import argparse
 import json
 import os
@@ -265,6 +266,8 @@ class Tray:
                 M("Details", lambda: app.post("details"), checked=lambda _: app.details),
                 M("Always on top", lambda: app.post("topmost"), checked=lambda _: app.topmost),
                 M("Settings…", lambda: app.post("settings")),
+                M(lambda _: f"Restart to update to {app.update_label()}", lambda: app.post("update"),
+                  visible=lambda _: app.update_ready is not None),
                 pystray.Menu.SEPARATOR,
                 M("Start tracker", lambda: app.post("start"), enabled=lambda _: not app.running),
                 M("Stop tracker", lambda: app.post("stop"), enabled=lambda _: app.running),
@@ -344,6 +347,11 @@ class App:
             self.tray = Tray(self)
         except Exception as e:     # no pystray: the window still works, exit via right-click
             print(f"tray icon unavailable: {e}")
+
+        self.update_ready = None      # version tuple installed and waiting for a restart
+        self.updater = None           # updater.Updater (packaged build only)
+        if not demo and (not at or os.environ.get("MAPLE_COMPANION_UPDATE_BASE")):
+            self.start_updater()
 
         self.diary_popup = None       # diary pop-ups on new entries (diary_popup.py)
         if not demo:
@@ -661,6 +669,11 @@ class App:
                     self.open(JOURNAL)
                 elif cmd == "folder":
                     self.open(ROOT)
+                elif cmd == "update_ready":
+                    self.on_update_ready()
+                elif cmd == "update":
+                    self.restart_into_update()
+                    return
                 elif cmd in ("exit", "exit_all"):
                     self.exit(stop=cmd == "exit_all")
                     return
@@ -690,7 +703,71 @@ class App:
                 self.diary_popup.check()
             except Exception as e:
                 print(f"diary pop-up check failed: {e}")
+        if self.update_ready is not None and snap.state != "playing" and not self.restarting:
+            return self.restart_into_update()      # quiet moment: no play session going
         self.root.after(1000, self.refresh)
+
+    # ---------------------------------------------------------------- updates (updater.py)
+    restarting = False
+
+    def start_updater(self):
+        import paths
+        if not (paths.FROZEN or os.environ.get("MAPLE_COMPANION_UPDATE_BASE")):
+            return                    # running from source: git is the update path
+        try:
+            import updater
+            lv, cur = updater.latest_version(), updater.current()
+            exe, latest = os.path.realpath(sys.executable), os.path.realpath(updater.latest_exe())
+            if lv and cur and lv > cur and exe.lower() != latest.lower():
+                self.update_ready = lv           # installed earlier, not running yet
+                # (when we *are* latest, a mismatch means a release with the wrong version.py:
+                # never restart over it, or it would loop)
+            self.updater = updater.Updater(on_ready=lambda v: self.post("update_ready"))
+            self.updater.start()
+            updater.log(f"helper {updater.fmt(cur) if cur else '?'} started (pid {os.getpid()}, "
+                        f"{'latest' if exe.lower() == latest.lower() else 'not latest'}, from {sys.executable})")
+        except Exception as e:
+            print(f"updater unavailable: {e}")
+
+    def update_label(self):
+        return ".".join(map(str, self.update_ready)) if self.update_ready else ""
+
+    def on_update_ready(self):
+        if self.updater and self.updater.ready:
+            self.update_ready = self.updater.ready
+        try:
+            if self.tray:
+                self.tray.icon.notify(f"Version {self.update_label()} is installed. It starts when "
+                                      "you're not playing, or now from the tray menu.",
+                                      "Maple Classic Companion")
+        except Exception:
+            pass
+
+    def restart_into_update(self):
+        """Stop the tracker, start the new version (latest), and close this one."""
+        import updater
+        self.restarting = True
+        self.stop_tracker()
+
+        def go(tries=0):
+            if tracker_running() and tries < 40:
+                return self.root.after(500, lambda: go(tries + 1))
+            try:
+                exe = updater.real_latest_exe()      # the real folder, never via the junction
+                if exe is None:
+                    raise FileNotFoundError("latest version missing")
+                at = [f"--at={self.dev_at[0]},{self.dev_at[1]}"] if self.dev_at else []
+                updater._launch([str(exe), "--after-update", *at])
+                updater.log(f"restarting into {self.update_label()}")
+            except Exception as e:
+                updater.log(f"restart into update failed: {e}")
+                self.restarting = False
+                self.update_ready = None
+                return self.root.after(1000, self.refresh)
+            if self.updater:
+                self.updater.stop()
+            self.exit(stop=False)
+        go()
 
     def render(self, s):
         playing = s.state == "playing"
@@ -788,11 +865,18 @@ def main():
     ap.add_argument("--settings", nargs="?", const="Discord", help="open the settings window (page)")
     ap.add_argument("--setup", action="store_true", help="open the first-run setup window")
     ap.add_argument("--at", help="dev: place the windows at X,Y (use --at=-2400,40 for the second monitor)")
+    ap.add_argument("--after-update", action="store_true", help=argparse.SUPPRESS)
+    ap.add_argument("--no-handoff", action="store_true", help=argparse.SUPPRESS)
     args = ap.parse_args()
     lock = None
     at = tuple(int(v) for v in args.at.split(",")) if args.at else None
     if not args.demo and not at:
         lock = try_lock(HELPER_LOCK)
+        for _ in range(60 if args.after_update else 0):   # the old version is still closing
+            if lock is not None:
+                break
+            time.sleep(0.5)
+            lock = try_lock(HELPER_LOCK)
         if lock is None:
             return            # already running
     try:

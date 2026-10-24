@@ -182,6 +182,11 @@ def check_zip(zpath):
           set(top) == {"MapleClassicCompanion.exe", "START HERE.txt", "_internal"}, ", ".join(top))
     mb = zpath.stat().st_size / 1e6
     check("zip size sane (< 80 MB)", mb < 80, f"{mb:.1f} MB")
+    import hashlib
+    sha = zpath.with_name(zpath.name + ".sha256")
+    want = sha.read_text(encoding="ascii").split()[0] if sha.exists() else ""
+    check("zip has a matching .sha256 (the updater needs it)",
+          want == hashlib.sha256(zpath.read_bytes()).hexdigest(), str(sha.name))
 
 
 def _pids():
@@ -195,9 +200,12 @@ def check_exe():
     data = TMP / "exe_tracker"
     shutil.rmtree(data, ignore_errors=True)
     data.mkdir(parents=True)
-    env = {**os.environ, "MAPLE_COMPANION_DATA": str(data)}
+    # the exe installs itself on start (updater.adopt): keep that in TMP, never the real
+    # %LOCALAPPDATA%\Programs, and keep the run on this copy (--no-handoff)
+    env = {**os.environ, "MAPLE_COMPANION_DATA": str(data),
+           "MAPLE_COMPANION_PROGRAMS": str(TMP / "programs")}
     before = _pids()
-    p = subprocess.Popen([str(exe), "--service"], env=env)
+    p = subprocess.Popen([str(exe), "--service", "--no-handoff"], env=env)
     time.sleep(15)
     (data / "stop").touch()
     try:
@@ -213,7 +221,7 @@ def check_exe():
     shutil.rmtree(data, ignore_errors=True)
     data.mkdir(parents=True)
     env["MAPLE_COMPANION_DATA"] = str(data)
-    p = subprocess.Popen([str(exe), "--at=-2400,40"], env=env)
+    p = subprocess.Popen([str(exe), "--at=-2400,40", "--no-handoff"], env=env)
     time.sleep(8)
     titles = []
     try:
