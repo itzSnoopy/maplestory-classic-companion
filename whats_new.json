@@ -1,4 +1,9 @@
 {
+ "0.6.3": [
+  "Friends hangout: everyone with your code shows in a Friends list on the party panel (level, EXP, map, HP), on any map, no in-game party needed.",
+  "Start menu and desktop shortcuts, and the tracker now always starts with the app (and comes back if it stops).",
+  "Fixed: map names could break after an update."
+ ],
  "0.6.2": [
   "Fixed: skill levels like Improved MP Recovery could stay unreadable on a new install, so the MP regen slot didn't show. Open your Stat window once, then the Skill window, and it fills in."
  ],

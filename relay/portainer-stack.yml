@@ -11,11 +11,14 @@ services:
       PORT: "8787"
       # comma list of allowed party codes; empty = any 6-64 character code
       PARTY_CODES: ""
+      # players per code; 0 = no limit (a hangout of any size)
+      MAX_MEMBERS: "0"
       RELAY_CODE: |
-        """party_relay.py - the tiny server two (or up to 6) trackers use to see each other's numbers.
+        """party_relay.py - the tiny server trackers use to see each other's numbers.
 
         Each tracker posts its own state (name, level, EXP %, EXP/hr, HP, MP, map) every few seconds
-        under a shared party code, and gets back everyone else's under that code. Nothing is written to
+        under a shared party code, and gets back everyone else's under that code. A code is a group: an
+        in-game party, or a hangout of friends spread over any maps, with no player limit. Nothing is written to
         disk: members drop out 90 s after their last update, and a restart forgets everything.
 
         Python 3.8+, standard library only.
@@ -27,6 +30,7 @@ services:
           BIND          listen address (default 0.0.0.0)
           PARTY_CODES   optional comma list of allowed party codes; empty = any code of 6-64 chars
                         (set it on a public server so strangers can't use yours)
+          MAX_MEMBERS   players per code; 0 (default) = no limit
 
         API (JSON):
           POST /v1/party/<code>   body {"name": ..., <fields>}  -> {"members": [...], "server_t": ...}
@@ -43,7 +47,8 @@ services:
 
         TTL_S = 90
         MAX_BODY = 4096
-        MAX_MEMBERS = 8
+        MAX_REPLY = 2000        # members returned per answer (keeps big hangouts' replies sane)
+        MAX_MEMBERS = int(os.environ.get("MAX_MEMBERS", "0"))     # 0 = no limit
         MAX_CODES = 500
         RATE_PER_S = 4          # requests per second per address (burst 10)
         CODE_RE = re.compile(r"^[A-Za-z0-9_-]{6,64}$$")
@@ -96,7 +101,8 @@ services:
                 del p[n]
             if not p:
                 parties.pop(code, None)
-            return [{**f, "name": n, "age_s": round(now - t, 1)} for n, (t, f) in p.items()]
+            out = sorted(p.items(), key=lambda kv: -kv[1][0])[:MAX_REPLY]       # freshest first
+            return [{**f, "name": n, "age_s": round(now - t, 1)} for n, (t, f) in out]
 
 
         class Handler(BaseHTTPRequestHandler):
@@ -160,7 +166,7 @@ services:
                     if code not in parties and len(parties) >= MAX_CODES:
                         return self._send(503, {"error": "server full"})
                     p = parties.setdefault(code, {})
-                    if name not in p and len(p) >= MAX_MEMBERS:
+                    if MAX_MEMBERS and name not in p and len(p) >= MAX_MEMBERS:
                         oldest = min(p, key=lambda k: p[k][0])
                         del p[oldest]
                     p[name] = (now, fields)

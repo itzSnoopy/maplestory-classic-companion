@@ -74,6 +74,7 @@ DEFAULTS = {
     },
     "partypanel": {                     # Settings > General / tray; party_ui.py over the game
         "enabled": True,                # shows only while a party box or partner is seen
+        "friends": True,                # compact list of everyone else with the code (hangout)
         "locked": False,
         "x": None, "y": None,           # None = left side, under the minimap
     },

@@ -191,6 +191,8 @@ def adopt(args, frozen=None, exe=None, launch=None):
         target = real_latest_exe()
         if target is None:
             return False
+        if "--service" not in args:
+            ensure_shortcuts()
         if str(target).lower() == os.path.abspath(exe).lower():
             return False                                # we are latest, by its real path
         if "--no-handoff" in args:
@@ -201,6 +203,42 @@ def adopt(args, frozen=None, exe=None, launch=None):
     except Exception as e:
         log(f"adopt failed, running this copy: {type(e).__name__}: {e}")
         return False
+
+
+SHORTCUT = "Maple Classic Companion.lnk"
+
+
+def ensure_shortcuts():
+    """Start menu + desktop shortcuts to latest/MapleClassicCompanion.exe (always the newest
+    version), made once per PC: one you delete isn't made again (history/shortcuts.json).
+    Runs PowerShell in the background, never delays the start."""
+    try:
+        if os.environ.get("MAPLE_COMPANION_PROGRAMS"):
+            return              # a test install (release_check): never shortcuts to a temp copy
+        from paths import DATA
+        flag = DATA / "history" / "shortcuts.json"
+        if flag.exists():
+            return
+        target = latest_exe()
+        if not target.exists():
+            return
+        q = lambda v: str(v).replace("'", "''")            # PowerShell single-quote escape
+        ps = (
+            "$s = New-Object -ComObject WScript.Shell; "
+            "foreach ($d in @([Environment]::GetFolderPath('Programs'), "
+            "[Environment]::GetFolderPath('Desktop'))) { "
+            f"$l = $s.CreateShortcut((Join-Path $d '{SHORTCUT}')); "
+            f"$l.TargetPath = '{q(target)}'; $l.WorkingDirectory = '{q(target.parent)}'; "
+            f"$l.IconLocation = '{q(target)},0'; "
+            "$l.Description = 'MapleStory Classic EXP tracker and helper'; $l.Save() }")
+        subprocess.Popen(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+                         creationflags=0x08000000, close_fds=True)      # CREATE_NO_WINDOW
+        flag.parent.mkdir(parents=True, exist_ok=True)
+        flag.write_text(json.dumps({"made": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                                    "target": str(target)}), encoding="utf-8")
+        log(f"shortcuts made (Start menu + desktop) -> {target}")
+    except Exception as e:
+        log(f"shortcuts not made: {type(e).__name__}: {e}")
 
 
 def _launch(cmd):

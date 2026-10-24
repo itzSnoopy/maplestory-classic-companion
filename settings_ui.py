@@ -183,10 +183,11 @@ class SettingsWindow:
         self.label(f, "Drag it anywhere; right-click to lock it (clicks then go to the game). "
                       "Unlock from the tray menu.", muted=True, wrap=self.px(380)).pack(anchor="w", pady=(0, self.px(6)))
         self.s.setdefault("partypanel", copy.deepcopy(HS.DEFAULTS["partypanel"]))
-        self.check(f, "partypanel.enabled", "Party panel over the game (big HP bars, partners' EXP/MP)"
+        self.check(f, "partypanel.enabled", "Party panel over the game (party HP bars, friends list)"
                    ).pack(anchor="w", pady=(0, self.px(2)))
-        self.label(f, "Shows when you're in a party. Partners who run this app too show their EXP "
-                      "and MP: set up Internet > Party link.", muted=True,
+        self.label(f, "Shows when you're in a party or friends are online. Friends who run this app "
+                      "show their level, EXP, map and HP: set up Internet > Party & friends link "
+                      "(same code for everyone). Right-click it to hide the friends list.", muted=True,
                    wrap=self.px(380)).pack(anchor="w", pady=(0, self.px(6)))
         tk.Frame(f, bg=BG, height=self.px(10)).pack()
         self.capture_row(f)
@@ -282,7 +283,7 @@ class SettingsWindow:
             pj = {}
         if pj.get("ok"):
             names = ", ".join(m.get("name", "?") for m in pj.get("members") or []) or "nobody yet"
-            note = f"Connected. Online in your party: {names}."
+            note = f"Connected. Online with your code: {names}."
         elif pj.get("error") and pj.get("error") != "off":
             note = f"Last try failed: {pj['error']}"
         else:

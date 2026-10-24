@@ -22,6 +22,8 @@ services:
       PORT: "8787"
       # comma list of allowed party codes; empty = any 6-64 character code
       PARTY_CODES: ""
+      # players per code; 0 = no limit (a hangout of any size)
+      MAX_MEMBERS: "0"
       RELAY_CODE: |
 """
 TAIL = """    command: ["python3", "-u", "-c", "import os; exec(os.environ['RELAY_CODE'])"]

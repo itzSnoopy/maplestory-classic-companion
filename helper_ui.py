@@ -627,9 +627,17 @@ class App:
         elif self.presence is not None:
             self.presence.disable()
 
+    keep_tracker = False            # packaged app: restart the tracker whenever it isn't running
+
     def start_tracker(self):
+        self.keep_tracker = bool(getattr(self, "watch_tracker", False))
         if tracker_running():
             return
+        if STOP_FILE.exists():
+            try:
+                STOP_FILE.unlink()          # a stop meant for a tracker that's gone
+            except OSError:
+                pass
         flags = 0x00000008 | 0x00000200      # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
         subprocess.Popen(self_command("--service"), cwd=str(ROOT),
                          creationflags=flags, close_fds=True)
@@ -637,6 +645,7 @@ class App:
         self.running = True
 
     def stop_tracker(self):
+        self.keep_tracker = False           # you stopped it: don't bring it back
         if tracker_running():
             STOP_FILE.touch()
 
@@ -725,6 +734,12 @@ class App:
             if now - self.last_lock_check > 5 and now > self.lock_quiet_until:
                 self.running = tracker_running()
                 self.last_lock_check = now
+        # the tracker should be running (packaged app) but isn't: an old one was still closing
+        # when this helper started, or it stopped on its own. Start it again (after its own
+        # start-up quiet time, so a slow start isn't doubled)
+        if (self.keep_tracker and not self.running and not self.restarting
+                and now > self.lock_quiet_until and now - self.last_lock_check < 1.5):
+            self.start_tracker()
         snap = Snapshot(status, digest, self.running)
         self.last_snap = snap
         self.sync_skillbar()
@@ -982,10 +997,13 @@ def main():
         if not args.demo:
             import calibrate
             import paths
+            # packaged app: the tracker comes with the helper and is kept running (refresh);
+            # after a first-run setup it starts when setup finishes
+            app.watch_tracker = paths.FROZEN
             if args.setup or calibrate.needs_setup():
                 app.root.after(300, app.open_setup)
             elif paths.FROZEN:
-                app.root.after(500, app.start_tracker)    # packaged app: tracker comes with the helper
+                app.root.after(500, app.start_tracker)
         app.run()
     finally:
         if lock:

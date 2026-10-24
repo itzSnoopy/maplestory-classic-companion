@@ -821,6 +821,9 @@ def run(cfg, args, source=None, sinks=None):
     if lock is None:
         log("another tracker is already running; exiting")
         return
+    if STOP_FILE.exists():          # asked of a tracker that had already gone: not for us
+        STOP_FILE.unlink()
+        log("removed a stale stop request")
     if source is None:
         import ocr
         if not ocr.setup(cfg.get("tesseract")):

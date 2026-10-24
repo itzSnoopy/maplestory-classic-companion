@@ -10,6 +10,7 @@ except ImportError:
     HAVE_OCR = False
 
 READY = False
+_errors_seen = set()
 
 
 def setup(tesseract_path):
@@ -126,4 +127,9 @@ def read(img, region_cfg, kind=None):
             return read_exp(img, region_cfg)
         return _tess(img, region_cfg)
     except Exception as e:
-        return f"<ocr error: {e}>"
+        # never hand the error text on as a reading (it was once saved as a map name)
+        msg = f"{type(e).__name__}: {e}"
+        if msg not in _errors_seen:
+            _errors_seen.add(msg)
+            print(f"OCR failed ({kind or 'text'}): {msg}")
+        return ""

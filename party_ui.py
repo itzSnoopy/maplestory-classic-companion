@@ -32,6 +32,7 @@ FPS = 4
 BOX_FRESH_S = 6.0           # party box rows in live.json
 MATE_FRESH_S = 15.0         # a partner's own numbers (their app posts every 3 s)
 LOW_HP = 30.0
+MAX_FRIENDS = 12           # rows shown; the rest is a "+N more" line (same map / playing first)
 
 
 def _read(path):
@@ -89,14 +90,21 @@ def members(live, status, pj, now):
                      exp_hr=m.get("exp_hr"), eta=m.get("eta"), map=m.get("map"),
                      playing=m.get("state") == "playing", age=m.get("age_s") or 0, app=True)
         cards.append(c)
-    for n, m in mates.items():        # partners with the app who aren't in the box we see
+    # everyone else with the code: friends in the hangout, not in your in-game party (or the box
+    # isn't on screen). A compact list: same map first, then who's playing, then by name
+    my_map = status.get("map")
+    friends = []
+    for n, m in mates.items():
         if n not in used:
-            cards.append({"name": n, "on_map": False, "hp": m.get("hp"), "mp": m.get("mp"),
-                          "level": m.get("level"), "exp_pct": m.get("exp_pct"),
-                          "exp_hr": m.get("exp_hr"), "eta": m.get("eta"), "map": m.get("map"),
-                          "playing": m.get("state") == "playing", "age": m.get("age_s") or 0,
-                          "app": True})
-    return cards
+            friends.append({"name": n, "friend": True, "hp": m.get("hp"), "mp": m.get("mp"),
+                            "level": m.get("level"), "exp_pct": m.get("exp_pct"),
+                            "exp_hr": m.get("exp_hr"), "eta": m.get("eta"), "map": m.get("map"),
+                            "job": m.get("job"), "channel": m.get("channel"),
+                            "same_map": bool(my_map and m.get("map") == my_map),
+                            "playing": m.get("state") == "playing", "age": m.get("age_s") or 0,
+                            "app": True})
+    friends.sort(key=lambda f: (not f["same_map"], not f["playing"], f["name"].lower()))
+    return cards + friends
 
 
 class PartyPanel:
@@ -215,10 +223,78 @@ class PartyPanel:
                   fill=(220, 220, 150, 255), anchor="lm")
         return im
 
+    def _friends(self, friends):
+        """Compact list: two lines a friend (name, level, EXP %; map + thin HP/EXP bars)."""
+        k = self.k
+        W, pad = int(W_CARD * k), int(6 * k)
+        row_h, head_h = int(30 * k), int(18 * k)
+        more = max(0, len(friends) - MAX_FRIENDS)
+        on = sum(1 for f in friends if f.get("playing"))
+        friends = friends[:MAX_FRIENDS]
+        H = pad + head_h + row_h * len(friends) + (int(16 * k) if more else 0) + pad // 2
+        im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        d.rounded_rectangle((0, 0, W - 1, H - 1), radius=int(7 * k), fill=(24, 26, 32, 235),
+                            outline=(90, 96, 110, 255))
+        _text(d, (pad, pad + head_h // 2), f"Friends · {on} playing", self.f_small,
+              fill=(200, 210, 230, 255), anchor="lm")
+        y = pad + head_h
+        bw = int(70 * k)
+        for f in friends:
+            stale = (f.get("age") or 0) > MATE_FRESH_S
+            dot = (90, 210, 120, 255) if f.get("playing") and not stale else (120, 125, 135, 255)
+            r = int(3 * k)
+            d.ellipse((pad, y + int(7 * k) - r, pad + 2 * r, y + int(7 * k) + r), fill=dot)
+            col = (255, 255, 255, 255) if f.get("playing") else (175, 180, 190, 255)
+            _text(d, (pad + int(10 * k), y + int(7 * k)), f["name"], self.f_small, fill=col,
+                  anchor="lm")
+            right = " · ".join(x for x in (f"Lv {f['level']}" if f.get("level") else "",
+                                             f"{f['exp_pct']:.1f}%" if f.get("exp_pct") is not None
+                                             else "") if x)
+            if right:
+                _text(d, (W - pad, y + int(7 * k)), right, self.f_small,
+                      fill=(220, 220, 150, 255), anchor="rm")
+            where = f.get("map") or ("not playing" if not f.get("playing") else "?")
+            if f.get("same_map"):
+                where = "here · " + where
+            ch = f" · ch {f['channel']}" if f.get("channel") else ""
+            mcol = (140, 220, 160, 255) if f.get("same_map") else (150, 160, 180, 255)
+            text = (where + ch)
+            maxw = W - 2 * pad - bw - int(16 * k)
+            while text and d.textlength(text, font=self.f_small) > maxw:
+                text = text[:-2] + "…" if not text.endswith("…") else text[:-2] + "…"
+            _text(d, (pad + int(10 * k), y + int(21 * k)), text, self.f_small, fill=mcol,
+                  anchor="lm")
+            bx = W - pad - bw
+            hp = f.get("hp")
+            hb = int(4 * k)
+            if hp:
+                frac = hp[0] / hp[1]
+                d.rectangle((bx, y + int(16 * k), bx + bw, y + int(16 * k) + hb), fill=(40, 42, 50, 255))
+                d.rectangle((bx, y + int(16 * k), bx + int(bw * frac), y + int(16 * k) + hb),
+                            fill=(255, 70, 70, 255) if frac * 100 < LOW_HP else (210, 40, 40, 255))
+            if f.get("exp_pct") is not None:
+                yy = y + int(16 * k) + hb + int(2 * k)
+                d.rectangle((bx, yy, bx + bw, yy + hb), fill=(40, 42, 50, 255))
+                d.rectangle((bx, yy, bx + int(bw * f["exp_pct"] / 100), yy + hb), fill=(200, 200, 60, 255))
+            y += row_h
+        if more:
+            _text(d, (pad, y + int(7 * k)), f"+{more} more", self.f_small,
+                  fill=(150, 160, 180, 255), anchor="lm")
+        return im
+
     def render(self, cards):
         if not cards:
             return None
-        imgs = [self._card(c) for c in cards]
+        full = [c for c in cards if not c.get("friend")]
+        friends = [c for c in cards if c.get("friend")]
+        if not self.get().get("friends", True):
+            friends = []
+        imgs = [self._card(c) for c in full]
+        if friends:
+            imgs.append(self._friends(friends))
+        if not imgs:
+            return None
         g = int(4 * self.k)
         W = max(i.width for i in imgs)
         H = sum(i.height for i in imgs) + g * (len(imgs) - 1)
@@ -268,6 +344,9 @@ class PartyPanel:
 
     def _menu(self, e):
         m = tk.Menu(self.w, tearoff=0)
+        show = self.get().get("friends", True)
+        m.add_command(label="Hide friends list" if show else "Show friends list",
+                      command=lambda: self.put(friends=not show))
         m.add_command(label="Lock (click-through)", command=lambda: self.set_locked(True))
         m.add_command(label="Hide party panel", command=lambda: self.put(enabled=False))
         m.tk_popup(e.x_root, e.y_root)
@@ -306,7 +385,13 @@ def demo_data(now):
               "eta_to_level": "1h05m", "map": "L Forest I"}
     pj = {"t": now, "ok": True, "members": [
         {"name": "DSius", "level": 16, "hp": [101, 460], "mp": [280, 410], "exp_pct": 12.5,
-         "exp_hr": 4100, "eta": "1h40m", "map": "L Forest I", "state": "playing", "age_s": 1.2}]}
+         "exp_hr": 4100, "eta": "1h40m", "map": "L Forest I", "state": "playing", "age_s": 1.2},
+        {"name": "Mapler99", "level": 22, "hp": [600, 700], "exp_pct": 71.0, "map": "L Forest I",
+         "channel": 40, "state": "playing", "age_s": 2.0},
+        {"name": "ArcherJen", "level": 31, "hp": [150, 900], "exp_pct": 8.3,
+         "map": "The Forest of Wisdom", "channel": 12, "state": "playing", "age_s": 0.5},
+        {"name": "SleepyThief", "level": 18, "exp_pct": 44.4, "map": "Kerning City",
+         "state": "idle", "age_s": 5.0}]}
     return live, status, pj
 
 

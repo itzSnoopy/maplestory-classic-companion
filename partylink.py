@@ -84,7 +84,7 @@ def exchange(url, state):
                                  headers={"Content-Type": "application/json",
                                           "User-Agent": "MapleClassicCompanion"})
     with urllib.request.urlopen(req, timeout=TIMEOUT_S) as r:
-        return json.loads(r.read(64 * 1024))
+        return json.loads(r.read(2 * 1024 * 1024))     # big hangouts: ~200 bytes a player
 
 
 class PartyLink(threading.Thread):

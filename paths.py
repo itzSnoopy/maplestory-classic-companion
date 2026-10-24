@@ -46,7 +46,12 @@ def load_config(path=None):
     p = Path(path) if path else CONFIG
     if not p.exists() and p == CONFIG:
         p.write_text(json.dumps(default_config(), indent=2), encoding="utf-8")
-    return json.loads(p.read_text(encoding="utf-8"))
+    cfg = json.loads(p.read_text(encoding="utf-8"))
+    # packaged app: always the Tesseract of the version that's running. A saved path points into
+    # one version's folder, which a later update deletes (2026-10-24: map reads failed mid-play)
+    if FROZEN and BUNDLED_TESSERACT.exists():
+        cfg["tesseract"] = str(BUNDLED_TESSERACT)
+    return cfg
 
 
 def self_command(*args):

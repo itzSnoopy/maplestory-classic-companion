@@ -7,3 +7,5 @@ services:
     environment:
       # comma list of allowed party codes; leave empty to accept any 6-64 character code
       PARTY_CODES: ""
+      # players per code; 0 = no limit (a hangout of any size)
+      MAX_MEMBERS: "0"
