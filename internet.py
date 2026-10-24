@@ -21,6 +21,13 @@ FEATURES = {
                 "Nothing about you or your game is sent.",
         "hosts": ["github.com", "release-assets.githubusercontent.com"],
     },
+    "party": {
+        "label": "Party link",
+        "what": "Every few seconds, sends your name, level, job, map, channel, EXP, HP and MP "
+                "to your party's server and shows your partners' numbers. Needs a server and "
+                "party code below.",
+        "hosts": ["the party server set below"],
+    },
 }
 DEFAULTS = {"allowed": True, "features": {name: True for name in FEATURES}}
 

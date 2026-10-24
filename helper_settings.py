@@ -55,7 +55,8 @@ DEFAULTS = {
     },
     "internet": {                       # Settings > Internet; internet.py (one toggle per feature)
         "allowed": True,                # master switch: off = no internet connections at all
-        "features": {"updates": True},  # automatic updates (updater.py, packaged app only)
+        "features": {"updates": True,   # automatic updates (updater.py, packaged app only)
+                     "party": True},    # party link (partylink.py; needs server + code below)
     },
     "updates": {                        # Settings > Internet > Automatic updates; updater.py
         "min_s": 30,                    # first check 30 s after start, then doubling while
@@ -66,6 +67,15 @@ DEFAULTS = {
         "locked": False,                # click-through (clicks go to the game underneath)
         "x": None, "y": None,           # screen position; None = top-center
         "hidden": [],                   # skill ids the player removed from the bar (right-click)
+    },
+    "party": {                          # Settings > Internet > Party link; partylink.py (tracker)
+        "server": "",                   # your relay, e.g. http://203.0.113.5:8787 (relay/README.md)
+        "code": "",                     # same code on every PC in the party
+    },
+    "partypanel": {                     # Settings > General / tray; party_ui.py over the game
+        "enabled": True,                # shows only while a party box or partner is seen
+        "locked": False,
+        "x": None, "y": None,           # None = left side, under the minimap
     },
     "map_check": {                      # Settings > General; the tracker re-reads it (mapwatch.py)
         "min_s": 1,                     # check the map name every min_s right after a change,

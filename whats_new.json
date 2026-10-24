@@ -1,4 +1,8 @@
 {
+ "0.6.0": [
+  "Party panel over the game: bigger HP bars for everyone in your party, read from the game's party box (shows when you're in a party).",
+  "Party link: partners who also run this app see each other's exact HP, MP and EXP. Set the server and party code in Settings > Internet > Party link."
+ ],
  "0.5.2": [
   "The MP/HP recovery countdown always uses the skill's own rhythm (every 10 seconds); the screen only tells it when each tick lands."
  ],

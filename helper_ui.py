@@ -271,6 +271,11 @@ class Tray:
                 M("Lock skill bar (click-through)", lambda: app.post("skillbar_lock"),
                   checked=lambda _: app.bar_setting("locked"),
                   enabled=lambda _: app.bar_setting("enabled")),
+                M("Party panel", lambda: app.post("partypanel"),
+                  checked=lambda _: app.panel_setting("enabled")),
+                M("Lock party panel (click-through)", lambda: app.post("partypanel_lock"),
+                  checked=lambda _: app.panel_setting("locked"),
+                  enabled=lambda _: app.panel_setting("enabled")),
                 M(lambda _: f"Restart to update to {app.update_label()}", lambda: app.post("update"),
                   visible=lambda _: app.update_ready is not None),
                 pystray.Menu.SEPARATOR,
@@ -367,6 +372,7 @@ class App:
                 print(f"diary pop-up unavailable: {e}")
 
         self.skillbar = None          # skillbar_ui.SkillBar over the game (Settings > General)
+        self.partypanel = None        # party_ui.PartyPanel over the game (Settings > General)
         if not demo and not at:       # "Updated to x.y.z" card after an update (whats_new.py)
             def _whats_new():
                 try:
@@ -684,6 +690,12 @@ class App:
                     self.put_bar(locked=not self.bar_setting("locked"))
                     if self.skillbar:
                         self.skillbar.set_locked(self.bar_setting("locked"))
+                elif cmd == "partypanel":
+                    self.put_panel(enabled=not self.panel_setting("enabled"))
+                elif cmd == "partypanel_lock":
+                    self.put_panel(locked=not self.panel_setting("locked"))
+                    if self.partypanel:
+                        self.partypanel.set_locked(self.panel_setting("locked"))
                 elif cmd == "diary":
                     self.open_diary()
                 elif cmd == "journal":
@@ -716,6 +728,7 @@ class App:
         snap = Snapshot(status, digest, self.running)
         self.last_snap = snap
         self.sync_skillbar()
+        self.sync_partypanel()
         self.render(snap)
         self.update_discord(snap)
         if self.tray:
@@ -757,6 +770,37 @@ class App:
         elif not on and self.skillbar is not None:
             self.skillbar.destroy()
             self.skillbar = None
+
+    # ---------------------------------------------------------------- party panel
+    def panel_setting(self, key):
+        return (self.settings.get("partypanel") or {}).get(key)
+
+    def put_panel(self, **kw):
+        """Change the party panel's settings (from the panel itself or the tray) and save them."""
+        self.settings.setdefault("partypanel", {}).update(kw)
+        if not self.dev_at:
+            try:
+                self.HS.save(self.settings)
+            except Exception as e:
+                print(f"party panel settings save failed: {e}")
+        self.sync_partypanel()
+
+    def sync_partypanel(self):
+        """Create / remove the panel to match the setting (it hides itself with no party)."""
+        on = bool(self.panel_setting("enabled"))
+        if on and self.partypanel is None:
+            try:
+                from party_ui import PartyPanel
+                at = (self.at_bar[0], self.at_bar[1] + 120) if self.at_bar else None
+                self.partypanel = PartyPanel(self.root,
+                                             lambda: self.settings.get("partypanel") or {},
+                                             self.put_panel, k=self.k, demo=self.demo, at=at)
+            except Exception as e:
+                print(f"party panel unavailable: {e}")
+                self.settings.setdefault("partypanel", {})["enabled"] = False
+        elif not on and self.partypanel is not None:
+            self.partypanel.destroy()
+            self.partypanel = None
 
     # ---------------------------------------------------------------- updates (updater.py)
     restarting = False

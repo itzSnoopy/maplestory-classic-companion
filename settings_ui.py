@@ -182,6 +182,12 @@ class SettingsWindow:
                    ).pack(anchor="w", pady=(0, self.px(2)))
         self.label(f, "Drag it anywhere; right-click to lock it (clicks then go to the game). "
                       "Unlock from the tray menu.", muted=True, wrap=self.px(380)).pack(anchor="w", pady=(0, self.px(6)))
+        self.s.setdefault("partypanel", copy.deepcopy(HS.DEFAULTS["partypanel"]))
+        self.check(f, "partypanel.enabled", "Party panel over the game (big HP bars, partners' EXP/MP)"
+                   ).pack(anchor="w", pady=(0, self.px(2)))
+        self.label(f, "Shows when you're in a party. Partners who run this app too show their EXP "
+                      "and MP: set up Internet > Party link.", muted=True,
+                   wrap=self.px(380)).pack(anchor="w", pady=(0, self.px(6)))
         tk.Frame(f, bg=BG, height=self.px(10)).pack()
         self.capture_row(f)
         self.map_check_row(f)
@@ -253,6 +259,37 @@ class SettingsWindow:
         self.vars["internet.allowed"].trace_add("write", sync)
         sync()
         return f
+
+    def internet_party_extra(self, f):
+        """Under "Party link" on the Internet page: your relay's address and the party code."""
+        self.s.setdefault("party", {})
+        for k, v in HS.DEFAULTS["party"].items():
+            self.s["party"].setdefault(k, v)
+        for key, cap, hint in (("party.server", "Server", "e.g. http://1.2.3.4:8787"),
+                               ("party.code", "Party code", "same on every PC")):
+            row = tk.Frame(f, bg=BG)
+            row.pack(anchor="w", pady=(self.px(4), 0), padx=(self.px(22), 0))
+            lb = self.label(row, cap)
+            lb.configure(width=10)
+            lb.pack(side="left")
+            self.entry(row, key, width=32).pack(side="left", padx=(self.px(6), self.px(8)))
+            self.label(row, hint, muted=True, size=8).pack(side="left")
+        import json as _json
+        from paths import DATA
+        try:
+            pj = _json.loads((DATA / "party.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            pj = {}
+        if pj.get("ok"):
+            names = ", ".join(m.get("name", "?") for m in pj.get("members") or []) or "nobody yet"
+            note = f"Connected. Online in your party: {names}."
+        elif pj.get("error") and pj.get("error") != "off":
+            note = f"Last try failed: {pj['error']}"
+        else:
+            note = ("The tracker connects within a few seconds of saving. Server setup: the "
+                    "relay/ folder (README).")
+        self.label(f, note, muted=True, size=8, wrap=self.px(540)).pack(
+            anchor="w", padx=(self.px(22), 0), pady=(self.px(4), 0))
 
     def internet_updates_extra(self, f):
         """Under "Automatic updates" on the Internet page: how often, and what's happening."""
@@ -516,6 +553,11 @@ class SettingsWindow:
         # the skill bar may have been moved / locked while this window was open: keep that
         bar = (self.app.settings.get("skillbar") or {})
         self.s.setdefault("skillbar", {}).update({k: bar[k] for k in ("x", "y", "locked", "hidden") if k in bar})
+        pan = (self.app.settings.get("partypanel") or {})
+        self.s.setdefault("partypanel", {}).update({k: pan[k] for k in ("x", "y", "locked") if k in pan})
+        if "party" in self.s:
+            for k in ("server", "code"):
+                self.s["party"][k] = str(self.s["party"].get(k) or "").strip()
         self.s["character"]["channel"] = str(self.s["character"]["channel"]).strip()
         self.s["discord"]["client_id"] = str(self.s["discord"]["client_id"]).strip()
         try:

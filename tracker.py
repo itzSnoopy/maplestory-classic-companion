@@ -855,6 +855,9 @@ def run(cfg, args, source=None, sinks=None):
                              log=lambda s: log("character: " + s))
 
     feed = live.Live()                        # live.json for the skill bar (HP/MP regen, casts)
+    import partylink                          # party.json: partners' numbers (relay/, opt-in)
+    link = partylink.PartyLink(log=log)
+    link.start()
 
     def take_facts():
         try:
@@ -989,6 +992,7 @@ def run(cfg, args, source=None, sinks=None):
         for s in sinks:
             s.close()
         source.close()
+        link.stop()
         perf.tick(last_state, capture.fps(), force=True)
         H.build_digest()
         log("tracker service stopped")

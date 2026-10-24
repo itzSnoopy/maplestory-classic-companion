@@ -1,0 +1,9 @@
+services:
+  party-relay:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8787:8787"
+    environment:
+      # comma list of allowed party codes; leave empty to accept any 6-64 character code
+      PARTY_CODES: ""

@@ -515,3 +515,25 @@ prior), that rhythm is always shown; the screen only anchors the timing (restart
 seen). The measured gap is kept as `measured_gap` for information only. Recordings 1-3 at 1/s and
 2/s: 10.0 s shown every time, next tick within 0.2-0.3 s (0.5-0.8 s with pushed-back ticks).
 The tick *size* stays measured (+9 = 1% of 630 from the skill + the game's own regen).
+
+## 2026-10-23 23:40 · Stretched game display breaks setup (first other player)
+
+A friend's setup stopped at "Minimap not found. Open it, keep it top-left" with the full minimap
+already top-left. Their screenshot (1920x1080, lossy webp, not kept): the WORLD button's orange area
+was about x 248-294, y 11-22 (about 47x12 px, against 34x10 normally), and no pixel was exactly
+(221, 153, 17). So the game was drawn smaller and stretched about 1.4x (likely 1366x768 -> 1920x1080).
+calibrate.find_world needs exact color and size, so it fails, and the message wrongly blames the position.
+**Fix used:** the game's "ideal ratio" display option (no stretching). Supporting the game's default
+setting is on the roadmap (A). Every exact-pixel reader would need it, not only the minimap.
+
+## 2026-10-23 23:50 · Party box (party HP UI under the minimap)
+
+Live PNG frames + a JPEG burst, 1920x1080, minimap full at 0,0, party of 2 (SnoopySparda leader,
+DSius). Box at x 218-410, y 218-252. Bars: white top border row y=222 at x 342..404 (63 px), white
+bottom border y=230, side borders x 341 and 405, black outline rows 221 and 231; second bar 17 px
+lower (239). Interior rows 223-229, red strongest in rows 225-228 (e.g. cf0505, edge column 342
+9f2323), empty = (45,3a,40)-ish. Fill = last red column + 1 over 63: 90.5 % vs exact 380/424 = 89.6 %.
+Names: black text (lum < 32) on your map; DSius on another map was grey, darkest ~50-55, background
+under the box 100+ (lum < 100 & sat < 35 catches it, ragged in JPEG). Leader star: ~37 gold pixels
+(R>200, G>110, R-B>100) in the icon box, member sun ~14. Tesseract (mask x4, psm 7, alnum
+whitelist) read both names exactly on lossless frames, "or" for the grey name in JPEG.

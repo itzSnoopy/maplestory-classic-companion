@@ -31,13 +31,13 @@ PRIVATE = re.compile(r"(^|/)(config\.json|helper_settings\.json|glyphs(_level|_u
                      r"screenshots|templates|crops|glyphs|game_icons|dev/fixtures|build|dist)/|"
                      r"\.(png|jpe?g|gif|bmp|log|zip|exe)$", re.I)
 # never inside the release zip (game imagery, player data, third-party art)
-ZIP_FORBIDDEN = re.compile(r"(^|/)(config\.json|helper_settings\.json|glyphs(_level|_ui|_hud)?\.json|"
+ZIP_FORBIDDEN = re.compile(r"(^|/)(config\.json|helper_settings\.json|party\.json|live\.json|glyphs(_level|_ui|_hud)?\.json|"
                            r"minimap_(world|header)\.png|nametag\.png|icon\.png|crash\.log|"
                            r"captions_custom\.json|placeholder_source\.jpg)$|(^|/)(history|sessions|"
                            r"screenshots|templates|crops|glyphs|game_icons|fixtures)/|\.jpe?g$", re.I)
 ALLOWED_IMAGES ={"discord_icon.png", "art/fluent_maple_leaf_3d.png"}
 # root JSON files that are the player's own (never shipped)
-LOCAL_JSON = {"config.json", "helper_settings.json", "glyphs.json", "glyphs_level.json", "glyphs_ui.json", "glyphs_hud.json", "live.json",
+LOCAL_JSON = {"config.json", "helper_settings.json", "glyphs.json", "glyphs_level.json", "glyphs_ui.json", "glyphs_hud.json", "live.json", "party.json",
               "digest.json", "status.json"}
 
 results = []
