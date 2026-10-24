@@ -51,7 +51,7 @@ DEFAULTS = {
         "open_via": "localhost",        # localhost (127.0.0.1, no folder paths shown) or file
     },
     "capture": {                        # Settings > General slider; capture.py (tracker follows live)
-        "fps": 1,                       # screen checks per second while playing, 1-60
+        "fps": 2,                       # screen checks per second while playing, 1-60 (0.4.0: 2)
     },
     "internet": {                       # Settings > Internet; internet.py (one toggle per feature)
         "allowed": True,                # master switch: off = no internet connections at all
@@ -60,6 +60,11 @@ DEFAULTS = {
     "updates": {                        # Settings > Internet > Automatic updates; updater.py
         "min_s": 30,                    # first check 30 s after start, then doubling while
         "max_s": 300,                   # nothing is new, up to every 5 min
+    },
+    "skillbar": {                       # Settings > General / tray; skillbar_ui.py over the game
+        "enabled": False,               # HP/MP regen wheels + casts left, fed by live.json
+        "locked": False,                # click-through (clicks go to the game underneath)
+        "x": None, "y": None,           # screen position; None = top-center
     },
     "map_check": {                      # Settings > General; the tracker re-reads it (mapwatch.py)
         "min_s": 1,                     # check the map name every min_s right after a change,

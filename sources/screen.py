@@ -30,6 +30,7 @@ import ocr
 import panels
 import parse
 import perf
+import vitals
 from layout import anchor_for, crop, layouts
 import minimap
 from sources.base import ABSENT, OK, UNAVAILABLE, Observation, Source
@@ -168,6 +169,7 @@ class ScreenSource(Source):
         self._name_guess = {}               # fingerprint -> Tesseract's guess (once each)
         self.away_since_who = True          # game left the screen since the last name check
         self.last_level = (None, 0.0)       # (HUD level, time) for scoring stat-window reads
+        self.size = tuple(self.res or (1920, 1080))     # last full frame size (for part boxes)
 
     def read(self, hints):
         t, now = time.time(), datetime.now()
@@ -223,7 +225,9 @@ class ScreenSource(Source):
         self._whoami(t, frame)
         if level:
             self.last_level = (level, t)
-        self._panels(t, frame, hud=(cur, pct, level))
+        self.size = frame.size
+        self._vitals(t, frame)
+        self._panels(t, frame, hud=(cur, pct, level), hud_img=(frame, None))
         with perf.timed("hp_bar"):
             hp = hpbar.hp_pct(frame, tuple(self.res or (1920, 1080)))     # HP bar fill, no OCR
         rawlog = {k: v.replace("\n", " / ") for k, v in raw.items()}
@@ -280,7 +284,7 @@ class ScreenSource(Source):
             # check is due (then the whole frame, read once for all of them)
             # a game window (stat/skills/channel) seen in the last overview: read it whole now
             full = due or map_due or self.panels_due
-            small, spot_imgs = None, {}
+            small, spot_imgs, strip = None, {}, None
             with perf.timed("grab_full" if full else "grab_center"):
                 if full:
                     frame = self.frames.grab()
@@ -288,12 +292,14 @@ class ScreenSource(Source):
                     # same frame: the center square for the box, a 1/4-scale overview to spot
                     # windows, and full-size copies of where each window was last seen (the game
                     # reopens them there), so a window open for a single frame is still read
+                    # + the HP/MP text strip (vitals.py: exact numbers every look)
                     spots = list(self.spots.items())
+                    sbox = vitals.strip_box(self.size, tuple(self.res or (1920, 1080)))
                     imgs = self.frames.grab_parts(
-                        [{"center": deathbox.PAD}, {"step": panels.SMALL}]
+                        [{"center": deathbox.PAD}, {"step": panels.SMALL}, {"box": sbox}]
                         + [{"box": b} for _, b in spots])
-                    frame, small = imgs[0], imgs[1]
-                    spot_imgs = {k: (img, b[:2]) for (k, b), img in zip(spots, imgs[2:])}
+                    frame, small, strip = imgs[0], imgs[1], imgs[2]
+                    spot_imgs = {k: (img, b[:2]) for (k, b), img in zip(spots, imgs[3:])}
                 else:
                     frame = self.frames.grab(center=deathbox.PAD)
         except Exception:
@@ -309,7 +315,15 @@ class ScreenSource(Source):
             self._take_due_shots(t, frame)
         if map_due and self._check_map(frame, t):
             self.read_now = True        # new map: take a reading now, so the tracker sees it
-        self._panels(t, frame if full else None, small, spot_imgs=spot_imgs)
+        if full:
+            self._vitals(t, frame)
+            hud_img = (frame, None)
+        elif strip is not None:
+            self._vitals(t, strip, origin=True)
+            hud_img = (strip, True)
+        else:
+            hud_img = None
+        self._panels(t, frame if full else None, small, spot_imgs=spot_imgs, hud_img=hud_img)
         with perf.timed("deathbox"):
             return deathbox.is_dead(frame)
 
@@ -371,7 +385,47 @@ class ScreenSource(Source):
             except OSError:
                 pass
 
-    def _panels(self, t, frame=None, small=None, hud=None, spot_imgs=None):
+    def _vitals(self, t, img, origin=None):
+        """Exact HP / MP numbers from the status bar (vitals.py) -> a 'vitals' fact."""
+        try:
+            with perf.timed("vitals"):
+                r = vitals.read(img, tuple(self.res or (1920, 1080)), origin)
+            if r["hp"] or r["mp"]:
+                self.facts.append((t, "vitals", {"hp": r["hp"], "mp": r["mp"]}))
+        except Exception as e:
+            log(f"HP/MP read failed: {type(e).__name__}: {e}")
+
+    def _teach_vitals(self, stat, hud_img):
+        """The Stat window shows the same HP / MP as the status bar: teach its digits."""
+        if not hud_img:
+            return
+        img, origin = hud_img
+        for k in ("hp", "mp"):
+            if stat.get(k) and "?" in (vitals.read_text(img, k, tuple(self.res or (1920, 1080)),
+                                                         origin) or ""):
+                new = vitals.try_learn(img, k, stat[k], tuple(self.res or (1920, 1080)), origin)
+                if new:
+                    log(f"learned status-bar digit(s) {sorted(new)} from the Stat window")
+
+    def _save_icons(self, skills):
+        """Cut each skill's icon from the player's own Skill window, once (local only:
+        templates/skill_icons/, never shipped). The skill bar shows them."""
+        from paths import DATA
+        d = DATA / "templates" / "skill_icons"
+        for row in skills.get("skills", []):
+            icon = row.pop("_icon", None)
+            if icon is None or not row.get("id"):
+                continue
+            p = d / f"{row['id']}.png"
+            if not p.exists():
+                try:
+                    d.mkdir(parents=True, exist_ok=True)
+                    Image.fromarray(icon.copy()).save(p)
+                    log(f"saved skill icon: {row.get('name')}")
+                except Exception as e:
+                    log(f"skill icon save failed: {e}")
+
+    def _panels(self, t, frame=None, small=None, hud=None, spot_imgs=None, hud_img=None):
         """Look for the Character Stat / Skill / Change Channel windows. With the overview
         (`small`): read the ones that are at their remembered spot (`spot_imgs`, same frame);
         others get a whole-frame grab next look. With a full frame: read them all.
@@ -408,6 +462,10 @@ class ScreenSource(Source):
                         res["stat"] = panels.read_stat(a, cands["stat"]) or res["stat"]
                     self.panels_due = False
             self._remember_spots(res)
+            if "stat" in res:
+                self._teach_vitals(res["stat"], hud_img)
+            if "skills" in res:
+                self._save_icons(res["skills"])
             kinds = frozenset(res)
             if kinds != self.panels_seen:
                 if kinds:

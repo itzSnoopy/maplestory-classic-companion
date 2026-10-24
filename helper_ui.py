@@ -266,6 +266,11 @@ class Tray:
                 M("Details", lambda: app.post("details"), checked=lambda _: app.details),
                 M("Always on top", lambda: app.post("topmost"), checked=lambda _: app.topmost),
                 M("Settings…", lambda: app.post("settings")),
+                M("Skill bar", lambda: app.post("skillbar"),
+                  checked=lambda _: app.bar_setting("enabled")),
+                M("Lock skill bar (click-through)", lambda: app.post("skillbar_lock"),
+                  checked=lambda _: app.bar_setting("locked"),
+                  enabled=lambda _: app.bar_setting("enabled")),
                 M(lambda _: f"Restart to update to {app.update_label()}", lambda: app.post("update"),
                   visible=lambda _: app.update_ready is not None),
                 pystray.Menu.SEPARATOR,
@@ -361,6 +366,8 @@ class App:
             except Exception as e:
                 print(f"diary pop-up unavailable: {e}")
 
+        self.skillbar = None          # skillbar_ui.SkillBar over the game (Settings > General)
+        self.at_bar = (at[0], at[1] + 400) if at else None
         r.after(50, self.pump)
         r.after(100, self.refresh)
 
@@ -663,6 +670,12 @@ class App:
                     self.stop_tracker()
                 elif cmd == "settings":
                     self.open_settings()
+                elif cmd == "skillbar":
+                    self.put_bar(enabled=not self.bar_setting("enabled"))
+                elif cmd == "skillbar_lock":
+                    self.put_bar(locked=not self.bar_setting("locked"))
+                    if self.skillbar:
+                        self.skillbar.set_locked(self.bar_setting("locked"))
                 elif cmd == "diary":
                     self.open_diary()
                 elif cmd == "journal":
@@ -694,6 +707,7 @@ class App:
                 self.last_lock_check = now
         snap = Snapshot(status, digest, self.running)
         self.last_snap = snap
+        self.sync_skillbar()
         self.render(snap)
         self.update_discord(snap)
         if self.tray:
@@ -706,6 +720,35 @@ class App:
         if self.update_ready is not None and snap.state != "playing" and not self.restarting:
             return self.restart_into_update()      # quiet moment: no play session going
         self.root.after(1000, self.refresh)
+
+    # ---------------------------------------------------------------- skill bar
+    def bar_setting(self, key):
+        return (self.settings.get("skillbar") or {}).get(key)
+
+    def put_bar(self, **kw):
+        """Change the skill bar's settings (from the bar itself or the tray) and save them."""
+        self.settings.setdefault("skillbar", {}).update(kw)
+        if not self.dev_at:
+            try:
+                self.HS.save(self.settings)
+            except Exception as e:
+                print(f"skill bar settings save failed: {e}")
+        self.sync_skillbar()
+
+    def sync_skillbar(self):
+        """Create / remove the bar to match the setting."""
+        on = bool(self.bar_setting("enabled"))
+        if on and self.skillbar is None:
+            try:
+                from skillbar_ui import SkillBar
+                self.skillbar = SkillBar(self.root, lambda: self.settings.get("skillbar") or {},
+                                         self.put_bar, k=self.k, demo=self.demo, at=self.at_bar)
+            except Exception as e:
+                print(f"skill bar unavailable: {e}")
+                self.settings.setdefault("skillbar", {})["enabled"] = False
+        elif not on and self.skillbar is not None:
+            self.skillbar.destroy()
+            self.skillbar = None
 
     # ---------------------------------------------------------------- updates (updater.py)
     restarting = False

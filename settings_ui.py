@@ -177,6 +177,11 @@ class SettingsWindow:
             tk.Checkbutton(f, text=text, variable=var, font=(F, 10), fg=TEXT, bg=BG,
                            activebackground=BG, activeforeground=TEXT, selectcolor=FIELD,
                            anchor="w", highlightthickness=0, bd=0).pack(anchor="w", pady=(0, self.px(6)))
+        self.s.setdefault("skillbar", copy.deepcopy(HS.DEFAULTS["skillbar"]))
+        self.check(f, "skillbar.enabled", "Skill bar over the game (HP/MP regen, casts left)"
+                   ).pack(anchor="w", pady=(0, self.px(2)))
+        self.label(f, "Drag it anywhere; right-click to lock it (clicks then go to the game). "
+                      "Unlock from the tray menu.", muted=True, wrap=self.px(380)).pack(anchor="w", pady=(0, self.px(6)))
         tk.Frame(f, bg=BG, height=self.px(10)).pack()
         self.capture_row(f)
         self.map_check_row(f)
@@ -508,6 +513,9 @@ class SettingsWindow:
         self.pv_status.configure(text=f"Connection: {status}", fg=MUTED)
 
     def save(self):
+        # the skill bar may have been moved / locked while this window was open: keep that
+        bar = (self.app.settings.get("skillbar") or {})
+        self.s.setdefault("skillbar", {}).update({k: bar[k] for k in ("x", "y", "locked") if k in bar})
         self.s["character"]["channel"] = str(self.s["character"]["channel"]).strip()
         self.s["discord"]["client_id"] = str(self.s["discord"]["client_id"]).strip()
         try:

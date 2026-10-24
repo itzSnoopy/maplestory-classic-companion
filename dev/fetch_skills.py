@@ -46,7 +46,31 @@ def skills_in(text):
             continue
         if "max_level" in obj:
             out[obj["id"]] = {"name": obj["name"], "class": obj.get("class_name"),
-                              "job": obj.get("job"), "max": obj.get("max_level")}
+                              "job": obj.get("job"), "max": obj.get("max_level"),
+                              **per_level(obj)}
+    return out
+
+
+def per_level(obj):
+    """Lists indexed by skill level - 1, parsed from MeowDB's level texts:
+    mp (MP cost), time (buff/effect seconds), cd (cooldown seconds). Missing -> None.
+    `levels` keeps the texts themselves (shown by the skill bar)."""
+    texts = obj.get("level_descriptions") or {}
+    n = obj.get("max_level") or 0
+    levels = [texts.get(str(i)) for i in range(1, n + 1)]
+    mp, time_, cd = [], [], []
+    for t in levels:
+        t = t or ""
+        m = re.search(r"\bMP -?(\d+)", t)
+        mp.append(int(m.group(1)) if m else None)
+        m = re.search(r"\bfor (\d+) sec", t) or re.search(r"\bin (\d+) sec", t)
+        time_.append(int(m.group(1)) if m else None)
+        m = re.search(r"Cooldown: (\d+) (min|sec)", t)
+        cd.append(int(m.group(1)) * (60 if m.group(2) == "min" else 1) if m else None)
+    out = {"levels": levels}
+    for k, v in (("mp", mp), ("time", time_), ("cd", cd)):
+        if any(x is not None for x in v):
+            out[k] = v
     return out
 
 

@@ -26,18 +26,18 @@ FIXTURE = ROOT / "dev" / "fixtures" / "levelup_lv5"
 ORIG_FIXTURE = ROOT / "sessions" / "20261023_021038" / "levelups" / "Lv5_021225"
 EXPECT_REGULAR = "Lv 4 84.78% -> Lv 5 20.74%, +42 EXP, 1 level-up(s)"   # svc_sim baseline
 # player/local files that must never be committed or packaged
-PRIVATE = re.compile(r"(^|/)(config\.json|helper_settings\.json|glyphs(_level|_ui)?\.json|crash\.log)$|"
+PRIVATE = re.compile(r"(^|/)(config\.json|helper_settings\.json|glyphs(_level|_ui|_hud)?\.json|crash\.log)$|"
                      r"^(digest\.json|status\.json|journal\.md|diary\.(md|html))$|(^|/)(history|sessions|"
                      r"screenshots|templates|crops|glyphs|game_icons|dev/fixtures|build|dist)/|"
                      r"\.(png|jpe?g|gif|bmp|log|zip|exe)$", re.I)
 # never inside the release zip (game imagery, player data, third-party art)
-ZIP_FORBIDDEN = re.compile(r"(^|/)(config\.json|helper_settings\.json|glyphs(_level|_ui)?\.json|"
+ZIP_FORBIDDEN = re.compile(r"(^|/)(config\.json|helper_settings\.json|glyphs(_level|_ui|_hud)?\.json|"
                            r"minimap_(world|header)\.png|nametag\.png|icon\.png|crash\.log|"
                            r"captions_custom\.json|placeholder_source\.jpg)$|(^|/)(history|sessions|"
                            r"screenshots|templates|crops|glyphs|game_icons|fixtures)/|\.jpe?g$", re.I)
 ALLOWED_IMAGES ={"discord_icon.png", "art/fluent_maple_leaf_3d.png"}
 # root JSON files that are the player's own (never shipped)
-LOCAL_JSON = {"config.json", "helper_settings.json", "glyphs.json", "glyphs_level.json", "glyphs_ui.json",
+LOCAL_JSON = {"config.json", "helper_settings.json", "glyphs.json", "glyphs_level.json", "glyphs_ui.json", "glyphs_hud.json", "live.json",
               "digest.json", "status.json"}
 
 results = []

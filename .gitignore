@@ -27,6 +27,9 @@ templates/
 glyphs.json
 glyphs_level.json
 glyphs_ui.json
+glyphs_hud.json
+# the skill bar's live feed (player data)
+/live.json
 glyphs/
 
 # --- Personal play data and live state ---

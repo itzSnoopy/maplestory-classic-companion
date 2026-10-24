@@ -66,6 +66,7 @@ SKILL_W = 187
 SKILL_ROW = (39, 94, 125, 35, 40)   # x, y, w, h, pitch
 SKILL_ROWS = 6
 SKILL_SP = (78, 344, 107, 359)
+ICON_X = (3, 37)                    # the skill's icon box, left of its row (same rows)
 # channel window
 CELL_W, CELL_H, CELL_DX, CELL_DY, PER_ROW = 66, 16, 70, 22, 8
 WORLD_BOX = (28, -37, 200, -19)     # relative to the grid's top-left
@@ -430,15 +431,15 @@ def read_skills(a, box):
         lvl_c = a[y + 18: y + 34, x + 2: x + 60]
         if not (name_c.max(-1) < 40).any():
             continue
-        rows.append((k, name_c, lvl_c))
+        rows.append((k, name_c, lvl_c, a[y: y + rh, X + ICON_X[0]: X + ICON_X[1]]))
     if not rows:
         return None
     out = []
-    for k, name_c, lvl_c in rows:
+    for k, name_c, lvl_c, icon in rows:
         text = _ocr_words(Image.fromarray(np.ascontiguousarray(name_c)))
         lvl = read_text(lvl_c).replace(" ", "")
         out.append({"row": k, "raw": text, "level": _num(lvl), "raw_level": lvl,
-                    "_snap": snap_skill(text)})
+                    "_snap": snap_skill(text), "_icon": icon})
     # one tab = one job: a name several jobs share (Improved MP Recovery: Magician and Crusader)
     # goes to the job most of the tab's other skills belong to
     classes = [r["_snap"][0]["class"] for r in out

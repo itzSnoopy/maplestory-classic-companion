@@ -1,6 +1,6 @@
 """capture.py - how many frames a second the tracker looks at the game (Settings > General slider).
 
-helper_settings.json "capture": {"fps": 1..60}. Default 1. MapleStory doesn't draw more than 60
+helper_settings.json "capture": {"fps": 1..60}. Default 2 (since 0.4.0). MapleStory doesn't draw more than 60
 frames a second, so more would only re-read the same picture.
 
 What the rate drives, while playing:
@@ -15,7 +15,7 @@ Re-read on every call (cached by file time): the tracker follows a change within
 import json
 import os
 
-MIN_FPS, MAX_FPS, DEFAULT_FPS = 1, 5, 1
+MIN_FPS, MAX_FPS, DEFAULT_FPS = 1, 5, 2
 HARD_MAX_FPS = 60        # the game draws <= 60 fps; MAX_FPS is the player-facing cap (decide by 0.3)
 
 # measured 2026-10-23 (dev/bench.py + a poll loop, 1920x1080, death box + center grab per frame):

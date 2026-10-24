@@ -457,3 +457,36 @@ second "7" of INT 77 reads "7" -> 3/10 with history (doesn't add up + lower than
 used), 7/10 without (waits). A box over the status-bar name -> "covered", ignored. Edge-case
 script (16 checks) in the session scratchpad. Channel replay: unchanged (both switches 1000/1000;
 the ~29% "first look landed on a browsed cell" case is a 10/10 screenshot, so no score catches it).
+
+## 2026-10-23 22:00 · HP/MP numbers, regen ticks, skill bar (vitals.py, live.py, skillbar_ui.py)
+
+- Status bar `HP[408/408]` / `MP[606/606]`: same white pixel font family as the EXP bar with
+  green brackets, but **narrower digits** (EXP templates don't match) -> own templates
+  glyphs_hud.json. Text boxes at 1920x1080: HP x 790..880, MP x 882..998, y 1046..1060. Bars:
+  HP red interior x 780..884, MP blue (b > 180, r < 80, 80 < g < 190) x 888..992, rows 1066..1070.
+- Digit learning: from the Stat window (same frame: identical cur/max), and from the bars: fill the
+  "?" so cur/max matches the fill within 2.5%; learn only when exactly one value fits and the fill
+  is between 3% and 97% (the bar lags the text at a level-up refill: Lv 10 frame showed 194/194
+  with the bar at 86%; a 6% MP sliver measured as empty). Saved frames: 1 and 2 learned this way
+  (96/114 at 84.6%, 127/146 at 87.5%); 124 readings then all known, none disagreeing with the text.
+- Regen (vitals.Meter): small rises (<= 10% of max or 30) are tick candidates; the most common
+  size is the tick; period = the longest half-second step on which all (previous look, sighting]
+  windows share one phase (one stray allowed) and <= shortest gap + 1.5 s; phase = middle of that
+  overlap. Simulation 1200/1200. Live: MP +9 every 10.0 s at Lv 14 with Improved MP Recovery 5
+  (skill text: 1% of 606 = 6; base regen makes up the rest), phase +-0.55 s after ~40 s.
+- skills_classic.json per level (MeowDB level texts): Magic Claw MP 10..20 (Lv 6 = 11), Energy Bolt
+  8..16, Magic Armor 300..600 s, Recovery 30 s + cooldown 2 min, Nimble Feet cooldown 3 min.
+
+## 2026-10-23 22:15 · Regen fix: the bar said MP ticks every 2-3 s (user), real is 10 s
+
+Recorded HP/MP at 4/s for 2 min (`dev/vitals_log.py`), standing still in town: MP +12 at 12.55,
+22.83, 32.61 ... 112.88 s (10 gaps, mean 10.03 s; first tick +9), HP +50 every 10 s, ~1 s after
+the MP tick (+38 to reach 408). While fighting/moving the MP tick was +9 (same 10 s beat).
+Bugs: (1) the period search was capped by the *shortest* gap between rises, so one stray rise
+collapsed 10 s to 2 s; short periods line up with almost anything. (2) HP +50 of 408 is over the
+old 10% "potion" cut. Now: cap 25%; longest half-second period with all but 1 in 4 sightings on
+one phase, P <= longest gap + 1.5; refined from the sightings' spacing; a period must explain
+>= 45% of the gaps between sightings (gaps with time at full skipped); >= 4 matching ticks before
+any period is shown. Recording at 1/s, 100 offsets: MP 10.0 s 100/100 (HP: only 3 ticks before
+full -> "learning", correct). Synthetic 1200 with heavy same-size strays: ~98%. Live after 1 min:
+MP +9 / 10.0 s.

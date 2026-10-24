@@ -47,6 +47,7 @@ from pathlib import Path
 
 import capture
 import character
+import live
 import diary
 import perf
 import history as H
@@ -853,11 +854,14 @@ def run(cfg, args, source=None, sinks=None):
     prof = character.Profile(note=lambda s: (log("character: " + s), journal.write(s)),
                              log=lambda s: log("character: " + s))
 
+    feed = live.Live()                        # live.json for the skill bar (HP/MP regen, casts)
+
     def take_facts():
         try:
             facts = source.take_facts()
             if facts:
                 prof.update(facts)
+                feed.update(facts, prof)
         except Exception:
             log("character update failed: " + traceback.format_exc())
     box_since = None                          # when the death box was first seen
