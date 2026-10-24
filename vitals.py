@@ -176,7 +176,9 @@ class Meter:
     while playing the same ticks come 9.8, 10.3, 9.8, 14.8, 12.3 s apart (what you do pushes the
     next one back). So the next tick is "last tick + usual gap", re-anchored at each tick, and the
     usual gap is the most common short gap between ticks (delayed and masked ticks only make gaps
-    longer). The tick size follows the max (1% of max MP + base) and what you do (+12 standing,
+    longer). When the skill states its rhythm (`prior`, "every 10 seconds") that rhythm is always
+    used and the screen only sets the timing; the measured gap is kept for information (an earlier
+    model measured "5 s", which a 10 s beat also fits). The tick size follows the max (1% of max MP + base) and what you do (+12 standing,
     +9 moving), so `amount` is the last tick's size; a max change (level-up) keeps the gap.
     """
 
@@ -187,8 +189,9 @@ class Meter:
     MIN_CLUSTER = 3         # this many similar gaps before the usual gap is trusted
 
     def __init__(self, prior=None):
-        self.prior = prior                  # the rhythm the skill text promises ("every 10
-                                            # seconds"), used until enough ticks are measured
+        self.prior = prior                  # the rhythm the skill says ("every 10 seconds"):
+                                            # always used when known (user, 2026-10-23); the
+                                            # screen only places the ticks in time
         self.prev = None                    # (t, cur, max)
         self.rises = deque(maxlen=40)       # (t_prev, t, amount): small rises (tick candidates)
         self.amount = None                  # size of the last tick
@@ -206,7 +209,7 @@ class Meter:
         d = cur - p[1]
         if 0 < d <= max(30, self.MAX_TICK_FRAC * mx) and t - p[0] <= 3.0:
             # a rise right after the last tick (well inside the usual gap) isn't the next tick
-            per = self.period or self.prior
+            per = self.prior or self.period
             if per and self.last and p[0] - self.last[1] < 0.6 * per:
                 return
             self.rises.append((p[0], t, d))
@@ -227,7 +230,7 @@ class Meter:
             self.period = round(statistics.median(best) * 2) / 2
 
     def next_tick(self, now):
-        per = self.period or self.prior
+        per = self.prior or self.period
         if not per or not self.last:
             return None
         return (self.last[0] + self.last[1]) / 2 + per
@@ -237,8 +240,9 @@ class Meter:
         nxt = self.next_tick(now)
         return {
             "cur": p[1] if p else None, "max": p[2] if p else None,
-            "tick": self.amount, "period": self.period or self.prior,
-            "measured": self.period is not None,
+            "tick": self.amount, "period": self.prior or self.period,
+            "from_skill": self.prior is not None,
+            "measured_gap": self.period,           # for information; never replaces the skill
             "next": round(nxt, 2) if nxt else None,
             "late": bool(nxt and now > nxt + 1.0),     # a tick is overdue (pushed back by play)
             "sure_s": round(self.width, 2) if self.width is not None else None,

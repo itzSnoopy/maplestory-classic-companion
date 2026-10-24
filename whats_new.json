@@ -1,4 +1,7 @@
 {
+ "0.5.2": [
+  "The MP/HP recovery countdown always uses the skill's own rhythm (every 10 seconds); the screen only tells it when each tick lands."
+ ],
  "0.5.1": [
   "MP/HP recovery countdown fixed after a level-up, and it now follows ticks that your playing pushes back (it waits at 0 for a late tick).",
   "The number under the MP slot shows the size of the latest tick (+12 standing still, +9 moving)."

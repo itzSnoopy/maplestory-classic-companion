@@ -504,3 +504,14 @@ changes); the shown size is the last tick's (+12 standing, +9 moving). Overdue t
 wheel at 0 instead of wrapping. Results: steady recording 10.0 s, next tick within 0.2-0.3 s
 (median); pushed-back recording 10.0 s, median 0.5-0.8 s (a 5 s push can't be foreseen); synthetic
 with delays + casts + a level-up: 294/300.
+
+## 2026-10-23 23:15 · Regen rhythm always from the skill (user rule)
+
+User: the bar showed MP every 5 s; "the skill should always be based on what the skill does, the
+screenshot should only help with the timing". The 5 s came from the local tracker still running the
+22:15 lattice model (5 s also fits a 10 s beat). A fresh recording (vitals3) was a steady +9 every
+10 s. Rule now: when the recovery skill states its rhythm ("every 10 seconds", live.py -> Meter
+prior), that rhythm is always shown; the screen only anchors the timing (restart at each tick
+seen). The measured gap is kept as `measured_gap` for information only. Recordings 1-3 at 1/s and
+2/s: 10.0 s shown every time, next tick within 0.2-0.3 s (0.5-0.8 s with pushed-back ticks).
+The tick *size* stays measured (+9 = 1% of 630 from the skill + the game's own regen).
