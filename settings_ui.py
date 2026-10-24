@@ -515,7 +515,7 @@ class SettingsWindow:
     def save(self):
         # the skill bar may have been moved / locked while this window was open: keep that
         bar = (self.app.settings.get("skillbar") or {})
-        self.s.setdefault("skillbar", {}).update({k: bar[k] for k in ("x", "y", "locked") if k in bar})
+        self.s.setdefault("skillbar", {}).update({k: bar[k] for k in ("x", "y", "locked", "hidden") if k in bar})
         self.s["character"]["channel"] = str(self.s["character"]["channel"]).strip()
         self.s["discord"]["client_id"] = str(self.s["discord"]["client_id"]).strip()
         try:

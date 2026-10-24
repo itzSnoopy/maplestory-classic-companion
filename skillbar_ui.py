@@ -10,7 +10,8 @@ Slots, left to right:
 Lives in the helper process (helper_ui.App creates it when Settings > General > "Skill bar" is
 on). Drag it anywhere (e.g. the top of the screen). Lock makes it click-through so it never takes
 a game click; unlock from the tray menu. Hidden while live.json is stale (not playing).
-Position/lock: helper_settings.json "skillbar". Draws at ~10 frames a second, reads live.json
+Position/lock/removed skills: helper_settings.json "skillbar" (right-click a skill: "Remove ... from
+the bar"; "Add back" lists the removed ones). Draws at ~10 frames a second, reads live.json
 once a second.
 
   python skillbar_ui.py --demo [--at=X,Y]     fake data, for trying it out
@@ -180,6 +181,7 @@ class SkillBar:
         now = time.time()
         L = self.live or {}
         slots = []                  # (slot image, caption image or None)
+        ids = []                    # skill id per slot (None = regen), for the right-click menu
         reg = L.get("regen") or {}
         # a regen slot only for a meter the character has a recovery skill for (live.py)
         for k, label, color, text_color in (("mp", "MP", (30, 90, 200), (140, 190, 255, 255)),
@@ -191,13 +193,19 @@ class SkillBar:
             if img is not None:
                 cap = f"+{m['tick']}" if m.get("tick") else "+?"
                 slots.append((img, self._caption(cap, text_color)))
+                ids.append(None)
+        hidden = set(self.get().get("hidden") or [])
         for sk in L.get("skills") or []:
+            if sk.get("id") in hidden:          # removed from the bar by the player
+                continue
             casts = sk.get("casts")
             initials = "".join(w[0] for w in (sk.get("name") or "?").split()[:2])
             icon = self._icon(sk.get("icon"), initials, (70, 70, 90))
             color = (255, 90, 90, 255) if casts is not None and casts < 5 else (255, 255, 255, 255)
             slots.append((self._slot(icon, corner=str(casts) if casts is not None else "?",
                                      dim=casts == 0, corner_color=color), None))
+            ids.append(sk.get("id"))
+        self.slot_ids = ids
         if not slots:
             return None
         g, p = int(GAP * self.k), int(PAD * self.k)
@@ -248,11 +256,48 @@ class SkillBar:
         if not self.dev:
             self.put(x=self.w.winfo_x(), y=self.w.winfo_y())
 
+    def _slot_at(self, x):
+        """Index of the slot under window x, or None (padding / gaps)."""
+        g, p = int(GAP * self.k), int(PAD * self.k)
+        i, off = divmod(x - p, self.s + g)
+        ids = getattr(self, "slot_ids", [])
+        return int(i) if 0 <= i < len(ids) and off < self.s else None
+
+    def _names(self):
+        return {sk.get("id"): sk.get("name") for sk in (self.live or {}).get("skills") or []}
+
     def _menu(self, e):
         m = tk.Menu(self.w, tearoff=0)
+        i = self._slot_at(e.x)
+        sid = self.slot_ids[i] if i is not None else None
+        names = self._names()
+        if sid:
+            m.add_command(label=f"Remove {names.get(sid) or 'skill'} from the bar",
+                          command=lambda: self.set_hidden(sid, True))
+        hidden = [h for h in (self.get().get("hidden") or []) if h in names]
+        if hidden:
+            back = tk.Menu(m, tearoff=0)
+            for h in hidden:
+                back.add_command(label=names[h], command=lambda h=h: self.set_hidden(h, False))
+            if len(hidden) > 1:
+                back.add_separator()
+                back.add_command(label="All of them", command=lambda: self.put(hidden=[]))
+            m.add_cascade(label="Add back", menu=back)
+        if sid or hidden:
+            m.add_separator()
         m.add_command(label="Lock (click-through)", command=lambda: self.set_locked(True))
         m.add_command(label="Hide skill bar", command=lambda: self.put(enabled=False))
         m.tk_popup(e.x_root, e.y_root)
+
+    def set_hidden(self, sid, hide):
+        """Take a skill off the bar (or put it back). Saved in helper_settings.json
+        skillbar.hidden, by skill id."""
+        cur = list(self.get().get("hidden") or [])
+        if hide and sid not in cur:
+            cur.append(sid)
+        elif not hide and sid in cur:
+            cur.remove(sid)
+        self.put(hidden=cur)
 
     def set_locked(self, locked):
         self.put(locked=locked)

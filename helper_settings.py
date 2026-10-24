@@ -62,9 +62,10 @@ DEFAULTS = {
         "max_s": 300,                   # nothing is new, up to every 5 min
     },
     "skillbar": {                       # Settings > General / tray; skillbar_ui.py over the game
-        "enabled": False,               # HP/MP regen wheels + casts left, fed by live.json
+        "enabled": True,                # HP/MP regen wheels + casts left, fed by live.json (on by default)
         "locked": False,                # click-through (clicks go to the game underneath)
         "x": None, "y": None,           # screen position; None = top-center
+        "hidden": [],                   # skill ids the player removed from the bar (right-click)
     },
     "map_check": {                      # Settings > General; the tracker re-reads it (mapwatch.py)
         "min_s": 1,                     # check the map name every min_s right after a change,
