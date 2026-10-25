@@ -49,9 +49,14 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if path in ("/", "/diary.html"):
             return self._send(200, diary_html.page(diary.ROOT, live=True), "text/html; charset=utf-8")
+        if path == "/album.html":                      # the monster album (album.py)
+            import album_html
+            return self._send(200, album_html.page(diary.ROOT, live=True), "text/html; charset=utf-8")
         from urllib.parse import unquote
         rel = unquote(path.lstrip("/"))
-        allowed = {(diary.ROOT / "screenshots" / "diary").resolve(), (diary.ROOT / "game_icons").resolve()}
+        allowed = {(diary.ROOT / "screenshots" / "diary").resolve(), (diary.ROOT / "game_icons").resolve(),
+                   (diary.ROOT / "assets" / "mob_icons").resolve(),
+                   (diary.ROOT / "assets" / "item_icons").resolve()}
         f = (diary.ROOT / rel).resolve()
         if f.parent not in allowed or not f.is_file():    # pictures only, no other files
             return self._send(404, '{"error": "not found"}')
@@ -74,6 +79,11 @@ class Handler(BaseHTTPRequestHandler):
             known = set(diary.all_sources())
             diary.set_sources_off([str(x) for x in off if str(x) in known])
             return self._send(200, json.dumps({"off": sorted(diary.sources_off())}, ensure_ascii=False))
+        if self.path == "/api/delete":
+            e = diary.delete_entry(eid)
+            if e is None:
+                return self._send(404, '{"error": "no such entry"}')
+            return self._send(200, json.dumps({"deleted": eid}, ensure_ascii=False))
         if self.path == "/api/caption":
             text = str(req.get("text") or "")[:300]
             e = diary.set_caption(text, eid=eid)

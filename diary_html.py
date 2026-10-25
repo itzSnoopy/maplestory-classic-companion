@@ -59,8 +59,9 @@ def data(root=None):
     custom = diary.custom_captions()
     for e in items:      # only pictures that exist; split close-ups from full frames
         shots = [s for s in e.get("shots", []) if (root / s).exists()]
-        e["chars"] = [s for s in shots if s.endswith("_char.png")]
-        e["fulls"] = [s for s in shots if not s.endswith("_char.png")]
+        # close-ups: the character, and a first kill's middle-of-screen square (album.py)
+        e["chars"] = [s for s in shots if s.endswith("_char.png") or s.endswith("_kill.jpg")]
+        e["fulls"] = [s for s in shots if s not in e["chars"]]
         e["id"] = diary.entry_id(e)
         e["story"], e["story_source"] = diary.caption_info(e, custom)
         e["custom"] = e["id"] in custom
@@ -112,21 +113,21 @@ PAGE = r"""<!doctype html>
 :root {
   --bg: #f6f3ee; --panel: #fffdf9; --ink: #2a2622; --muted: #7a7168; --line: #e6dfd5;
   --accent: #d9822b; --accent-soft: #fbead6;
-  --levelup: #3f8f4a; --death: #b8433a; --job: #b8862b; --first_visit: #3a78b8; --note: #7a6a9a; --moment: #c0679a;
+  --levelup: #3f8f4a; --death: #b8433a; --job: #b8862b; --first_visit: #3a78b8; --note: #7a6a9a; --moment: #c0679a; --first_kill: #8a5a2b;
   --shadow: 0 1px 2px rgba(0,0,0,.06), 0 4px 14px rgba(0,0,0,.05);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #181614; --panel: #221f1c; --ink: #ece6de; --muted: #9c9389; --line: #36312c;
     --accent: #f0a050; --accent-soft: #3a2b1c;
-    --levelup: #6cc077; --death: #e0756b; --job: #e2b558; --first_visit: #6fa8e0; --note: #b3a3d3; --moment: #e595c2;
+    --levelup: #6cc077; --death: #e0756b; --job: #e2b558; --first_visit: #6fa8e0; --note: #b3a3d3; --moment: #e595c2; --first_kill: #d49a5e;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.25);
   }
 }
 :root[data-theme="dark"] {
   --bg: #181614; --panel: #221f1c; --ink: #ece6de; --muted: #9c9389; --line: #36312c;
   --accent: #f0a050; --accent-soft: #3a2b1c;
-  --levelup: #6cc077; --death: #e0756b; --job: #e2b558; --first_visit: #6fa8e0; --note: #b3a3d3; --moment: #e595c2;
+  --levelup: #6cc077; --death: #e0756b; --job: #e2b558; --first_visit: #6fa8e0; --note: #b3a3d3; --moment: #e595c2; --first_kill: #d49a5e;
   --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.25);
 }
 * { box-sizing: border-box; }
@@ -255,6 +256,62 @@ tr:last-child td { border-bottom: 0; }
 #toast.on { opacity: 1; transform: translateX(-50%); }
 @media (hover: none) { .beat .tools button { opacity: 1; } }
 .foot { margin-top: 30px; color: var(--muted); font-size: 12px; }
+/* day navigation (Story + Details) */
+.daynav { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  background: var(--bg); padding: 6px 0 10px; margin-bottom: 6px; }
+.daynav[hidden] { display: none; }
+.daynav button, .daynav select { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 999px;
+  padding: 4px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+.daynav button:disabled { opacity: .4; cursor: default; }
+.daynav button:not(:disabled):hover, .daynav select:hover { border-color: var(--accent); }
+.daynav .today { font-weight: 600; }
+.daynav .viewsw { margin-left: auto; display: inline-flex; }
+.daynav .viewsw button { border-radius: 0; }
+.daynav .viewsw button:first-child { border-radius: 999px 0 0 999px; }
+.daynav .viewsw button:last-child { border-radius: 0 999px 999px 0; margin-left: -1px; }
+.daynav .viewsw button.on { background: var(--accent-soft); border-color: var(--accent); }
+.entry .tools { margin-top: 8px; }
+.entry .tools button { border: 1px solid var(--line); background: var(--panel); color: var(--muted); border-radius: 999px;
+  padding: 2px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+.entry .tools button:hover { color: var(--death); border-color: var(--death); }
+.beat .tools button.del:hover { border-color: var(--death); color: var(--death); }
+/* lightbox: Close-up | Full for the same entry */
+.lb .lbtabs { display: flex; gap: 6px; margin-top: 10px; }
+.lb .lbtabs:empty { display: none; }
+.lb .lbtabs button { position: static; width: auto; height: auto; font-size: 13px; padding: 5px 14px; border-radius: 999px; }
+.lb .lbtabs button.on { background: var(--accent); color: #1b1309; font-weight: 600; }
+/* horizontal Story: the line runs left to right, scroll sideways */
+.story.h { display: flex; align-items: flex-start; overflow-x: auto; overflow-y: hidden; padding: 0 0 18px;
+  scroll-behavior: smooth; overscroll-behavior-x: contain; }
+.story.h::before { display: none; }
+.story.h > * { flex: 0 0 auto; position: relative; }
+.story.h > *::after { content: ""; position: absolute; left: 0; right: 0; top: 22px; height: 4px; background: var(--ink); z-index: 0; }
+.story.h .beat, .story.h .beat.l, .story.h .beat.r { width: 330px; margin: 0; padding: 60px 40px 10px; text-align: center; }
+.story.h .beat .dot, .story.h .beat.l .dot, .story.h .beat.r .dot { left: 50%; right: auto; top: 6px; transform: translateX(-50%); z-index: 1; }
+.story.h .beat .tools { justify-content: center; }
+.story.h .sday { margin: 0; padding: 12px 22px 0; align-self: stretch; }
+/* a thin line down the strip where a new day starts */
+.story.h .sday:not(:first-child)::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 0;
+  border-left: 2px dashed var(--line); }
+.story.h .sday span { z-index: 1; white-space: nowrap; }
+.story.h .end { padding: 12px 24px 0; }
+.story.h .end span { z-index: 1; white-space: nowrap; }
+.story.h { cursor: grab; user-select: none; scroll-behavior: auto; }
+.story.h.dragging { cursor: grabbing; }
+.story.h.dragging * { pointer-events: none; }
+.story.h img { -webkit-user-drag: none; }
+.storybox { position: relative; }
+.storybox .harrow { display: none; position: absolute; top: 0; bottom: 18px; width: 64px; z-index: 3; border: 0;
+  font: 300 56px/1 "Segoe UI", system-ui, sans-serif; color: var(--ink); cursor: pointer; opacity: .55; transition: opacity .15s; }
+.storybox.h .harrow { display: block; }
+.storybox .harrow:hover { opacity: 1; }
+.storybox .harrow[disabled] { opacity: 0; pointer-events: none; }
+.storybox .harrow.left { left: 0; background: linear-gradient(to right, var(--bg) 25%, transparent); text-align: left; padding-left: 10px; }
+.storybox .harrow.right { right: 0; background: linear-gradient(to left, var(--bg) 25%, transparent); text-align: right; padding-right: 10px; }
+/* vertical Story: a small separator above each new day */
+.story:not(.h) .sday:not(:first-child) { margin-top: 34px; padding-top: 18px; }
+.story:not(.h) .sday:not(:first-child)::before { content: ""; position: absolute; left: 50%; top: 0; width: 120px; margin-left: -60px;
+  border-top: 2px dashed var(--line); }
 .theme { background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 8px;
   padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; }
 @media (max-width: 600px) {
@@ -272,6 +329,7 @@ tr:last-child td { border-bottom: 0; }
       <div class="sub">MapleStory Classic World · written automatically by the tracker · local only</div>
     </div>
     <div class="spacer"></div>
+    <a class="theme" href="album.html" title="Monster album: every mob, your first kills" style="text-decoration:none">👾 Album</a>
     <button class="theme" id="theme" title="Switch light / dark">Theme</button>
   </header>
   <div class="stats" id="stats"></div>
@@ -281,7 +339,13 @@ tr:last-child td { border-bottom: 0; }
     <button data-tab="levels">Levels</button>
     <button data-tab="places">Places</button>
   </nav>
-  <section id="story"><div class="story" id="storyline"></div></section>
+  <div class="daynav" id="daynav"></div>
+  <section id="story"><div id="storytop"></div>
+    <div class="storybox" id="storybox">
+      <button class="harrow left" id="hleft" title="Back (←)" aria-label="Scroll back">‹</button>
+      <div class="story" id="storyline"></div>
+      <button class="harrow right" id="hright" title="Forward (→)" aria-label="Scroll forward">›</button>
+    </div></section>
   <section id="timeline" hidden>
     <div class="controls" id="filters"></div>
     <div id="list"></div>
@@ -294,6 +358,7 @@ tr:last-child td { border-bottom: 0; }
   <button class="x" title="Close (Esc)">×</button>
   <button class="prev" title="Previous (←)">‹</button>
   <img alt="">
+  <div class="lbtabs"></div>
   <div class="cap"></div>
   <button class="next" title="Next (→)">›</button>
 </div>
@@ -302,7 +367,8 @@ tr:last-child td { border-bottom: 0; }
 "use strict";
 const D = JSON.parse(document.getElementById("data").textContent);
 const KINDS = {levelup: ["⬆️", "Level up"], death: ["💀", "Death"], job: ["⭐", "Job advancement"],
-               first_visit: ["🗺️", "First visit"], note: ["📝", "Note"], moment: ["📸", "Moment"]};
+               first_visit: ["🗺️", "First visit"], first_kill: ["⚔️", "First kill"], note: ["📝", "Note"],
+               moment: ["📸", "Moment"]};
 const $ = s => document.querySelector(s);
 const store = {
   get(k, d) { try { const v = localStorage.getItem("diary." + k); return v === null ? d : v; } catch (e) { return d; } },
@@ -345,18 +411,134 @@ $("#theme").onclick = () => { theme = themes[(themes.indexOf(theme) + 1) % 3]; s
   $("#stats").innerHTML = parts.join("");
 })();
 
+// days: Day 1 = the first day with an entry
+const dayKey = d => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+let DAYS = [];          // [{key, n, label, long}] oldest first
+function computeDays() {
+  const seen = new Map();
+  for (const e of D.entries) { const d = dt(e.time), k = dayKey(d);
+    if (!seen.has(k)) seen.set(k, {key: k, n: seen.size + 1, label: shortDay(d), long: dayName(d)}); }
+  DAYS = [...seen.values()];
+}
+const dayOf = e => DAYS.find(x => x.key === dayKey(dt(e.time)));
+let curDay = 0;         // index into DAYS shown in the nav
+let horizontal = store.get("view", "v") === "h";
+
+function renderDayNav() {
+  const nav = $("#daynav"), tab = store.get("tab", "story");
+  nav.hidden = !(tab === "story" || tab === "timeline") || !DAYS.length;
+  if (nav.hidden) return;
+  curDay = Math.max(0, Math.min(curDay, DAYS.length - 1));
+  nav.innerHTML = `<button data-nav="prev" title="Previous day"${curDay ? "" : " disabled"}>‹</button>
+    <select title="Jump to a day">${DAYS.map((x, i) => `<option value="${i}"${i === curDay ? " selected" : ""}>Day ${x.n} · ${esc(x.label)}</option>`).join("")}</select>
+    <button data-nav="next" title="Next day"${curDay < DAYS.length - 1 ? "" : " disabled"}>›</button>
+    <button data-nav="today" class="today" title="Jump to today">Today</button>` +
+    (tab === "story" ? `<span class="viewsw"><button data-view="v" class="${horizontal ? "" : "on"}" title="Top to bottom">Vertical</button><button data-view="h" class="${horizontal ? "on" : ""}" title="Left to right, scroll sideways">Horizontal</button></span>` : "");
+  nav.querySelector("select").onchange = ev => jumpDay(+ev.target.value);
+  for (const b of nav.querySelectorAll("[data-nav]")) b.onclick = () => {
+    if (b.dataset.nav === "prev") jumpDay(curDay - 1);
+    else if (b.dataset.nav === "next") jumpDay(curDay + 1);
+    else { const i = DAYS.findIndex(x => x.key === dayKey(new Date()));
+      if (i < 0) toast("No entries today yet. Showing your last day.");
+      jumpDay(i < 0 ? DAYS.length - 1 : i); }
+  };
+  for (const b of nav.querySelectorAll("[data-view]")) b.onclick = () => {
+    horizontal = b.dataset.view === "h"; store.set("view", horizontal ? "h" : "v");
+    const keep = curDay; renderStory(); renderDayNav(); jumpDay(keep, false);
+  };
+}
+function dayHeader(i) {
+  const tab = store.get("tab", "story");
+  return document.querySelector(`${tab === "story" ? "#storyline" : "#list"} [data-day="${i}"]`);
+}
+function jumpDay(i, smooth = true) {
+  if (!DAYS.length) return;
+  curDay = Math.max(0, Math.min(i, DAYS.length - 1));
+  history.replaceState(null, "", "#day-" + DAYS[curDay].n);
+  renderDayNav();
+  const h = dayHeader(curDay); if (!h) return;
+  if (horizontal && store.get("tab", "story") === "story") {
+    const box = $("#storyline");
+    hscrollTo(h.offsetLeft - box.offsetLeft - 8, smooth);
+    const y = box.getBoundingClientRect().top + window.scrollY - $("#daynav").offsetHeight - 8;
+    if (box.getBoundingClientRect().top < 0 || box.getBoundingClientRect().top > innerHeight / 2) window.scrollTo({top: y});
+  } else {
+    const y = h.getBoundingClientRect().top + window.scrollY - $("#daynav").offsetHeight - 8;
+    window.scrollTo({top: y, behavior: smooth ? "smooth" : "auto"});
+  }
+}
+// horizontal Story: big arrows (most of a screen per click), drag to move, arrow keys
+function arrows() {
+  const box = $("#storyline");
+  $("#hleft").disabled = box.scrollLeft <= 2;
+  $("#hright").disabled = box.scrollLeft + box.clientWidth >= box.scrollWidth - 2;
+}
+// smooth when the browser animates it; a page in the background doesn't, so jump if nothing moved
+function hscrollTo(left, smooth = true) {
+  const box = $("#storyline"), from = box.scrollLeft;
+  left = Math.max(0, Math.min(left, box.scrollWidth - box.clientWidth));
+  box.scrollTo({left, behavior: smooth ? "smooth" : "auto"});
+  if (smooth) setTimeout(() => { if (box.scrollLeft === from && from !== left) box.scrollLeft = left; arrows(); }, 400);
+}
+function hpage(dir) { const box = $("#storyline"); hscrollTo(box.scrollLeft + dir * box.clientWidth * 0.8); }
+$("#hleft").onclick = () => hpage(-1);
+$("#hright").onclick = () => hpage(1);
+document.addEventListener("keydown", e => {
+  if (!horizontal || store.get("tab", "story") !== "story" || $("#lb").classList.contains("on")) return;
+  if (e.target.closest && e.target.closest("textarea, input, select")) return;
+  if (e.key === "ArrowLeft") { hpage(-1); e.preventDefault(); } else if (e.key === "ArrowRight") { hpage(1); e.preventDefault(); }
+});
+(function drag() {
+  const box = $("#storyline");
+  let x0 = 0, s0 = 0, down = false, moved = false;
+  box.addEventListener("pointerdown", e => {
+    if (!horizontal || e.button !== 0 || e.target.closest("button, textarea, input, select, a")) return;
+    down = true; moved = false; x0 = e.clientX; s0 = box.scrollLeft;
+  });
+  window.addEventListener("pointermove", e => {
+    if (!down) return;
+    const dx = e.clientX - x0;
+    if (!moved && Math.abs(dx) > 6) { moved = true; box.classList.add("dragging"); }
+    if (moved) box.scrollLeft = s0 - dx;
+  });
+  window.addEventListener("pointerup", () => {
+    if (!down) return; down = false;
+    if (moved) { box.classList.remove("dragging");
+      // a drag that ends on a photo isn't a click on it
+      const eat = ev => { ev.stopPropagation(); ev.preventDefault(); };
+      box.addEventListener("click", eat, {capture: true, once: true});
+      setTimeout(() => { box.removeEventListener("click", eat, {capture: true}); moved = false; }, 0); }
+  });
+})();
+
+// keep the nav on the day you're looking at while you scroll
+function syncDay() {
+  const tab = store.get("tab", "story"); if (!(tab === "story" || tab === "timeline")) return;
+  const hs = [...document.querySelectorAll(`${tab === "story" ? "#storyline" : "#list"} [data-day]`)];
+  if (!hs.length) return;
+  let pick = hs[0];
+  if (horizontal && tab === "story") { const box = $("#storyline"), x = box.scrollLeft + 40;
+    for (const h of hs) if (h.offsetLeft - box.offsetLeft <= x) pick = h; }
+  else { const top = $("#daynav").offsetHeight + 20; for (const h of hs) if (h.getBoundingClientRect().top <= top) pick = h; }
+  const i = +pick.dataset.day; if (i !== curDay) { curDay = i; const sel = $("#daynav select"); if (sel) {
+    sel.value = i; $("#daynav [data-nav=prev]").disabled = !i; $("#daynav [data-nav=next]").disabled = i >= DAYS.length - 1; } }
+}
+let syncT = 0; const syncSoon = () => { clearTimeout(syncT); syncT = setTimeout(syncDay, 80); };
+window.addEventListener("scroll", syncSoon, {passive: true});
+
 // tabs
 function showTab(t) {
   for (const b of document.querySelectorAll("#tabs button")) b.classList.toggle("on", b.dataset.tab === t);
   for (const id of ["story", "timeline", "levels", "places"]) $("#" + id).hidden = id !== t;
   store.set("tab", t);
+  if (DAYS.length) { renderDayNav(); setTimeout(syncDay, 0); }
 }
 for (const b of document.querySelectorAll("#tabs button")) b.onclick = () => showTab(b.dataset.tab);
 showTab(store.get("tab", "story"));
 
 // timeline
 let filter = store.get("filter", "all"), newestFirst = store.get("order", "new") === "new";
-let gallery = [];   // [{src, cap}] for the lightbox, in display order
+let gallery = [];   // [{cap, pics: [{src, kind, label}]}] one group per entry, in display order
 function renderFilters() {
   const counts = {}; for (const e of D.entries) counts[e.kind] = (counts[e.kind] || 0) + 1;
   const chips = [["all", "All", D.entries.length]];
@@ -376,44 +558,81 @@ function renderList() {
   let day = null; const out = [];
   for (const e of items) {
     const d = dt(e.time), dn = dayName(d);
-    if (dn !== day) { day = dn; out.push(`<div class="day">${esc(dn)}</div>`); }
+    if (dn !== day) { day = dn; const x = dayOf(e);
+      out.push(`<div class="day" data-day="${x.n - 1}">Day ${x.n} · ${esc(dn)}</div>`); }
     const [icon, label] = KINDS[e.kind] || ["•", e.kind];
     const meta = [];
     if (e.level) meta.push(`Lv ${e.level}`);
     if (e.job) meta.push(esc(e.job));
     if (e.map) { const r = D.regions?.[e.map]; meta.push(esc(e.map) + (r ? ` · ${esc(r.street)}, ${esc(r.region)}` : "")); }
     const cap = `${hm(d)} · ${e.text.replace(/\*/g, "")}`;
-    const pics = [];
-    for (const s of e.chars || []) { pics.push(`<img class="char" loading="lazy" data-i="${gallery.length}" src="${src(s)}" alt="close-up">`); gallery.push({src: s, cap}); }
-    (e.fulls || []).forEach((s, i) => { pics.push(`<img class="full" loading="lazy" data-i="${gallery.length}" src="${src(s)}" alt="screenshot">`);
-      gallery.push({src: s, cap: cap + (i ? " (a few seconds later)" : "")}); });
+    const pics = [], g = picGroup(e, cap), gi = gallery.length;
+    if (g.pics.length) gallery.push(g);
+    g.pics.forEach((p, j) => pics.push(`<img class="${p.kind}" loading="lazy" data-g="${gi}" data-p="${j}" src="${src(p.src)}" alt="${esc(p.label)}">`));
     out.push(`<article class="entry" style="--k:var(--${esc(e.kind)},var(--accent))">
       <div class="time">${hm(d)}</div>
       <div><div class="kind">${icon} ${esc(label)}</div>
         <div class="text">${md(e.text)}</div>
         <div class="meta">${meta.map(m => `<span>${m}</span>`).join("")}</div>
-        ${pics.length ? `<div class="pics">${pics.join("")}</div>` : ""}</div></article>`);
+        ${pics.length ? `<div class="pics">${pics.join("")}</div>` : ""}
+        ${D.live ? `<div class="tools"><button data-del="${esc(e.id)}" title="Delete this entry for good">🗑 Delete</button></div>` : ""}</div></article>`);
   }
   $("#list").innerHTML = out.join("");
   for (const img of document.querySelectorAll("#list img")) {
-    img.onclick = () => openLb(+img.dataset.i, gallery);
+    img.onclick = () => openLb(+img.dataset.g, gallery, +img.dataset.p);
     img.onerror = () => img.remove();
   }
+  for (const b of document.querySelectorAll("#list [data-del]"))
+    b.onclick = () => deleteEntry(D.entries.find(x => x.id === b.dataset.del), b);
 }
-renderFilters(); renderList();
+// the pictures of one entry: close-up first, then the full screenshot(s)
+function picGroup(e, cap) {
+  const pics = (e.chars || []).map(s => ({src: s, kind: "char", label: "Close-up"}));
+  (e.fulls || []).forEach((s, i) => pics.push({src: s, kind: "full", label: i ? "Full, a few seconds later" : "Full screenshot"}));
+  return {cap, pics};
+}
+// delete for good (served page only): warn first, there's no undo
+async function deleteEntry(e, btn) {
+  if (!e) return;
+  const d = dt(e.time), what = (e.story || e.text || "").replace(/\*/g, "");
+  const n = (e.chars || []).length + (e.fulls || []).length;
+  const msg = `Delete this diary entry for good?\n\n"${what}"\n${dayName(d)}, ${hm(d)}` +
+    (n ? `\n\nIts ${n === 1 ? "picture is" : n + " pictures are"} deleted from your PC too.` : "") +
+    (e.kind === "levelup" ? "\nThe level itself stays in your Levels history." : "") +
+    `\n\nThis can't be undone.`;
+  if (!confirm(msg)) return;
+  if (btn) btn.disabled = true;
+  try {
+    await api("/api/delete", {id: e.id});
+    D.entries = D.entries.filter(x => x.id !== e.id);
+    computeDays(); renderFilters(); renderList(); renderStory(); renderDayNav(); toast("Entry deleted.");
+  } catch (err) {
+    if (btn) btn.disabled = false;
+    toast(/fetch/i.test(err.message) ? "Can't reach the diary server. Is it still running?" : err.message);
+  }
+}
+computeDays(); renderFilters(); renderList();
 
 // lightbox
-let lbi = 0, lbList = [];
-function openLb(i, list) { if (list) lbList = list; if (!lbList.length) return;
+// one entry at a time; its Close-up / Full screenshot are tabs (F switches), arrows move between entries
+let lbi = 0, lbp = 0, lbList = [], lbKind = "char";
+function openLb(i, list, p) { if (list) lbList = list; if (!lbList.length) return;
   lbi = (i + lbList.length) % lbList.length; const g = lbList[lbi];
-  $("#lb img").src = src(g.src); $("#lb .cap").textContent = g.cap; $("#lb").classList.add("on"); }
+  if (p == null) { p = g.pics.findIndex(x => x.kind === lbKind); if (p < 0) p = 0; }   // keep the kind you were viewing
+  lbp = Math.max(0, Math.min(p, g.pics.length - 1)); lbKind = g.pics[lbp].kind;
+  $("#lb img").src = src(g.pics[lbp].src); $("#lb .cap").textContent = g.cap;
+  $("#lb .lbtabs").innerHTML = g.pics.length > 1 ? g.pics.map((x, j) =>
+    `<button data-p="${j}" class="${j === lbp ? "on" : ""}" title="Switch picture (F)">${esc(x.label)}</button>`).join("") : "";
+  for (const b of $("#lb .lbtabs").querySelectorAll("button")) b.onclick = ev => { ev.stopPropagation(); openLb(lbi, null, +b.dataset.p); };
+  $("#lb").classList.add("on"); }
 const closeLb = () => $("#lb").classList.remove("on");
 $("#lb .x").onclick = closeLb;
 $("#lb .prev").onclick = e => { e.stopPropagation(); openLb(lbi - 1); };
 $("#lb .next").onclick = e => { e.stopPropagation(); openLb(lbi + 1); };
 $("#lb").onclick = e => { if (e.target.id === "lb") closeLb(); };
 document.addEventListener("keydown", e => { if (!$("#lb").classList.contains("on")) return;
-  if (e.key === "Escape") closeLb(); else if (e.key === "ArrowLeft") openLb(lbi - 1); else if (e.key === "ArrowRight") openLb(lbi + 1); });
+  if (e.key === "Escape") closeLb(); else if (e.key === "ArrowLeft") openLb(lbi - 1); else if (e.key === "ArrowRight") openLb(lbi + 1);
+  else if (e.key === "f" || e.key === "F") { const g = lbList[lbi]; if (g.pics.length > 1) openLb(lbi, null, (lbp + 1) % g.pics.length); } });
 
 // story: oldest at the top, beats alternate sides, one photo print per beat.
 // Served by `python diary.py serve` (D.live), each line gets Edit / Generate buttons that save.
@@ -428,26 +647,30 @@ let editing = null;     // entry id being edited
 let refsOpen = false;
 const gicon = s => D.icons?.[s] ? `<img class="gicon" src="${src(D.icons[s])}" alt="" width="184" height="69" loading="lazy" onerror="this.remove()">` : "";
 function renderStory() {
-  const E = D.entries, pics = [], out = [];
-  if (!D.live) out.push(`<div class="hint">Want to edit or reroll the captions? Run <code>python diary.py serve</code>.</div>`);
+  const E = D.entries, pics = [], out = [], top = [];
+  if (!D.live) top.push(`<div class="hint">Want to edit or reroll the captions? Run <code>python diary.py serve</code>.</div>`);
   else if (Object.keys(D.sources || {}).length) {
     const off = new Set(D.sources_off || []);
-    out.push(`<details class="refs" id="refs"${refsOpen ? " open" : ""}><summary>🎮 References used for random captions (${Object.keys(D.sources).length - off.size} of ${Object.keys(D.sources).length} on)</summary>
+    top.push(`<details class="refs" id="refs"${refsOpen ? " open" : ""}><summary>🎮 References used for random captions (${Object.keys(D.sources).length - off.size} of ${Object.keys(D.sources).length} on)</summary>
       <div class="chips">${Object.entries(D.sources).map(([s, n]) => `<label><input type="checkbox" value="${esc(s)}"${off.has(s) ? "" : " checked"}> ${gicon(s)}${esc(s)} <span class="n">${n}</span></label>`).join("")}</div>
       <div class="row2"><button type="button" class="save" data-refs="save">Save</button><button type="button" data-refs="all">All on</button>
         <span>Plain lines are always on. Your own captions stay as they are.</span></div></details>`);
   }
-  if (!E.length) { $("#storyline").innerHTML = out.join("") + `<div class="empty">The story starts with your first level-up.</div>`; return; }
+  $("#storytop").innerHTML = top.join("");
+  $("#storyline").classList.toggle("h", horizontal);
+  $("#storybox").classList.toggle("h", horizontal);
+  if (!E.length) { $("#storyline").innerHTML = `<div class="empty">The story starts with your first level-up.</div>`; return; }
   let day = null, n = 0;
   E.forEach((e, idx) => {
     const d = dt(e.time), dn = dayName(d);
-    if (dn !== day) { day = dn; out.push(`<div class="sday"><span>${esc(dn)}</span></div>`); }
+    if (dn !== day) { day = dn; const x = dayOf(e);
+      out.push(`<div class="sday" data-day="${x.n - 1}"><span>Day ${x.n} · ${esc(horizontal ? x.label : dn)}</span></div>`); }
     const side = n++ % 2 ? "r" : "l", icon = (KINDS[e.kind] || ["•"])[0];
     const shots = [...(e.chars || []), ...(e.fulls || [])];
     let photo = "";
     if (shots.length) {
       const i0 = pics.length, cap = `${e.clock} · ${e.story}`;
-      shots.forEach((s, i) => pics.push({src: s, cap: cap + (i >= (e.chars || []).length && e.chars?.length ? " (screenshot)" : "")}));
+      pics.push(picGroup(e, cap));
       const yy = String(d.getFullYear()).slice(2), mm = String(d.getMonth() + 1).padStart(2, "0"), dd = String(d.getDate()).padStart(2, "0");
       photo = `<figure class="polaroid${e.chars?.length ? "" : " wide"}" data-i="${i0}" title="Click for the screenshot">
         <img loading="lazy" src="${src(shots[0])}" alt=""${e.chars?.length ? ' width="320" height="230"' : ""}>
@@ -463,6 +686,7 @@ function renderStory() {
       cap = `<div class="cap">${esc(e.story || e.text)}</div>` + (e.story_source || (!shots.length && e.map) ? `<div class="src">${e.story_source ? gicon(e.story_source) + "— " + esc(e.story_source) : ""}${e.story_source && !shots.length && e.map ? " · " : ""}${!shots.length && e.map ? "📍 " + esc(e.map) : ""}</div>` : "") + (D.live ? `<div class="tools">
         <button data-act="edit" title="Write your own caption">✏️ Edit</button>
         ${e.kind !== "note" ? `<button data-act="gen" title="Another random line from captions.json">🎲 Generate</button>` : ""}
+        <button data-act="del" class="del" title="Delete this entry for good">🗑 Delete</button>
         ${e.custom ? `<span class="mine">edited</span>` : ""}</div>` : "");
     }
     out.push(`<div class="beat ${side} ${esc(e.kind)}" data-idx="${idx}" style="--k:var(--${esc(e.kind)},var(--accent))">
@@ -474,6 +698,11 @@ function renderStory() {
     f.onclick = () => openLb(+f.dataset.i, pics);
     f.querySelector("img").onerror = () => f.remove();
   }
+  const box = $("#storyline");
+  box.onwheel = horizontal ? ev => { if (Math.abs(ev.deltaY) > Math.abs(ev.deltaX) && !ev.shiftKey) {
+    box.scrollBy({left: ev.deltaY, behavior: "auto"}); ev.preventDefault(); } } : null;
+  box.onscroll = horizontal ? () => { syncSoon(); arrows(); } : null;
+  if (horizontal) setTimeout(arrows, 0);
   const refs = $("#refs");
   if (refs) {
     refs.ontoggle = () => { refsOpen = refs.open; };
@@ -494,6 +723,7 @@ function renderStory() {
 async function act(beat, what, btn) {
   const e = D.entries[+beat.dataset.idx];
   if (what === "edit") { editing = e.id; return renderStory(); }
+  if (what === "del") return deleteEntry(e, btn);
   if (what === "cancel") { editing = null; return renderStory(); }
   for (const b of beat.querySelectorAll("button")) b.disabled = true;
   try {
@@ -511,6 +741,8 @@ function toast(msg) {
   t.textContent = msg; t.classList.add("on"); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("on"), 4000);
 }
 renderStory();
+renderDayNav();
+{ const m = /^#day-(\d+)$/.exec(location.hash); if (m) setTimeout(() => jumpDay(+m[1] - 1, false), 50); }
 
 // levels table: one row per level reached
 (function levels() {

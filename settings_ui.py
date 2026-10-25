@@ -182,6 +182,13 @@ class SettingsWindow:
                    ).pack(anchor="w", pady=(0, self.px(2)))
         self.label(f, "Drag it anywhere; right-click to lock it (clicks then go to the game). "
                       "Unlock from the tray menu.", muted=True, wrap=self.px(380)).pack(anchor="w", pady=(0, self.px(6)))
+        self.s.setdefault("trainingpanel", copy.deepcopy(HS.DEFAULTS["trainingpanel"]))
+        self.check(f, "trainingpanel.enabled", "Training cost panel over the game (MP, potions, mesos)"
+                   ).pack(anchor="w", pady=(0, self.px(2)))
+        self.label(f, "What this map costs you: kills, MP per cast, potions used and their shop "
+                      "price, per kill and per 1,000 EXP, and the potions you'd need to level up at "
+                      "this pace. Starts over on every map.", muted=True,
+                   wrap=self.px(380)).pack(anchor="w", pady=(0, self.px(6)))
         self.s.setdefault("partypanel", copy.deepcopy(HS.DEFAULTS["partypanel"]))
         self.check(f, "partypanel.enabled", "Party panel over the game (party HP bars, friends list)"
                    ).pack(anchor="w", pady=(0, self.px(2)))
@@ -192,6 +199,7 @@ class SettingsWindow:
         tk.Frame(f, bg=BG, height=self.px(10)).pack()
         self.capture_row(f)
         self.map_check_row(f)
+        self.regen_check_row(f)
         return f
 
     def capture_row(self, f):
@@ -339,6 +347,28 @@ class SettingsWindow:
         self.label(f, f"Fast right after you enter a map, then slower the longer you stay "
                       f"(+{mc['step_s']:g} s for every {mc['every_s']:g} s in the map), since long "
                       f"grinds rarely change maps. The tracker picks up changes on its next check.",
+                   muted=True, size=8, wrap=self.px(560)).pack(anchor="w", pady=(0, self.px(10)))
+
+    def regen_check_row(self, f):
+        """Stickiness of the HP/MP regen clock's checks (vitals.Meter, helper_settings
+        regen_check), like the map check: often after a map change, rarer while on time."""
+        from diary_popup import _num
+        self.s.setdefault("regen_check", {})
+        for k, v in HS.DEFAULTS["regen_check"].items():
+            self.s["regen_check"].setdefault(k, v)
+        rc = self.s["regen_check"]
+        self.label(f, "HP/MP regen check", muted=True).pack(anchor="w")
+        row = tk.Frame(f, bg=BG)
+        row.pack(anchor="w", pady=(self.px(2), self.px(2)))
+        self.label(row, "Every").pack(side="left")
+        _num(self, row, "regen_check.min_ticks", 1, 12).pack(side="left", padx=self.px(6))
+        self.label(row, "to").pack(side="left")
+        _num(self, row, "regen_check.max_ticks", 1, 30).pack(side="left", padx=self.px(6))
+        self.label(row, "ticks (a tick is 10 s)").pack(side="left")
+        self.label(f, f"Regen comes on your own 10-second clock, which only moves when you change "
+                      f"maps. After a map or channel change the tracker looks closely at your HP/MP "
+                      f"once to catch a tick, then only checks the clock now and then: every tick at "
+                      f"first, one tick less often for every {rc['step']:g} checks on time.",
                    muted=True, size=8, wrap=self.px(560)).pack(anchor="w", pady=(0, self.px(10)))
 
     def page_character(self, f):
@@ -553,7 +583,9 @@ class SettingsWindow:
     def save(self):
         # the skill bar may have been moved / locked while this window was open: keep that
         bar = (self.app.settings.get("skillbar") or {})
-        self.s.setdefault("skillbar", {}).update({k: bar[k] for k in ("x", "y", "locked", "hidden") if k in bar})
+        self.s.setdefault("skillbar", {}).update({k: bar[k] for k in ("x", "y", "locked", "hidden", "show") if k in bar})
+        trn = (self.app.settings.get("trainingpanel") or {})
+        self.s.setdefault("trainingpanel", {}).update({k: trn[k] for k in ("x", "y", "locked", "mp_item", "hp_item", "prices") if k in trn})
         pan = (self.app.settings.get("partypanel") or {})
         self.s.setdefault("partypanel", {}).update({k: pan[k] for k in ("x", "y", "locked") if k in pan})
         if "party" in self.s:

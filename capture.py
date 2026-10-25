@@ -49,6 +49,23 @@ def fps(path=None):
     return _cache["fps"]
 
 
+_boost = {"fps": 0, "until": 0.0}
+
+
+def boost(f, seconds):
+    """Let Windows deliver up to `f` frames a second for the next `seconds` (the regen clock's
+    bursts of HP/MP looks, vitals.Meter). Ends by itself; the slider's rate applies again."""
+    import time
+    _boost.update(fps=min(HARD_MAX_FPS, max(1, int(f))), until=time.time() + seconds)
+
+
+def live_fps():
+    """The rate Windows should deliver frames at right now: the slider, or a burst's boost."""
+    import time
+    f = fps()
+    return max(f, _boost["fps"]) if time.time() < _boost["until"] else f
+
+
 def cpu_estimate(f):
     """About how much of one CPU core the tracker uses at `f` frames a second (measured table,
     straight lines in between). The PC's other cores are untouched."""

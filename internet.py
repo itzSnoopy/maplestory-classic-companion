@@ -29,6 +29,18 @@ FEATURES = {
                 "Needs a server and code below.",
         "hosts": ["the party server set below"],
     },
+    "icons": {
+        "label": "Item pictures",
+        "what": "Downloads the pictures of the potions the training panel shows (one small image "
+                "per item, once) from NiaMeowDB. Kept on this PC only. Nothing about you is sent.",
+        "hosts": ["meowdb.com"],
+    },
+    "mobs": {
+        "label": "Monster pictures",
+        "what": "Downloads the monster pictures the monster album shows (one small image per "
+                "monster, once) from NiaMeowDB. Kept on this PC only. Nothing about you is sent.",
+        "hosts": ["meowdb.com"],
+    },
 }
 DEFAULTS = {"allowed": True, "features": {name: True for name in FEATURES}}
 

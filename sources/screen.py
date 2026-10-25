@@ -24,6 +24,7 @@ import deathbox
 import glyphs
 import hpbar
 import jobread
+import levelup_shot
 import maplist
 import mapwatch
 import ocr
@@ -32,13 +33,17 @@ import parse
 import perf
 import vitals
 import party
-from layout import anchor_for, crop, layouts
+from layout import anchor_for, crop, layouts, place
 import minimap
 from sources.base import ABSENT, OK, UNAVAILABLE, Observation, Source
 
 
 PARTY_EVERY_S = 1.0     # party box look (party.py, ~4 ms)
+STALE_SHOT_S = 5.0      # a delayed diary picture this overdue is dropped (game left the screen)
 STAT_TEACH_EVERY_S = 3.0    # Stat window with unknown digits: whole frame (HUD EXP/level) this often
+ALBUM_PAD = 360         # monster album: half-size of the middle square kept while a first kill is
+                        # possible (720x720 around the character, who the camera keeps near the middle)
+ALBUM_MAX_AGE_S = 3.0   # the "before" square must be this fresh to be the kill photo
 
 
 def _unknown_digits(stat):
@@ -170,8 +175,10 @@ class ScreenSource(Source):
         self.warned_res = None          # last frame size logged
         self.jobs = jobread.JobWatcher(cfg.get("job_read"), tuple(self.res or (1920, 1080)), log)
         self.pending_shots = []             # [(due_t, out_dir, stem)] for diary snapshots
+        self.lu = levelup_shot.Timer()      # level-up picture: fixed time after the EXP reset
         self._nametag = None
         self.maps = mapwatch.MapWatch()     # when to check the map name (sticky, mapwatch.py)
+        self._map_fact = None               # last map name sent as a "map" fact (training.py)
         self.read_now = False               # a poll saw a new map: the tracker reads right away
         self.facts = []                     # [(t, kind, value)] for the character profile (panels.py)
         self.panels_due = False             # the overview showed a window: next poll grabs it whole
@@ -185,6 +192,8 @@ class ScreenSource(Source):
         self.party_t = 0.0                  # last party box look (party.py, about once a second)
         self.party = party.Finder()         # remembers where the box is
         self.stat_teach_t = 0.0             # last whole-frame grab to teach Stat window digits
+        self.album_watch = False            # the tracker sets it: a first kill is possible here
+        self.album_prev = deque(maxlen=2)   # [(t, middle square)] of the last looks (album.py)
 
     def read(self, hints):
         t, now = time.time(), datetime.now()
@@ -230,13 +239,23 @@ class ScreenSource(Source):
                 raw[name] = ocr.read(crops[name], rc, kind=name)
 
         self.frame, self.crops, self.stamp = frame, crops, now.strftime("%H%M%S_%f")[:-4]
+        self._album_keep(t, frame)
         self._take_due_shots(t)
         exp_text = raw.get("exp", "")
         # unknown digits ('?8[??.74%]') would parse loosely into wrong numbers: no reading instead
         cur, _, pct = parse.parse_exp(exp_text) if "?" not in exp_text else (None, None, None)
+        self._levelup_seen(t, pct)
+        if self.lu.due(t):
+            self._levelup_shot(frame)
+        self._track_character(t, frame)
         level = parse.parse_level(raw["level"]) if raw.get("level") else None
         job = self.jobs.update(frame, level, t)       # reads only when due (start / advancement)
         map_name = self.maps.name
+        if map_name and map_name != self._map_fact:          # training.py: a new map visit
+            self._map_fact = map_name
+            self.facts.append((t, "map", map_name))
+        if cur is not None and pct is not None:               # training.py: kills from EXP
+            self.facts.append((t, "exp", {"cur": cur, "pct": pct}))
         self._whoami(t, frame)
         if level:
             self.last_level = (level, t)
@@ -294,13 +313,15 @@ class ScreenSource(Source):
         if not getattr(self.frames, "pollable", False):
             return None                 # saved frames in tests: polling would eat them
         due = any(p[0] <= t for p in self.pending_shots)
+        lu_due = self.lu.due(t)
+        due = due or lu_due
         map_due = self.maps.due(t)
         try:
             # only the center square is needed for the box, unless a diary picture or a map
             # check is due (then the whole frame, read once for all of them)
             # a game window (stat/skills/channel) seen in the last overview: read it whole now
             full = due or map_due or self.panels_due
-            small, spot_imgs, strip = None, {}, None
+            small, spot_imgs, strip, exp_img = None, {}, None, None
             with perf.timed("grab_full" if full else "grab_center"):
                 if full:
                     frame = self.frames.grab()
@@ -313,13 +334,23 @@ class ScreenSource(Source):
                     spots = list(self.spots.items())
                     sbox = vitals.strip_box(self.size, tuple(self.res or (1920, 1080)))
                     pbox = party.search_box(self.size) if t - self.party_t >= PARTY_EVERY_S else None
+                    # + the EXP bar text: each kill is a jump (training.py counts kills, ~1 ms)
+                    ebox = self._exp_box(self.size)
+                    # + the middle square while a first kill is possible (album.py, the kill photo)
+                    extra = [{"box": pbox}] if pbox else []
+                    if self.album_watch:
+                        extra.append({"center": ALBUM_PAD})
                     imgs = self.frames.grab_parts(
-                        [{"center": deathbox.PAD}, {"step": panels.SMALL}, {"box": sbox}]
-                        + [{"box": b} for _, b in spots] + ([{"box": pbox}] if pbox else []))
-                    frame, small, strip = imgs[0], imgs[1], imgs[2]
-                    spot_imgs = {k: (img, b[:2]) for (k, b), img in zip(spots, imgs[3:])}
+                        [{"center": deathbox.PAD}, {"step": panels.SMALL}, {"box": sbox},
+                         {"box": ebox}]
+                        + [{"box": b} for _, b in spots] + extra)
+                    frame, small, strip, exp_img = imgs[0], imgs[1], imgs[2], imgs[3]
+                    spot_imgs = {k: (img, b[:2]) for (k, b), img in zip(spots, imgs[4:])}
+                    rest = imgs[4 + len(spots):]
                     if pbox:
-                        self._party(t, imgs[-1], pbox[:2])
+                        self._party(t, rest[0], pbox[:2])
+                    if self.album_watch:
+                        self.album_prev.append((t, rest[-1]))
                 else:
                     frame = self.frames.grab(center=deathbox.PAD)
         except Exception:
@@ -331,10 +362,20 @@ class ScreenSource(Source):
         # so a look once a second lands in it (character.py: dark right after the channel window)
         if sum(frame.resize((16, 16), Image.NEAREST).convert("L").getdata()) < 30 * 256:
             self._away(t)
+        if lu_due:
+            self._levelup_shot(frame)
         if due:
             self._take_due_shots(t, frame)
         if map_due and self._check_map(frame, t):
             self.read_now = True        # new map: take a reading now, so the tracker sees it
+        if full:
+            exp_img = frame.crop(tuple(self._exp_box(frame.size)))
+            self._album_keep(t, frame)
+        if exp_img is not None:
+            self._quick_exp(t, exp_img)
+        if self.maps.name and self.maps.name != self._map_fact:
+            self._map_fact = self.maps.name
+            self.facts.append((t, "map", self.maps.name))
         if full:
             self._vitals(t, frame)
             if t - self.party_t >= PARTY_EVERY_S:
@@ -348,6 +389,79 @@ class ScreenSource(Source):
         self._panels(t, frame if full else None, small, spot_imgs=spot_imgs, hud_img=hud_img)
         with perf.timed("deathbox"):
             return deathbox.is_dead(frame)
+
+    def _exp_box(self, size):
+        rc = self.regions["exp"]
+
+        class _S:
+            pass
+        _S.size = tuple(size)
+        return place(_S(), list(rc["box"]), tuple(self.res or (1920, 1080)),
+                     anchor_for("exp", rc), "exp")
+
+    def _quick_exp(self, t, img):
+        """EXP bar text on a quick look -> an 'exp' fact {cur, pct}. Known glyphs only (no
+        learning, no Tesseract): a read with unknown digits is skipped."""
+        try:
+            rc = self.regions["exp"]
+            with perf.timed("exp_quick"):
+                g = glyphs.read(img, rc.get("white_min", 230))
+            if not g or "?" in g:
+                return
+            cur, _, pct = parse.parse_exp(g)
+            if cur is not None and pct is not None:
+                self.facts.append((t, "exp", {"cur": cur, "pct": pct}))
+                self._levelup_seen(t, pct)
+        except Exception:
+            pass
+
+    # ---- level-up picture (levelup_shot.py: a fixed time into the animation, no screen reading)
+    def _levelup_seen(self, t, pct):
+        if not getattr(self.frames, "pollable", False) or not self.lu.see(t, pct):
+            return
+        wait = self.lu.shot_at - time.time()
+        log(f"level-up seen: picture in {wait:.1f} s")
+        try:
+            import capture
+            capture.boost(levelup_shot.BOOST_FPS, max(0.0, wait) + 1.0)
+            self.frames.grab(center=8, timeout=1.0)     # starts the faster capture now, not at the shot
+        except Exception:
+            pass
+
+    def _levelup_shot(self, frame):
+        if time.time() - self.lu.shot_at > STALE_SHOT_S:     # game was off screen: too late
+            self.lu.took(None)
+            log("level-up picture dropped: the animation was over before a frame came")
+            return
+        late = time.time() - self.lu.reset_t
+        for out_dir, stem in self.lu.took(frame):
+            self._save_shot(frame, out_dir, stem)
+        log(f"level-up picture taken {late:.2f} s after the EXP reset")
+
+    def wake_at(self):
+        """When the tracker should poll next for a picture (None: no hurry)."""
+        return self.lu.shot_at
+
+    def quick_vitals(self, t):
+        """Burst look for the regen clock (vitals.Meter): just the HP/MP strip, ~2 ms. Returns
+        False when it couldn't look (no live frames, no game)."""
+        if not getattr(self.frames, "pollable", False) or not hasattr(self.frames, "grab_parts"):
+            return False
+        try:
+            sbox = vitals.strip_box(self.size, tuple(self.res or (1920, 1080)))
+            with perf.timed("grab_strip"):
+                strip = self.frames.grab_parts([{"box": sbox}], timeout=0.5)[0]
+        except Exception:
+            return False
+        if strip.getbbox() is None:
+            return False
+        # the loading fade after a portal (~0.7 s dark): the regen clock restarts from it
+        # (vitals.Meter.reset_clock), so a burst look reports it like a quick look does
+        if sum(strip.resize((16, 4), Image.NEAREST).convert("L").getdata()) < 20 * 64:
+            self._away(t)
+            return True
+        self._vitals(t, strip, origin=True)
+        return True
 
     # ---- game windows with long-lived facts (panels.py -> character.py)
     def _away(self, t):
@@ -643,11 +757,60 @@ class ScreenSource(Source):
         for i, d in enumerate(delays):
             s = stem if i == 0 else f"{stem}_later{i}"
             paths += [out_dir / f"{s}_char.png", out_dir / f"{s}.jpg"]
+            if i == 0 and stem.endswith("_levelup") and self.lu.recent(time.time()):
+                if self.lu.frame is not None:       # the animation picture is already taken
+                    self._save_shot(self.lu.frame, out_dir, s)
+                    continue
+                if self.lu.shot_at is not None:     # coming up: saved when it's grabbed
+                    self.lu.waiting.append((out_dir, s))
+                    continue
             if d <= 0:
                 self._save_shot(self.frame, out_dir, s)
             else:
                 self.pending_shots.append((time.time() + d, out_dir, s))
         return paths
+
+    # ---- monster album (album.py)
+    def _album_keep(self, t, frame):
+        """Keep the middle square of a full frame (only while a first kill is possible)."""
+        if not self.album_watch or frame is None:
+            return
+        with perf.timed("album"):
+            w, h = frame.size
+            self.album_prev.append((t, frame.crop((max(0, w // 2 - ALBUM_PAD), max(0, h // 2 - ALBUM_PAD),
+                                                   min(w, w // 2 + ALBUM_PAD), min(h, h // 2 + ALBUM_PAD)))))
+
+    def album_shot(self, out_dir, stem, t=None):
+        """First kill: the middle square from the look before the EXP rose (the mob still there),
+        saved now as <stem>_kill.jpg, plus a full screenshot and close-up on the next look.
+        Paths of the files that will exist."""
+        t = t or time.time()
+        out_dir, out = Path(out_dir), []
+        before = [img for when, img in self.album_prev if when < t - 0.05 and t - when <= ALBUM_MAX_AGE_S]
+        img = before[-1] if before else (self.album_prev[-1][1] if self.album_prev else None)
+        if img is not None:
+            try:
+                out_dir.mkdir(parents=True, exist_ok=True)
+                img.convert("RGB").save(out_dir / f"{stem}_kill.jpg", quality=88)
+                out.append(out_dir / f"{stem}_kill.jpg")
+            except Exception as e:
+                log(f"album photo failed: {e}")
+        return out + self.snapshot(out_dir, stem, (0.05,))
+
+    def _tag(self):
+        if self._nametag is None:
+            from portrait import NameTag
+            self._nametag = NameTag()
+        return self._nametag
+
+    def _track_character(self, t, frame):
+        """Keep the close-up finder's last spot and colour sample fresh (portrait.py; a local
+        search on a frame we already have, at most every 10 s)."""
+        try:
+            with perf.timed("nametag"):
+                self._tag().track(frame, t)
+        except Exception as e:
+            log(f"character tracking failed: {type(e).__name__}: {e}")
 
     def _save_shot(self, frame, out_dir, stem):
         if frame is None:
@@ -655,10 +818,7 @@ class ScreenSource(Source):
         try:
             out_dir.mkdir(parents=True, exist_ok=True)
             frame.convert("RGB").save(out_dir / f"{stem}.jpg", quality=88)
-            if self._nametag is None:
-                from portrait import NameTag
-                self._nametag = NameTag()
-            p = self._nametag.portrait(frame)
+            p = self._tag().portrait(frame)
             if p is not None:
                 p.save(out_dir / f"{stem}_char.png")
         except Exception as e:
@@ -668,7 +828,12 @@ class ScreenSource(Source):
         due = [p for p in self.pending_shots if p[0] <= t]
         if due:
             self.pending_shots = [p for p in self.pending_shots if p[0] > t]
-            for _, out_dir, stem in due:
+            for when, out_dir, stem in due:
+                if t - when > STALE_SHOT_S:
+                    # the game left the screen before the picture came due: a picture taken when
+                    # it comes back is another moment (2026-10-24: one came 2 min late). None.
+                    log(f"diary picture {stem} dropped: {t - when:.0f} s overdue")
+                    continue
                 self._save_shot(frame if frame is not None else self.frame, out_dir, stem)
 
     def end_session(self):

@@ -1,5 +1,9 @@
 """skillbar_ui.py - a movable hotbar-style strip over the game (FF14-like), fed by live.json.
 
+Skill corner number (right-click, helper_settings skillbar.show): casts left (default), MP per
+cast, or mesos per cast (live.py: the MP at what your MP potion costs per point, training.py
+mp_price, plus items like Magic Rock at your own price, plus mesos like Shadow Meso).
+
 Slots, left to right:
   MP regen   tick size ("+6"), seconds to the next tick, and a dark sweep that empties as the
              tick comes (vitals.Meter measures it from the status bar; nothing is guessed)
@@ -204,8 +208,14 @@ class SkillBar:
             initials = "".join(w[0] for w in (sk.get("name") or "?").split()[:2])
             icon = self._icon(sk.get("icon"), initials, (70, 70, 90))
             color = (255, 90, 90, 255) if casts is not None and casts < 5 else (255, 255, 255, 255)
-            slots.append((self._slot(icon, corner=str(casts) if casts is not None else "?",
-                                     dim=casts == 0, corner_color=color), None))
+            corner = str(casts) if casts is not None else "?"
+            show = self.get().get("show", "casts")
+            if show == "mp" and sk.get("mp"):
+                corner, color = str(sk["mp"]), (140, 190, 255, 255)
+            elif show == "mesos":
+                corner, color = self._meso_text(sk), (242, 182, 50, 255)
+            slots.append((self._slot(icon, corner=corner, dim=casts == 0, corner_color=color),
+                          None))
             ids.append(sk.get("id"))
         self.slot_ids = ids
         if not slots:
@@ -268,8 +278,29 @@ class SkillBar:
     def _names(self):
         return {sk.get("id"): sk.get("name") for sk in (self.live or {}).get("skills") or []}
 
+    @staticmethod
+    def _meso_text(sk):
+        """Mesos per cast: MP at your MP potion's price + items + mesos. "~" when it depends on
+        the fight (Meso Guard); "+R" when it needs an item without a price (set one in Settings)."""
+        v = sk.get("mesos")
+        if v is None:
+            return "?"
+        txt = f"{v:.0f}" if v >= 10 else f"{v:.1f}"
+        if any(price is None for _, _, price in sk.get("items") or []):
+            txt += "+R"
+        if sk.get("meso_varies"):
+            txt = "~" + txt
+        return txt
+
     def _menu(self, e):
         m = tk.Menu(self.w, tearoff=0)
+        show = tk.StringVar(value=self.get().get("show", "casts"))
+        m._show = show                            # keep the variable alive with the menu
+        for val, label in (("casts", "Show casts left"), ("mp", "Show MP per cast"),
+                           ("mesos", "Show mesos per cast")):
+            m.add_radiobutton(label=label, value=val, variable=show,
+                              command=lambda v=val: self.put(show=v))
+        m.add_separator()
         i = self._slot_at(e.x)
         sid = self.slot_ids[i] if i is not None else None
         names = self._names()

@@ -402,6 +402,32 @@ class Profile:
             self.ch_open = None             # closed without the screen going dark: cancelled
             # (an unvalidated first read is dropped: the saved channel stays until the next window)
 
+    # ------------------------------------------------------------------ learned elsewhere
+    def learn_skill_level(self, sid, level, t, name=None):
+        """A skill level worked out from what its casts cost (mpuse.levels_seen): stored like a
+        Skill window read, but only upwards (SP is never taken back) and marked "from casts"."""
+        c = self.char()
+        if c is None:
+            return False
+        old = ((c.get("skills") or {}).get(sid) or {}).get("value") or 0
+        if level <= old:
+            return False
+        extra = dict((c.get("skills") or {}).get(sid) or {})
+        extra.pop("value", None), extra.pop("seen", None), extra.pop("since", None)
+        extra.update(how="from what its casts cost", name=name or extra.get("name"))
+        return self._keep("skills", sid, level, t, name or sid, True, extra)
+
+    def regen(self):
+        """This character's regen numbers (live.py): {"mp": {...}, "hp": {...}, "clock": {...}}."""
+        c = self.char()
+        return c.setdefault("regen", {}) if c is not None else {}
+
+    def save_regen(self, data):
+        c = self.char()
+        if c is not None and c.get("regen") != data:
+            c["regen"] = data
+            self.dirty = True
+
     # ------------------------------------------------------------------ output
     @staticmethod
     def _summary(c):

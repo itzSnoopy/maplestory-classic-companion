@@ -71,6 +71,11 @@ class Source:
         tell. Must be cheap; sources without live frames return None."""
         return None
 
+    def quick_vitals(self, t):
+        """A burst look at just the HP/MP numbers (regen clock, vitals.Meter); adds a 'vitals'
+        fact. False when this source can't (default)."""
+        return False
+
     def take_facts(self):
         """Long-lived character facts seen since the last call: [(t, kind, value)], kind 'stat' |
         'skills' | 'channel' (dicts as panels.py returns them) or 'away' (the game left the

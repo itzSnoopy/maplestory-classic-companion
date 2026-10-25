@@ -18,6 +18,8 @@ helper_settings.json
 screenshots/
 # saved game frames kept for offline tests (Nexon imagery, local only)
 /dev/fixtures/
+# dev-only tools that send input to the game (local, run only with the player's OK)
+/dev/local/
 # Steam store capsules for the diary's game references (third-party art, cached locally)
 game_icons/
 crops/
@@ -40,6 +42,7 @@ glyphs/
 /status.json
 /diary.md
 /diary.html
+/album.html
 /journal.md
 /stop
 
@@ -58,3 +61,6 @@ venv/
 
 # --- Claude Code project files (handoff notes, skills): local only ---
 /.claude/
+
+# downloaded game art (item pictures from MeowDB): local only, never commit
+assets/

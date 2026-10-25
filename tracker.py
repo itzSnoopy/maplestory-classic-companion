@@ -45,6 +45,7 @@ from collections import deque
 from datetime import datetime
 from pathlib import Path
 
+import album
 import capture
 import character
 import live
@@ -53,12 +54,14 @@ import perf
 import history as H
 import killers
 import parse
+import vitals
 from history import fmt_secs, read_json, write_json
 from sinks import make_sinks
 from sources import ABSENT, UNAVAILABLE, make_source, pick_type
 
 from paths import APP as CODE, DATA, load_config
 REF_TABLE = CODE / "exp_table_classic.json"       # MeowDB reference (Classic World)
+ALBUM = None                                      # album.Album while the service runs
 
 
 def set_root(root):
@@ -76,6 +79,7 @@ def set_root(root):
     LOCK = HISTORY / "tracker.lock"
     H.set_root(ROOT)
     diary.set_root(ROOT)
+    album.set_root(ROOT)
 
 
 set_root(DATA)
@@ -158,6 +162,7 @@ class Tracker:
         self.box_pending = None             # when the "You have died." box appeared, not yet logged
         self.box_only_t = None              # last death logged from the box alone (no EXP drop)
         self.hist = deque()                 # (t, exp_total, pct_total)
+        self.rate_source = None             # -> exprate summary of this map visit (live.Live.exp_rate)
         self.last_t = None
         self.last_progress_t = None
         self.active_total = 0.0
@@ -512,8 +517,22 @@ class Tracker:
             return None
         return t1 - t0, e1 - e0, p1 - p0
 
+    def _visit_rate(self):
+        """This map visit's EXP/hr from the quick looks (exprate.py: active time, quest lumps
+        and breaks left out, party share apart), or None."""
+        if self.rate_source is None:
+            return None
+        try:
+            r = self.rate_source()
+        except Exception:
+            return None
+        return r if r and r.get("exp_hr") else None
+
     def exp_rate(self):
-        w = self._window()
+        r = self._visit_rate()
+        if r:
+            return r["exp_hr"]
+        w = self._window()                   # fallback: the last 10 min of readings
         return w[1] / w[0] * 3600 if w and w[1] > 0 else None
 
     def pct_rate(self):
@@ -557,6 +576,8 @@ class Tracker:
             "exp_to_level": (need - self.cur) if need and self.cur is not None else None,
             "eta_to_level": fmt_secs(self.eta_seconds()),
             "exp_per_hour_recent": round(self.exp_rate()) if self.exp_rate() else None,
+            "exp_per_hour_party": (self._visit_rate() or {}).get("party_hr"),
+            "exp_rate_early": bool((self._visit_rate() or {}).get("early")),
             "pct_per_hour_recent": round(self.pct_rate(), 2) if self.pct_rate() else None,
             "time_in_level_active": fmt_secs(self.level_active) if self.level_started else None,
             "map": self.map,
@@ -631,6 +652,7 @@ class Session:
         self.started = datetime.now()
         self.announced = False
         self.render_at = 0.0
+        self.album_render_at = 0.0       # album.html after a first kill's pictures exist
         self.last_print = 0
         self.closed = False
         source.begin_session(self.dir, ROOT / "screenshots" / "levelups")
@@ -641,6 +663,9 @@ class Session:
         if self.render_at and time.time() >= self.render_at:
             self.render_at = 0.0
             diary.render()
+        if self.album_render_at and time.time() >= self.album_render_at and ALBUM is not None:
+            self.album_render_at = 0.0
+            album.render(ALBUM)
         event, d_exp, gains = tr.step(obs)
         tr.settle_box(obs.t)
         self.source.after_step(obs, event, tr.ctx())
@@ -690,6 +715,8 @@ class Session:
         try:
             if e["type"] == "levelup":
                 lv = e["level_reached"]
+                # the picture comes ~2 s into the animation (levelup_shot.py): render after it
+                self.render_at = max(self.render_at, time.time() + 4)
                 diary.add("levelup", diary.levelup_text(lv, e["map"], e["active_seconds_in_prev_level"]),
                           level=lv, map=e["map"], job=tr.job, shots=self._shots("levelup", now),
                           took_s=e["active_seconds_in_prev_level"])
@@ -719,6 +746,38 @@ class Session:
         except Exception:
             log("diary entry failed: " + traceback.format_exc())
 
+    def first_kill(self, mob, map_name, alb, t=None):
+        """Monster album: the first kill of this mob. Photo (album_shot: the middle square from
+        just before, then a full screenshot + close-up), album record, diary beat, journal line."""
+        tr, now = self.tr, datetime.now()
+        stem = f"{now:%Y-%m-%d_%H%M%S}_firstkill"
+        try:
+            take = getattr(self.source, "album_shot", None)
+            paths = take(diary.SHOTS, stem, t) if take else self.source.snapshot(diary.SHOTS, stem, (0.05,))
+        except Exception as ex:
+            log(f"album photo failed: {ex}")
+            paths = []
+        shots = [Path(p).relative_to(ROOT).as_posix() for p in paths]
+        self.render_at = max(self.render_at, time.time() + 3)     # after the next-look picture
+        alb.record(mob, map_name, tr.level, shots)
+        try:
+            diary.add("first_kill", album.first_kill_text(mob, map_name), level=tr.level, map=map_name,
+                      job=tr.job, shots=shots, mob=mob["name"], mob_id=mob["id"],
+                      boss=bool(mob.get("boss")), caught=alb.count())
+        except Exception:
+            log("diary entry failed: " + traceback.format_exc())
+        self.journal.write(f"First {'boss kill' if mob.get('boss') else 'kill'}: {mob['name']}"
+                           + (f" @ {map_name}" if map_name else "") + f" (album: {alb.count()})")
+        log(f"album: first kill {mob['name']} at {map_name} ({alb.count()} caught)")
+        self.album_render_at = time.time() + 3
+
+    def snap(self):
+        """Camera button (helper): a moment entry with a fresh frame (the last reading's frame
+        can be 30 s old; a 0.5 s delay makes the next quick look grab a new one)."""
+        tr = self.tr
+        diary.add("moment", diary.SNAP_TEXT, level=tr.level, map=tr.map, job=tr.job,
+                  shots=self._shots("moment", datetime.now(), delays=(0.5,)), manual=True)
+
     def note(self, text):
         tr = self.tr
         diary.add("note", text, level=tr.level, map=tr.map, job=tr.job,
@@ -728,6 +787,12 @@ class Session:
         tr = self.tr
         for e in tr.events:
             self._diary(e)
+            if e["type"] == "enter" and ALBUM is not None:
+                try:
+                    if ALBUM.on_map(e["map"]):            # new mobs seen: grey in the album
+                        self.album_render_at = self.album_render_at or time.time()
+                except Exception:
+                    log("album: " + traceback.format_exc())
             if e["type"] == "levelup":
                 took = fmt_secs(e["active_seconds_in_prev_level"]) \
                     if e["active_seconds_in_prev_level"] else "?"
@@ -846,6 +911,8 @@ def run(cfg, args, source=None, sinks=None):
     H.cleanup(svc.get("retention_days", 14))
     journal = H.Journal()
     diary.seed_places(list(read_json(MAPS, {})) + list(read_json(HISTORY / "map_stats.json", {})))
+    global ALBUM
+    ALBUM = album.Album(ROOT)                 # monster album (album.py): first kills, seen mobs
     session = None
     absent_since = None
     afk_reading = None                # (cur, pct, level) when a session closed for AFK
@@ -862,14 +929,74 @@ def run(cfg, args, source=None, sinks=None):
     link = partylink.PartyLink(log=log)
     link.start()
 
+    def on_rise(t, map_name, d, party, gap=None):
+        """Every EXP rise (training.py): a first kill for the monster album?"""
+        try:
+            if session is None:
+                return
+            mob = ALBUM.first_kill(map_name, d, party, gap)
+            if mob is not None:
+                session.first_kill(mob, map_name, ALBUM, t)
+        except Exception:
+            log("album: " + traceback.format_exc())
+    feed.rise_hook = on_rise
+
+    def album_follow():
+        """Who plays, their level, and whether the middle square is worth keeping (screen.py)."""
+        try:
+            with perf.timed("album"):
+                if prof.who:
+                    ALBUM.set_who(prof.who, (prof.char() or {}).get("name"))
+                    if not ALBUM.char().get("seeded"):
+                        ALBUM.seed(diary.seen_places())
+                if session is not None:
+                    if ALBUM.set_level(session.tr.level):
+                        session.album_render_at = session.album_render_at or time.time()
+                    source.album_watch = ALBUM.wants_photo(feed.training.visit.name
+                                                           if feed.training.visit else session.tr.map)
+                else:
+                    source.album_watch = False
+        except Exception:
+            log("album: " + traceback.format_exc())
+
     def take_facts():
         try:
             facts = source.take_facts()
             if facts:
                 prof.update(facts)
                 feed.update(facts, prof)
+                album_follow()
         except Exception:
             log("character update failed: " + traceback.format_exc())
+
+    def burst_looks(until):
+        """Between quick looks: the regen clock's bursts (vitals.Meter, live.py). HP/MP strip
+        only at burst_fps while it asks (finding the clock after a start / map change, or a
+        check around a predicted tick); otherwise sleep until the next burst or `until`."""
+        rs = vitals.regen_settings()
+        step = 1.0 / rs["burst_fps"]
+        while (n := time.time()) < until - 0.02:
+            if feed.wants_fast(n):
+                capture.boost(rs["burst_fps"], 1.5)
+                try:
+                    with perf.timed("burst_look"):
+                        ok = source.quick_vitals(n)
+                except Exception:
+                    ok = False
+                take_facts()
+                if not ok:
+                    return
+                time.sleep(max(0.0, min(step - (time.time() - n), until - time.time())))
+            else:
+                d = feed.burst_in(n)
+                if d is None or n + d >= until:
+                    return
+                if d <= 0.8:                  # let Windows speed up its frames just before (a new
+                    # capture session at the new rate takes ~0.5 s to deliver its first frame)
+                    capture.boost(rs["burst_fps"], 1.5)
+                    time.sleep(max(0.01, min(d, until - n)))
+                else:                         # wake at the boost point
+                    time.sleep(max(0.01, min(d - 0.8, until - n)))
     box_since = None                          # when the death box was first seen
 
     def show(text):
@@ -903,8 +1030,15 @@ def run(cfg, args, source=None, sinks=None):
             t = time.time()
             perf.tick(last_state, capture.fps())
             sleep_for = idle_poll
-            for req in diary.take_requests():          # `python diary.py note "..."`
+            for req in diary.take_requests():          # `python diary.py note "..."`, camera button
                 try:
+                    if req.get("kind") == "moment":
+                        if session and last_state == "playing":
+                            session.snap()
+                            log("diary moment captured (camera button)")
+                        else:
+                            log("camera button: no game on screen, nothing captured")
+                        continue
                     if session:
                         session.note(req["text"])
                     else:
@@ -934,7 +1068,10 @@ def run(cfg, args, source=None, sinks=None):
                         afk_reading = None
                         if session is None:
                             session = Session(cfg, args, journal, source)
+                            session.tr.rate_source = feed.exp_rate
                         interval, event = session.process(obs)
+                        feed.training.set_progress(session.tr.level, session.tr.cur,
+                                                   session.tr.need)
                         show(session.tr.overlay_text())
                         sleep_for = interval
                         if session.tr.afk_for(obs.t) > afk_close:
@@ -976,13 +1113,21 @@ def run(cfg, args, source=None, sinks=None):
                         was_dead = dead
                     if getattr(source, "read_now", False):   # poll saw a new map (mapwatch.py)
                         end = now
+                    if diary.has_requests():                 # camera button / note: answer now
+                        end = now
                     if session.tr.box_pending is not None:   # read again when it settles
                         end = min(end, session.tr.box_pending + BOX_SETTLE_S + 0.1)
                     left = end - time.time()
                     if left <= 0:
                         break
-                    # the poll itself may have waited for a frame (wgc min_update_ms): keep ~1/s
-                    time.sleep(min(max(0.0, box_poll() - (time.time() - now)), left))
+                    # the poll itself may have waited for a frame (wgc min_update_ms): keep ~1/s;
+                    # the regen clock's burst looks fit in between (HP/MP strip only)
+                    next_poll = min(now + box_poll(), end)
+                    wake = getattr(source, "wake_at", lambda: None)()   # level-up picture
+                    if wake is not None:
+                        next_poll = max(time.time(), min(next_poll, wake))
+                    burst_looks(next_poll)
+                    time.sleep(max(0.0, next_poll - time.time()))
                 else:
                     time.sleep(left)
                     break

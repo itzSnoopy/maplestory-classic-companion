@@ -115,6 +115,11 @@ def fmt_int(n):
     return f"{n:,}" if isinstance(n, (int, float)) else "—"
 
 
+def fmt_short(n):
+    """3100 -> '3.1k' (the party share next to EXP/hr)."""
+    return f"{n / 1000:.1f}k".replace(".0k", "k") if n >= 1000 else str(int(n))
+
+
 def parse_time(s):
     try:
         return datetime.fromisoformat(s)
@@ -158,6 +163,8 @@ class Snapshot:
         self.cur, self.need = st.get("exp_current"), st.get("exp_needed")
         self.left = st.get("exp_to_level")
         self.rate = st.get("exp_per_hour_recent")
+        self.rate_party = st.get("exp_per_hour_party")     # what the party brings (exprate.py)
+        self.rate_early = st.get("exp_rate_early")          # first minutes on a map: "~"
         self.map = st.get("map")
         self.job = st.get("job")
         self.map_rate = st.get("map_exp_per_hour")
@@ -210,7 +217,7 @@ def demo_data():
     now = datetime.now()
     status = {"state": "playing", "updated": (now - timedelta(seconds=8)).isoformat(timespec="seconds"),
               "level": 7, "pct": 31.25, "exp_current": 175, "job": "Beginner", "exp_needed": 560, "exp_to_level": 385,
-              "exp_per_hour_recent": 1621, "map": "A Split Road", "map_exp_per_hour": 1890,
+              "exp_per_hour_recent": 1621, "exp_per_hour_party": 420, "exp_rate_early": True, "map": "A Split Road", "map_exp_per_hour": 1890,
               "level_ups_this_session": 1, "exp_gained_session": 259, "session_active": "9m"}
     digest = {"projection": {"basis_exp_per_hour": 1621, "levels": [
         {"to_lv": 8, "exp": 385}, {"to_lv": 9, "exp": 840}, {"to_lv": 10, "exp": 1242},
@@ -253,6 +260,42 @@ def make_icon_image(color, s=64):
     return img
 
 
+def menu_items(app):
+    """The helper's menu, shared by the tray icon and right-clicking the helper window:
+    [(label or fn() -> label, command, checked fn | None, enabled fn | None, visible fn | None)],
+    None = separator. Commands go through app.post (both menus act the same way)."""
+    return [
+        ("Show / hide window", "toggle", None, None, None),
+        ("Details", "details", lambda: app.details, None, None),
+        ("Always on top", "topmost", lambda: app.topmost, None, None),
+        ("Settings…", "settings", None, None, None),
+        ("Run setup…", "setup", None, None, None),
+        None,
+        ("Skill bar", "skillbar", lambda: app.bar_setting("enabled"), None, None),
+        ("Lock skill bar (click-through)", "skillbar_lock", lambda: app.bar_setting("locked"),
+         lambda: app.bar_setting("enabled"), None),
+        ("Party panel", "partypanel", lambda: app.panel_setting("enabled"), None, None),
+        ("Lock party panel (click-through)", "partypanel_lock",
+         lambda: app.panel_setting("locked"), lambda: app.panel_setting("enabled"), None),
+        ("Training cost panel", "trainingpanel", lambda: app.train_setting("enabled"), None, None),
+        ("Lock training panel (click-through)", "trainingpanel_lock",
+         lambda: app.train_setting("locked"), lambda: app.train_setting("enabled"), None),
+        (lambda: f"Restart to update to {app.update_label()}", "update", None, None,
+         lambda: app.update_ready is not None),
+        None,
+        ("Start tracker", "start", None, lambda: not app.running, None),
+        ("Stop tracker", "stop", None, lambda: app.running, None),
+        None,
+        ("Open diary", "diary", None, None, None),
+        ("Open monster album", "album", None, None, None),
+        ("Open journal", "journal", None, None, None),
+        ("Open folder", "folder", None, None, None),
+        None,
+        ("Exit helper", "exit", None, None, None),
+        ("Exit and stop tracker", "exit_all", None, None, None),
+    ]
+
+
 class Tray:
     def __init__(self, app):
         import pystray
@@ -262,35 +305,35 @@ class Tray:
         M = pystray.MenuItem
         self.icon = pystray.Icon(
             "maple_helper", make_icon_image(GREY), "Maple helper",
-            menu=pystray.Menu(
-                M("Show / hide window", lambda: app.post("toggle"), default=True),
-                M("Details", lambda: app.post("details"), checked=lambda _: app.details),
-                M("Always on top", lambda: app.post("topmost"), checked=lambda _: app.topmost),
-                M("Settings…", lambda: app.post("settings")),
-                M("Skill bar", lambda: app.post("skillbar"),
-                  checked=lambda _: app.bar_setting("enabled")),
-                M("Lock skill bar (click-through)", lambda: app.post("skillbar_lock"),
-                  checked=lambda _: app.bar_setting("locked"),
-                  enabled=lambda _: app.bar_setting("enabled")),
-                M("Party panel", lambda: app.post("partypanel"),
-                  checked=lambda _: app.panel_setting("enabled")),
-                M("Lock party panel (click-through)", lambda: app.post("partypanel_lock"),
-                  checked=lambda _: app.panel_setting("locked"),
-                  enabled=lambda _: app.panel_setting("enabled")),
-                M(lambda _: f"Restart to update to {app.update_label()}", lambda: app.post("update"),
-                  visible=lambda _: app.update_ready is not None),
-                pystray.Menu.SEPARATOR,
-                M("Start tracker", lambda: app.post("start"), enabled=lambda _: not app.running),
-                M("Stop tracker", lambda: app.post("stop"), enabled=lambda _: app.running),
-                pystray.Menu.SEPARATOR,
-                M("Open diary", lambda: app.post("diary")),
-                M("Open journal", lambda: app.post("journal")),
-                M("Open folder", lambda: app.post("folder")),
-                pystray.Menu.SEPARATOR,
-                M("Exit helper", lambda: app.post("exit")),
-                M("Exit and stop tracker", lambda: app.post("exit_all")),
-            ))
+            menu=pystray.Menu(*self._items(app)            ))
         threading.Thread(target=self.icon.run, daemon=True).start()
+
+    def _items(self, app):
+        pystray, out = self.pystray, []
+
+        def act(c):                      # pystray checks the argument count: no extra defaults
+            return lambda: app.post(c)
+
+        def test(f):
+            return lambda item: bool(f())
+
+        def name(f):
+            return lambda item: f()
+        for it in menu_items(app):
+            if it is None:
+                out.append(pystray.Menu.SEPARATOR)
+                continue
+            label, cmd, checked, enabled, visible = it
+            kw = {}
+            if checked:
+                kw["checked"] = test(checked)
+            if enabled:
+                kw["enabled"] = test(enabled)
+            if visible:
+                kw["visible"] = test(visible)
+            out.append(pystray.MenuItem(name(label) if callable(label) else label, act(cmd),
+                                        default=(cmd == "toggle"), **kw))
+        return out
 
     def update(self, snap):
         color = STATE_COLOR.get(snap.state, GREY)
@@ -333,6 +376,7 @@ class App:
         self.settings_win = None
         self.presence = None          # discord_rpc.Presence, created only when Discord is on
         self.last_snap = None
+        self.flash_until = 0.0         # camera-button message shown until then
 
         try:      # crisp text on high-DPI screens
             import ctypes
@@ -374,6 +418,7 @@ class App:
 
         self.skillbar = None          # skillbar_ui.SkillBar over the game (Settings > General)
         self.partypanel = None        # party_ui.PartyPanel over the game (Settings > General)
+        self.trainingpanel = None     # training_ui.TrainingPanel over the game (Settings > General)
         if not demo and not at:       # "Updated to x.y.z" card after an update (whats_new.py)
             def _whats_new():
                 try:
@@ -458,26 +503,36 @@ class App:
         if self.details:
             self.det.pack(fill="x")
 
-        # menu
-        self.menu = tk.Menu(r, tearoff=0)
-        self.menu.add_command(label="Hide to tray", command=self.hide)
-        self.menu.add_command(label="Details", command=self.toggle_details)
-        self.menu.add_command(label="Always on top", command=self.toggle_topmost)
-        self.menu.add_command(label="Settings…", command=self.open_settings)
-        self.menu.add_command(label="Run setup…", command=self.open_setup)
-        self.menu.add_separator()
-        self.menu.add_command(label="Start tracker", command=self.start_tracker)
-        self.menu.add_command(label="Stop tracker", command=self.stop_tracker)
-        self.menu.add_separator()
-        self.menu.add_command(label="Open journal", command=lambda: self.open(JOURNAL))
-        self.menu.add_command(label="Open folder", command=lambda: self.open(ROOT))
-        self.menu.add_separator()
-        self.menu.add_command(label="Exit helper", command=self.exit)
-        self.menu.add_command(label="Exit and stop tracker", command=lambda: self.exit(stop=True))
+        # version, tiny in the bottom-right corner (in the padding, layout unchanged): which
+        # build runs at a glance (test builds are 0.x.90+; "dev" = running from source)
+        try:
+            import paths
+            from version import VERSION
+            ver = f"v{VERSION}" + ("" if paths.FROZEN else " dev")
+        except Exception:
+            ver = ""
+        self.ver_lbl = tk.Label(outer, text=ver, font=(F, 7), fg="#4f545d", bg=BG, bd=0,
+                                padx=0, pady=0)
+        self.ver_lbl.place(relx=1.0, rely=1.0, x=-px(4), y=-px(2), anchor="se")
+        # an update waiting: "Update to x.y.z" left of the version, click = switch now (even
+        # while playing: the play session closes and a new one starts after the restart)
+        self.upd_lbl = tk.Label(outer, text="", font=(F, 7, "bold"), fg=GOLD, bg=BG, bd=0,
+                                padx=0, pady=0, cursor="hand2")
+        self.upd_lbl.bind("<Button-1>", lambda e: self.post("update_now"))
+        self.upd_shown = False
+        # camera, small in the bottom-left corner (same padding as the version): save this
+        # moment to the diary (screenshot + close-up), via the tracker
+        self.cam = tk.Label(outer, text="📷", font=("Segoe UI Emoji", 7), fg=MUTED, bg=BG,
+                            cursor="hand2", bd=0, padx=0, pady=0)
+        self.cam.place(relx=0.0, rely=1.0, x=px(4), y=-px(1), anchor="sw")
+        self.cam.bind("<Button-1>", lambda e: self.snap())
+        self.cam.bind("<Enter>", lambda e: self.cam.configure(fg=GOLD))
+        self.cam.bind("<Leave>", lambda e: self.cam.configure(fg=MUTED))
 
+        # menu
         # drag / click bindings on every widget
         def bind_all(w):
-            if w is not close and w is not self.more:
+            if w not in (close, self.more, self.cam):
                 w.bind("<ButtonPress-1>", self.drag_start)
                 w.bind("<B1-Motion>", self.drag_move)
                 w.bind("<ButtonRelease-1>", self.drag_end)
@@ -543,15 +598,52 @@ class App:
         self.save_ui()
 
     def popup(self, e):
-        m = self.menu        # indices follow the add_* order in build()
-        m.entryconfigure(1, label="Details" + ("  ✓" if self.details else ""))
-        m.entryconfigure(2, label="Always on top" + ("  ✓" if self.topmost else ""))
-        m.entryconfigure(5, state="disabled" if self.running else "normal")
-        m.entryconfigure(6, state="normal" if self.running else "disabled")
+        """Right-click on the helper: the same menu as the tray icon (menu_items)."""
+        m = tk.Menu(self.root, tearoff=0)
+        for it in menu_items(self):
+            if it is None:
+                m.add_separator()
+                continue
+            label, cmd, checked, enabled, visible = it
+            if visible and not visible():
+                continue
+            text = label() if callable(label) else label
+            state = "normal" if (not enabled or enabled()) else "disabled"
+            if checked:
+                v = tk.BooleanVar(value=bool(checked()))
+                m.add_checkbutton(label=text, variable=v, state=state,
+                                  command=lambda c=cmd: self.post(c))
+                m._keep = getattr(m, "_keep", []) + [v]
+            else:
+                m.add_command(label=text, state=state, command=lambda c=cmd: self.post(c))
         try:
-            self.menu.tk_popup(e.x_root, e.y_root)
+            m.tk_popup(e.x_root, e.y_root)
         finally:
-            self.menu.grab_release()
+            m.grab_release()
+
+    def snap(self):
+        """Camera button: ask the tracker to save this moment to the diary."""
+        s = self.last_snap
+        if not self.demo and (s is None or s.state != "playing"):
+            self.flash_note("Snapshots need the game on screen and the tracker running.")
+            return
+        if not self.demo:
+            try:
+                import diary
+                diary.request_moment()
+            except Exception as ex:
+                self.flash_note(f"Snapshot failed: {ex}")
+                return
+        self.cam.configure(text="✔", fg=GREEN)
+        self.root.after(1500, lambda: self.cam.configure(text="📷", fg=MUTED))
+        self.flash_note("Moment saved to the diary.")
+
+    def flash_note(self, text, ms=3000):
+        self.flash_until = time.time() + ms / 1000
+        self.note.configure(text=text, fg=GOLD)
+        self.note.pack(fill="x")
+        self.resize()
+        self.root.after(ms + 50, lambda: self.last_snap and self.render(self.last_snap))
 
     def toggle_details(self):
         self.details = not self.details
@@ -657,6 +749,14 @@ class App:
         except Exception as e:
             print(f"open diary failed: {e}")
 
+    def open_album(self):
+        try:
+            import album
+            album.render()
+            album.open_album(in_process=True)
+        except Exception as e:
+            print(f"open album failed: {e}")
+
     def open(self, path):
         try:
             os.startfile(str(path))
@@ -694,6 +794,8 @@ class App:
                     self.stop_tracker()
                 elif cmd == "settings":
                     self.open_settings()
+                elif cmd == "setup":
+                    self.open_setup()
                 elif cmd == "skillbar":
                     self.put_bar(enabled=not self.bar_setting("enabled"))
                 elif cmd == "skillbar_lock":
@@ -702,12 +804,20 @@ class App:
                         self.skillbar.set_locked(self.bar_setting("locked"))
                 elif cmd == "partypanel":
                     self.put_panel(enabled=not self.panel_setting("enabled"))
+                elif cmd == "trainingpanel":
+                    self.put_train(enabled=not self.train_setting("enabled"))
+                elif cmd == "trainingpanel_lock":
+                    self.put_train(locked=not self.train_setting("locked"))
+                    if self.trainingpanel:
+                        self.trainingpanel.set_locked(self.train_setting("locked"))
                 elif cmd == "partypanel_lock":
                     self.put_panel(locked=not self.panel_setting("locked"))
                     if self.partypanel:
                         self.partypanel.set_locked(self.panel_setting("locked"))
                 elif cmd == "diary":
                     self.open_diary()
+                elif cmd == "album":
+                    self.open_album()
                 elif cmd == "journal":
                     self.open(JOURNAL)
                 elif cmd == "folder":
@@ -716,6 +826,9 @@ class App:
                     self.on_update_ready()
                 elif cmd == "update":
                     self.restart_into_update("from the tray")
+                    return
+                elif cmd == "update_now":
+                    self.restart_into_update("from the helper's update button")
                     return
                 elif cmd in ("exit", "exit_all"):
                     self.exit(stop=cmd == "exit_all")
@@ -745,6 +858,8 @@ class App:
         self.last_snap = snap
         self.sync_skillbar()
         self.sync_partypanel()
+        self.sync_trainingpanel()
+        self.sync_update_lbl()
         self.render(snap)
         self.update_discord(snap)
         if self.tray:
@@ -823,6 +938,36 @@ class App:
             self.partypanel.destroy()
             self.partypanel = None
 
+    def train_setting(self, key):
+        return (self.settings.get("trainingpanel") or {}).get(key)
+
+    def put_train(self, **kw):
+        """Change the training panel's settings (from the panel or the tray) and save them."""
+        self.settings.setdefault("trainingpanel", {}).update(kw)
+        if not self.dev_at:
+            try:
+                self.HS.save(self.settings)
+            except Exception as e:
+                print(f"training panel settings save failed: {e}")
+        self.sync_trainingpanel()
+
+    def sync_trainingpanel(self):
+        """Create / remove the training cost panel to match the setting (hidden while not playing)."""
+        on = bool(self.train_setting("enabled"))
+        if on and self.trainingpanel is None:
+            try:
+                from training_ui import TrainingPanel
+                at = (self.at_bar[0], self.at_bar[1] + 360) if self.at_bar else None
+                self.trainingpanel = TrainingPanel(self.root,
+                                                   lambda: self.settings.get("trainingpanel") or {},
+                                                   self.put_train, k=self.k, demo=self.demo, at=at)
+            except Exception as e:
+                print(f"training panel unavailable: {e}")
+                self.settings.setdefault("trainingpanel", {})["enabled"] = False
+        elif not on and self.trainingpanel is not None:
+            self.trainingpanel.destroy()
+            self.trainingpanel = None
+
     # ---------------------------------------------------------------- updates (updater.py)
     restarting = False
     quiet_since = None              # since when the status files say "not playing"
@@ -835,7 +980,8 @@ class App:
             import updater
             lv, cur = updater.latest_version(), updater.current()
             exe, latest = os.path.realpath(sys.executable), os.path.realpath(updater.latest_exe())
-            if lv and cur and lv > cur and exe.lower() != latest.lower():
+            if lv and cur and updater.rank(lv) > updater.rank(cur, me=True) \
+                    and exe.lower() != latest.lower():
                 self.update_ready = lv           # installed earlier, not running yet
                 # (when we *are* latest, a mismatch means a release with the wrong version.py:
                 # never restart over it, or it would loop)
@@ -849,9 +995,25 @@ class App:
     def update_label(self):
         return ".".join(map(str, self.update_ready)) if self.update_ready else ""
 
+    def sync_update_lbl(self):
+        """Show / hide the "Update to x.y.z" button next to the version."""
+        want = self.update_ready is not None and not self.restarting
+        if want:
+            self.upd_lbl.configure(text=f"Update to {self.update_label()} ·")
+        if want != self.upd_shown:
+            if want:
+                self.root.update_idletasks()
+                w = self.ver_lbl.winfo_reqwidth()
+                self.upd_lbl.place(relx=1.0, rely=1.0, x=-self.px(4) - w - self.px(4),
+                                   y=-self.px(2), anchor="se")
+            else:
+                self.upd_lbl.place_forget()
+            self.upd_shown = want
+
     def on_update_ready(self):
         if self.updater and self.updater.ready:
             self.update_ready = self.updater.ready
+        self.sync_update_lbl()
         try:
             if self.tray:
                 self.tray.icon.notify(f"Version {self.update_label()} is installed. It starts when "
@@ -864,6 +1026,10 @@ class App:
         """Stop the tracker, start the new version (latest), and close this one."""
         import updater
         self.restarting = True
+        try:
+            self.upd_lbl.configure(text="Updating… ·")
+        except Exception:
+            pass
         self.stop_tracker()
 
         def go(tries=0):
@@ -880,6 +1046,7 @@ class App:
                 updater.log(f"restart into update failed: {e}")
                 self.restarting = False
                 self.update_ready = None
+                self.sync_update_lbl()
                 return self.root.after(1000, self.refresh)
             if self.updater:
                 self.updater.stop()
@@ -921,7 +1088,9 @@ class App:
             eta = "—"
         cells = {
             "next": (nxt, eta),
-            "rate": ("EXP / hr (recent)", fmt_int(s.rate)),
+            "rate": ("EXP / hr (party)" if s.rate_party and s.rate else "EXP / hr",
+                     ("~" if s.rate_early and s.rate else "") + fmt_int(s.rate)
+                     + (f" (+{fmt_short(s.rate_party)})" if s.rate_party and s.rate else "")),
             "maprate": ("This map / hr", fmt_int(s.map_rate)),
             "session": ("Session", (s.session or "—") + (f"  ·  +{s.lvups} lv" if s.lvups else "")),
         }
@@ -939,8 +1108,13 @@ class App:
                 note += "  (right-click → Start tracker)"
         elif s.age is not None and s.age > 45:
             note = f"last reading {fmt_dur(s.age)} ago"
-        self.note.configure(text=note, fg=color if not playing else MUTED)
-        if note:
+        if time.time() < self.flash_until:        # a camera-button message is showing
+            note = None
+        else:
+            self.note.configure(text=note, fg=color if not playing else MUTED)
+        if note is None:
+            pass
+        elif note:
             self.note.pack(fill="x")
         else:
             self.note.pack_forget()

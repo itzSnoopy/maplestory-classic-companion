@@ -1,4 +1,9 @@
 {
+ "0.7.0": [
+  "Monster album: every monster as ?, greyed out (seen) or caught. Your first kill of each one takes a photo and adds a diary entry with a catch phrase; bosses get their own. Tray > Open monster album, or 👾 Album in the diary.",
+  "Training cost panel (off by default, Settings or tray): MP, potions and mesos per kill and per hour on your map, and what it takes to level up; EXP/hr counts your party's share apart.",
+  "Diary: a camera button in the helper's corner for a picture any time, sharper character close-ups, level-up pictures at the right moment, and you can delete entries."
+ ],
  "0.6.4": [
   "Updates now wait until you've stopped playing for a minute before restarting the app (one restarted mid-play).",
   "Fixed: a new level digit could be read as the wrong level, which made the app ignore your Stat window."

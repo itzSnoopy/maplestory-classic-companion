@@ -1,13 +1,12 @@
 """First-run calibration: cut the screen templates from the player's own game frame.
 
-The templates (WORLD button, "MINI MAP" header, name tag) and the digit glyphs come from the game's
+The templates (WORLD button, "MINI MAP" header) and the digit glyphs come from the game's
 own pixels, so they are never shipped (Nexon imagery). This module finds them in a live frame.
 
 - WORLD button: exactly 34x10 px whose main color is (221, 153, 17) (measured 2026-10-23 on 47
   frames: the button's bounding box in that color is the template's box).
 - "MINI MAP" header: 50x16, at (left border + 2, button y - 4). The minimap window's left border on
   the button's row is white followed by (85,119,153), (153,187,204) (same on every frame/map).
-- Name tag: the player clicks their own name; the tag's text box is grown from the click.
 - EXP / level digits: the player types what the bar shows (glyphs.learn). Missing digits are
   learned later by the tracker on its own (sources/screen.py solve_unknowns, level-up badge).
 
@@ -22,7 +21,6 @@ from PIL import Image
 
 import layout
 import minimap
-import portrait
 
 WORLD_RGB = (221, 153, 17)
 WORLD_SIZE = (34, 10)
@@ -30,9 +28,6 @@ HEADER_SIZE = (50, 16)
 HEADER_DY = -4
 BORDER = [(255, 255, 255), (85, 119, 153), (153, 187, 204)]
 SEARCH = (0, 0, 900, 400)            # where the minimap is expected during calibration
-BACKING_MAX = 130                    # name tag's dark backing: row/col median gray at most this
-TAG_TEXT_H = 15                      # name tag text height incl. descenders (measured 2026-10-23)
-TAG_GAP = 6                          # widest blank gap between letters of one name, px
 
 
 def find_world(img, area=SEARCH):
@@ -74,60 +69,6 @@ def find_header(img, wx, wy):
     return None
 
 
-def nametag_box(img, drag):
-    """Tight box around the name's text pixels inside a box the player dragged, padded by 1 px
-    (the same shape `portrait.learn` cuts by hand). None if there's no text in it."""
-    x1, y1, x2, y2 = (int(v) for v in drag)
-    x1, x2 = sorted((max(0, x1), min(img.width, x2)))
-    y1, y2 = sorted((max(0, y1), min(img.height, y2)))
-    g = np.asarray(img.convert("L").crop((x1, y1, x2, y2))).astype(int)
-    # a loose box catches bright background: trim edge rows/cols that aren't on the tag's dark
-    # backing (their median is bright). On dark maps nothing is trimmed, and nothing needs to be.
-    rows_ok = np.nonzero(np.median(g, axis=1) <= BACKING_MAX)[0]
-    if len(rows_ok):
-        g, y1 = g[rows_ok[0]:rows_ok[-1] + 1], y1 + rows_ok[0]
-    cols_ok = np.nonzero(np.median(g, axis=0) <= BACKING_MAX)[0]
-    if len(cols_ok):
-        g, x1 = g[:, cols_ok[0]:cols_ok[-1] + 1], x1 + cols_ok[0]
-    bright = g > portrait.THRESHOLD
-    if bright.sum() < 20:
-        return None
-    # the name is one line of text at most TAG_TEXT_H rows tall: keep the band with the most
-    # text pixels (drops bits of the character sprite or other tags caught in the box)
-    if bright.shape[0] > TAG_TEXT_H:
-        per_row = bright.sum(axis=1)
-        sums = np.convolve(per_row, np.ones(TAG_TEXT_H, int), "valid")
-        top = int(np.argmax(sums))
-        bright = bright[top:top + TAG_TEXT_H]
-        y1 += top
-    # names have no spaces: split text columns at gaps wider than TAG_GAP, keep the biggest run
-    cols = np.nonzero(bright.any(axis=0))[0]
-    if not len(cols):
-        return None
-    runs, start = [], cols[0]
-    for a, b in zip(cols, cols[1:]):
-        if b - a > TAG_GAP:
-            runs.append((start, a))
-            start = b
-    runs.append((start, cols[-1]))
-    c0, c1 = max(runs, key=lambda r: bright[:, r[0]:r[1] + 1].sum())
-    bright = bright[:, c0:c1 + 1]
-    x1 += int(c0)
-    rows = np.nonzero(bright.any(axis=1))[0]
-    cols = np.nonzero(bright.any(axis=0))[0]
-    box = (x1 + cols[0] - 1, y1 + rows[0] - 1, x1 + cols[-1] + 2, y1 + rows[-1] + 2)
-    if box[2] - box[0] < 10 or box[3] - box[1] < 6:
-        return None
-    return box
-
-
-def nametag_preview(img, box, scale=3):
-    """The text pixels that would be saved, enlarged, for the player to confirm."""
-    g = np.asarray(img.convert("L").crop(box))
-    t = Image.fromarray(((g > portrait.THRESHOLD) * 255).astype(np.uint8))
-    return t.resize((t.width * scale, t.height * scale), Image.NEAREST)
-
-
 def cut_templates(img, save=True):
     """Find the WORLD button and header in this frame and save both templates.
     Returns {"world": (x, y) | None, "header": (x, y) | None}."""
@@ -147,13 +88,6 @@ def cut_templates(img, save=True):
             g.crop((h[0], h[1], h[0] + HEADER_SIZE[0], h[1] + HEADER_SIZE[1])).save(layout.MINIMAP_TEMPLATE)
             layout._tpl = None
     return out
-
-
-def save_nametag(img, box):
-    g = np.asarray(img.convert("L").crop(box))
-    t = (g > portrait.THRESHOLD).astype(np.uint8) * 255
-    portrait.TEMPLATE.parent.mkdir(parents=True, exist_ok=True)
-    Image.fromarray(t).save(portrait.TEMPLATE)
 
 
 def templates_ready():

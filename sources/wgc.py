@@ -76,7 +76,7 @@ class WgcFrames:
             return int(self.fixed_ms)
         try:
             import capture
-            return int(1000 / capture.fps())
+            return int(1000 / capture.live_fps())     # the slider, or a regen burst
         except Exception:
             return 1000
 

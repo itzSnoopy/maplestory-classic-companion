@@ -6,7 +6,7 @@
                            character close-ups inline (open in VS Code / Obsidian / any md viewer)
   screenshots/diary/       <stamp>_<kind>.jpg (full frame) + <stamp>_<kind>_char.png (close-up)
 
-Entry kinds: levelup, death, job, first_visit, note.
+Entry kinds: levelup, death, job, first_visit, first_kill (monster album, album.py), note, moment.
 The tracker adds entries automatically. By hand:
 
   python diary.py note "Finally got my Metus! Party with Ana"   (screenshot if the tracker runs)
@@ -33,13 +33,15 @@ from datetime import datetime
 from pathlib import Path
 
 from paths import APP as CODE, DATA
-ICON = {"levelup": "⬆️", "death": "💀", "job": "⭐", "first_visit": "🗺️", "note": "📝", "moment": "📸"}
+ICON = {"levelup": "⬆️", "death": "💀", "job": "⭐", "first_visit": "🗺️", "first_kill": "⚔️",
+        "note": "📝", "moment": "📸"}
 SKIP_REGIONS = {"Event", "Hidden Street", None}     # never "arrived in a new region"
 MOMENT_TEXT = "A random moment."
+SNAP_TEXT = "A moment I captured."       # the helper's camera button
 
 
 def set_root(root):
-    global ROOT, TIMELINE, DIARY, SHOTS, PLACES, REQUESTS, CUSTOM
+    global ROOT, TIMELINE, DIARY, SHOTS, PLACES, REQUESTS, CUSTOM, DELETED
     ROOT = Path(root)
     TIMELINE = ROOT / "history" / "timeline.jsonl"
     DIARY = ROOT / "diary.md"
@@ -47,6 +49,7 @@ def set_root(root):
     PLACES = ROOT / "history" / "places.json"          # maps already in the diary
     REQUESTS = ROOT / "diary_requests.jsonl"           # notes waiting for the tracker
     CUSTOM = ROOT / "history" / "captions_custom.json"  # Story captions the player wrote/rolled
+    DELETED = ROOT / "history" / "diary_deleted.json"   # entry ids the player deleted
 
 
 set_root(DATA)
@@ -64,17 +67,56 @@ def char_name():
 
 
 def entries():
+    """Every entry in the timeline, minus the ones the player deleted."""
     if not TIMELINE.exists():
         return []
+    gone = deleted_ids()
     out = []
     for line in TIMELINE.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if line:
             try:
-                out.append(json.loads(line))
+                e = json.loads(line)
             except json.JSONDecodeError:
-                pass
+                continue
+            if not gone or entry_id(e) not in gone:
+                out.append(e)
     return out
+
+
+# ------------------------------------------------------------------ deleting (diary page, served)
+# The timeline is append-only while the tracker runs (rewriting it could lose an entry added in
+# between), so a deleted entry's id goes on a list that entries() leaves out, and its pictures are
+# removed from disk for good. No undo (player, 2026-10-25): the page warns before it deletes.
+def deleted_ids():
+    return set(_read_json(DELETED, []))
+
+
+def delete_entry(eid):
+    """Delete one entry for good: hidden everywhere, its screenshot and close-up removed.
+    Returns the entry, or None if there's no such entry."""
+    e = next((x for x in entries() if entry_id(x) == eid), None)
+    if e is None:
+        return None
+    shots_dir = SHOTS.resolve()
+    for rel in e.get("shots") or []:
+        f = (ROOT / rel).resolve()
+        if f.parent == shots_dir and f.is_file():        # only the diary's own pictures
+            try:
+                f.unlink()
+            except OSError:
+                pass
+    gone = sorted(deleted_ids() | {eid})
+    DELETED.parent.mkdir(parents=True, exist_ok=True)
+    tmp = DELETED.with_suffix(".tmp")
+    tmp.write_text(json.dumps(gone, ensure_ascii=False, indent=1), encoding="utf-8")
+    tmp.replace(DELETED)
+    custom = custom_captions()
+    if custom.pop(eid, None) is not None:
+        _save_custom(custom)                             # also rebuilds the page
+    render()
+    _rebuild_html()
+    return e
 
 
 def _write_all(items):
@@ -223,7 +265,8 @@ def _filled_lines(e):
             "prev": lv - 1 if lv else None, "job": e.get("job_to") or e.get("job"),
             "old": e.get("job_from"), "took": fmt_dur(e.get("took_s")),
             "lost": f"{e['lost']:,}" if e.get("lost") else None, "killer": e.get("killed_by"),
-            "name": nickname(), "why": e.get("why"), "region": e.get("region")}
+            "name": nickname(), "why": e.get("why"), "region": e.get("region"),
+            "mob": e.get("mob"), "caught": e.get("caught")}
     lines = caption_lines()
     key = e["kind"]
     if key == "death" and vals["killer"] and lines.get("death_killer"):
@@ -231,6 +274,8 @@ def _filled_lines(e):
     if key == "first_visit" and e.get("new_region") and lines.get("new_region"):
         key = "new_region"
         vals["region"] = e["new_region"]
+    if key == "first_kill" and e.get("boss") and lines.get("first_kill_boss"):
+        key = "first_kill_boss"                          # bosses are a big deal: own lines
     if key == "moment":
         key = "any"
     return _fill(lines.get(key, []), vals), _fill(lines.get("any", []), vals)
@@ -535,6 +580,16 @@ def request_note(text):
     with open(REQUESTS, "a", encoding="utf-8") as f:
         f.write(json.dumps({"kind": "note", "text": text,
                             "time": datetime.now().isoformat(timespec="seconds")}) + "\n")
+
+
+def request_moment():
+    """The helper's camera button: the running tracker saves this moment (screenshot + close-up)."""
+    with open(REQUESTS, "a", encoding="utf-8") as f:
+        f.write(json.dumps({"kind": "moment", "time": datetime.now().isoformat(timespec="seconds")}) + "\n")
+
+
+def has_requests():
+    return REQUESTS.exists()
 
 
 def take_requests():

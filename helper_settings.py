@@ -56,7 +56,8 @@ DEFAULTS = {
     "internet": {                       # Settings > Internet; internet.py (one toggle per feature)
         "allowed": True,                # master switch: off = no internet connections at all
         "features": {"updates": True,   # automatic updates (updater.py, packaged app only)
-                     "party": True},    # party link (partylink.py; needs server + code below)
+                     "party": True,     # party link (partylink.py; needs server + code below)
+                     "icons": True},    # item pictures for the training panel (itemicons.py)
     },
     "updates": {                        # Settings > Internet > Automatic updates; updater.py
         "min_s": 30,                    # first check 30 s after start, then doubling while
@@ -67,10 +68,16 @@ DEFAULTS = {
         "locked": False,                # click-through (clicks go to the game underneath)
         "x": None, "y": None,           # screen position; None = top-center
         "hidden": [],                   # skill ids the player removed from the bar (right-click)
+        "show": "casts",                # skill corner: casts (left) | mp (per cast) | mesos (per cast)
     },
     "party": {                          # Settings > Internet > Party link; partylink.py (tracker)
         "server": "",                   # your relay, e.g. http://203.0.113.5:8787 (relay/README.md)
         "code": "",                     # same code on every PC in the party
+    },
+    "trainingpanel": {                  # Settings > General / tray; training_ui.py over the game
+        "enabled": False,               # what training on this map costs (optional, user 2026-10-25)
+        "locked": False,
+        "x": None, "y": None,           # None = left side, under the party panel
     },
     "partypanel": {                     # Settings > General / tray; party_ui.py over the game
         "enabled": True,                # shows only while a party box or partner is seen
@@ -83,6 +90,13 @@ DEFAULTS = {
         "max_s": 15,                    # slowing to every max_s the longer you stay:
         "step_s": 1,                    # +step_s for each every_s in the map (file only)
         "every_s": 5,
+    },
+    "regen_check": {                    # vitals.Meter: the HP/MP regen clock's checks ("stickiness")
+        "min_ticks": 1,                 # after a tick is caught, check every min_ticks ticks,
+        "max_ticks": 6,                 # spreading to every max_ticks (1 min) while on time:
+        "step": 2,                      # +1 tick per `step` on-time checks; a map / channel
+        "burst_fps": 10,                # change starts over. A check = HP/MP strip only, at
+        "pad_s": 0.6,                   # burst_fps for +-pad_s around the predicted tick
     },
 }
 

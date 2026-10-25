@@ -4,7 +4,8 @@ Opened by the helper on first run (calibrate.needs_setup()) and from its menu ("
 Everything it cuts from the screen stays in the player's data folder (paths.DATA).
 
 Steps: 1 welcome + name · 2 grab the game window, cut the minimap pieces · 3 type what the EXP bar
-and level badge show · 4 (optional) box the character's name tag · 5 done.
+and level badge show · 4 done. (The character's name tag used to be boxed by hand here; since
+2026-10-24 portrait.py takes it from the status bar while you play.)
 """
 import lean  # noqa: F401,I001  (first: caps math threads, stubs OpenCV; keeps RAM down)
 import tkinter as tk
@@ -30,7 +31,6 @@ class SetupWindow:
         self.cfg = paths.load_config()
         self.frame = None            # captured game frame (PIL)
         self.crops = None
-        self.tag_box = None
         self._imgs = []              # keep PhotoImages alive
 
         self.w = w = tk.Toplevel(app.root)
@@ -60,8 +60,7 @@ class SetupWindow:
         self.body = tk.Frame(w, bg=BG)
         self.body.pack(fill="both", expand=True, padx=self.px(24), pady=(self.px(18), self.px(8)))
 
-        self.steps = [self.step_welcome, self.step_capture, self.step_digits, self.step_nametag,
-                      self.step_done]
+        self.steps = [self.step_welcome, self.step_capture, self.step_digits, self.step_done]
         self.i = 0
         self.show()
         w.after(50, lambda: (w.lift(), w.focus_force()))
@@ -168,8 +167,7 @@ class SetupWindow:
         for line in ("1.  Start MapleStory and log in with your character.",
                      "2.  Play in a window (windowed mode), and don't minimize it.",
                      "3.  Open the minimap fully (not collapsed) and leave it in the top-left corner.",
-                     "4.  Make sure the status bar at the bottom (level, EXP bar) is visible.",
-                     "5.  Stand somewhere calm, away from other players, so your name tag is clear."):
+                     "4.  Make sure the status bar at the bottom (level, EXP bar) is visible."):
             self.text(line).pack(fill="x", pady=self.px(2))
         row = tk.Frame(self.body, bg=BG)
         row.pack(fill="x", pady=(self.px(16), self.px(8)))
@@ -266,59 +264,7 @@ class SetupWindow:
             return False
         return True
 
-    # ---------------------------------------------------------------- 4 name tag
-    def step_nametag(self):
-        self.title("Find your character (optional)",
-                   "Drag a snug box around your character's name tag below. The diary then adds "
-                   "a close-up of your character at level-ups and new maps. You can skip this.")
-        W, H = self.frame.size
-        self.scale = min(self.px(800) / W, self.px(380) / H, 1.0)
-        shown = self.frame.resize((int(W * self.scale), int(H * self.scale)), Image.LANCZOS)
-        c = self.canvas = tk.Canvas(self.body, width=shown.width, height=shown.height, bg="#000",
-                                    highlightthickness=0, cursor="crosshair")
-        c.pack(anchor="w")
-        c.create_image(0, 0, image=self.photo(shown), anchor="nw")
-        self.rect = None
-        c.bind("<ButtonPress-1>", self.drag_start)
-        c.bind("<B1-Motion>", self.drag_move)
-        c.bind("<ButtonRelease-1>", self.drag_end)
-        row = tk.Frame(self.body, bg=BG)
-        row.pack(fill="x", pady=(self.px(10), 0))
-        self.tag_preview = tk.Label(row, bg="#000")
-        self.tag_preview.pack(side="left")
-        self.tag_msg = self.text("Press Next to skip.", parent=row, muted=True)
-        self.tag_msg.pack(side="left", padx=self.px(12))
-        self.tag_box = None
-
-    def drag_start(self, e):
-        self.d0 = (e.x, e.y)
-        if self.rect:
-            self.canvas.delete(self.rect)
-        self.rect = self.canvas.create_rectangle(e.x, e.y, e.x, e.y, outline=GOLD, width=2)
-
-    def drag_move(self, e):
-        self.canvas.coords(self.rect, *self.d0, e.x, e.y)
-
-    def drag_end(self, e):
-        x1, y1 = self.d0
-        s = self.scale
-        drag = (min(x1, e.x) / s, min(y1, e.y) / s, max(x1, e.x) / s, max(y1, e.y) / s)
-        self.tag_box = calibrate.nametag_box(self.frame, drag)
-        if not self.tag_box:
-            self.tag_preview.configure(image="")
-            self.tag_msg.configure(text="No name text in that box. Try again, a bit around the name.",
-                                   fg=RED)
-            return
-        self.tag_preview.configure(image=self.photo(calibrate.nametag_preview(self.frame, self.tag_box)))
-        self.tag_msg.configure(text="Does this show your name and nothing else? Press Next to save "
-                                    "it, or drag again.", fg=TEXT)
-
-    def leave_nametag(self):
-        if self.tag_box:
-            calibrate.save_nametag(self.frame, self.tag_box)
-        return True
-
-    # ---------------------------------------------------------------- 5 done
+    # ---------------------------------------------------------------- 4 done
     def step_done(self):
         self.title("All set",
                    "The tracker starts when you press Finish. It runs in the background and shows "

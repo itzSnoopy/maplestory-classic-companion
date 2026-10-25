@@ -19,9 +19,9 @@ import diary
 F = "Segoe UI"
 CARD_W = 300
 KIND_LABEL = {"levelup": "LEVEL UP", "death": "DEATH", "job": "JOB ADVANCEMENT",
-              "first_visit": "NEW PLACE", "note": "NOTE", "moment": "MOMENT"}
+              "first_visit": "NEW PLACE", "first_kill": "FIRST KILL", "note": "NOTE", "moment": "MOMENT"}
 KIND_COLOR = {"levelup": "#4cc38a", "death": "#e5534b", "job": "#f2b632", "first_visit": "#5b9bd5",
-              "note": "#a68fd8", "moment": "#e58fbf"}
+              "note": "#a68fd8", "moment": "#e58fbf", "first_kill": "#d49a5e"}
 
 
 def diary_settings(settings):

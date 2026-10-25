@@ -175,6 +175,50 @@ U.cleanup()
 check("cleanup once nothing runs from it: newest two (+ current)",
       len(U.installed()) <= 3 and U.latest_version() == max(U.installed()))
 
+# --- 5. local test builds (dev/testbuild.py): ranked just above their base release
+top = max(U.installed())
+tb = (top[0], top[1], 90)                       # e.g. 0.11.90 built on the newest release
+tdir = U.versions_dir() / U.fmt(tb)
+tdir.mkdir()
+(tdir / U.EXE).write_text("fake test exe")
+(tdir / U.TEST_MARK).write_text(U.fmt(top), encoding="ascii")
+U.set_latest(tdir)
+check("test build ranks above its base", U.rank(tb) > U.rank(top))
+seen = []
+up4 = U.Updater(on_ready=seen.append)
+check("installed test build is offered for restart (local, no network)",
+      up4.check_local() and seen == [tb])
+before = len(HITS)
+check("feed with only the base release: test build stays", U.Updater().check_once() is False
+      and U.latest_version() == tb)
+nxt = (top[0], top[1], top[2] + 1)             # the next real release, lower number than 90
+publish(U.fmt(nxt))
+up5 = U.Updater()
+check(f"next release {U.fmt(nxt)} replaces test build {U.fmt(tb)}",
+      up5.check_once() and U.latest_version() == nxt and len(HITS) > before)
+U.cleanup()
+check("cleanup orders by rank (release kept over the older test build)",
+      nxt in U.installed() and U.latest_version() == nxt)
+
+# --- 6. the running updater notices a new local folder on its own short clock
+import time  # noqa: E402
+U.LOCAL_S = 0.2
+got = []
+bg = U.Updater(on_ready=got.append, settings_fn=lambda: {"min_s": 600, "max_s": 600})
+bg.start()
+tb2 = (nxt[0], nxt[1], 91)
+t2 = U.versions_dir() / U.fmt(tb2)
+t2.mkdir()
+(t2 / U.EXE).write_text("fake test exe 2")
+(t2 / U.TEST_MARK).write_text(U.fmt(nxt), encoding="ascii")
+U.set_latest(t2)
+t_end = time.time() + 5
+while not got and time.time() < t_end:
+    time.sleep(0.05)
+bg.stop()
+check(f"running updater offers a new local build within seconds (feed waits 600 s): {got}",
+      got == [tb2])
+
 srv.shutdown()
 print(f"\n{len(FAILS)} failed" if FAILS else "\nall passed")
 sys.exit(1 if FAILS else 0)

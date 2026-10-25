@@ -23,6 +23,12 @@ Player data stays in %LOCALAPPDATA%\\MapleClassicCompanion (paths.DATA), shared 
 4. The helper restarts into it when the tracker isn't in a play session (or right away from the
    tray). Older versions are deleted, keeping the newest two (a version still running is skipped).
 
+Local test builds (dev/testbuild.py, /testbuild skill): versions\\<M.m.9x> with a TESTBUILD.txt
+naming the release it's built on (version.TEST_BASE inside the build). Versions are ordered by
+`rank`: release first, a test build just above its base. So 0.6.90 (on 0.6.4) beats 0.6.4 and
+its own older test builds, and any newer release (0.6.5) replaces it. A test build installed
+while the helper runs is picked up like a downloaded update (Updater.check_local).
+
 Network: only github.com (feed, release assets) and GitHub's asset download host, plain HTTPS GETs.
 Nothing about the player is sent. Tests: MAPLE_COMPANION_PROGRAMS (install folder) and
 MAPLE_COMPANION_UPDATE_BASE (a local fake of https://github.com/<repo>) override the defaults.
@@ -45,6 +51,7 @@ REPO = "itzSnoopy/maplestory-classic-companion"
 NAME = "MapleClassicCompanion"
 EXE = NAME + ".exe"
 KEEP = 2                                    # installed versions kept (newest first)
+LOCAL_S = 15                                # look for a newer local version folder this often
 DEFAULTS = {"min_s": 30, "max_s": 300}
 UA = "MapleClassicCompanion-updater"
 
@@ -72,6 +79,39 @@ def fmt(v):
 def current():
     from version import VERSION
     return parse_version(VERSION)
+
+
+TEST_MARK = "TESTBUILD.txt"
+
+
+def test_base(v=None, folder=None):
+    """The release a local test build is based on, None for a release. No arguments = this
+    process (version.TEST_BASE); else the installed folder versions\\<v> (its TESTBUILD.txt)."""
+    if v is None and folder is None:
+        try:
+            from version import TEST_BASE
+        except ImportError:
+            return None
+        return parse_version(TEST_BASE) if TEST_BASE else None
+    p = Path(folder) if folder else versions_dir() / fmt(v)
+    try:
+        return parse_version((p / TEST_MARK).read_text(encoding="ascii").strip())
+    except OSError:
+        return None
+
+
+def rank(v, folder=None, me=False):
+    """Sort key: (release, 0, v) for a release, (its base, 1, v) for a test build; None -> None.
+    me=True: v is this process's own version."""
+    if v is None:
+        return None
+    b = test_base() if me else test_base(v, folder)
+    return (b, 1, v) if b else (v, 0, v)
+
+
+def newest(*ranks):
+    rs = [r for r in ranks if r]
+    return max(rs) if rs else None
 
 
 def root():
@@ -143,7 +183,7 @@ def set_latest(folder):
 
 def cleanup():
     """Delete older versions, keeping the newest KEEP and the one `latest` points at."""
-    keep = set(sorted(installed(), reverse=True)[:KEEP])
+    keep = set(sorted(installed(), key=rank, reverse=True)[:KEEP])
     keep |= {v for v in (latest_version(), current()) if v}
     for v, p in installed().items():
         if v in keep:
@@ -180,10 +220,12 @@ def adopt(args, frozen=None, exe=None, launch=None):
                 shutil.rmtree(tmp, ignore_errors=True)
                 vdir.mkdir(parents=True, exist_ok=True)
                 shutil.copytree(here, tmp)
+                if test_base():
+                    (tmp / TEST_MARK).write_text(fmt(test_base()), encoding="ascii")
                 os.replace(tmp, dest)
                 log(f"installed {fmt(mine)} from {here}")
             lv = latest_version()
-            if lv is None or lv < mine:
+            if lv is None or rank(lv) < rank(mine, me=True):
                 set_latest(dest)
         # always run from the real folder (versions\<ver>), never through the `latest` junction:
         # PyInstaller re-opens its own exe for late imports, so a process started via `latest`
@@ -366,12 +408,17 @@ class Updater(threading.Thread):
         self.stop_ev = threading.Event()
 
     def run(self):
+        """Two clocks: the local check (a newer version folder installed, e.g. by /testbuild:
+        a readlink, no network) every LOCAL_S; the GitHub feed on its own backing-off wait."""
         wait = None
         while not self.stop_ev.is_set():
             s = self.settings()
             wait = s["min_s"] if wait is None else min(s["max_s"], max(s["min_s"], wait * 2))
-            if self.stop_ev.wait(wait):
-                return
+            due = time.time() + wait
+            while (left := due - time.time()) > 0:
+                if self.stop_ev.wait(min(LOCAL_S, left)):
+                    return
+                self.check_local()
             if not allowed():
                 continue
             try:
@@ -381,6 +428,23 @@ class Updater(threading.Thread):
                 self.last_error = f"{type(e).__name__}: {e}"
                 log(f"update check failed: {self.last_error}")
 
+    def check_local(self):
+        """A newer build installed by something else (dev/testbuild.py, another copy's update):
+        offer the restart like a downloaded update. No network."""
+        try:
+            lv = latest_version()
+            if self.ready or not lv:
+                return False
+            if rank(lv) > rank(current(), me=True) and                     os.path.realpath(sys.executable).lower() != str(real_latest_exe()).lower():
+                log(f"newer build installed locally: {fmt(lv)}")
+                self.ready = lv
+                if self.on_ready:
+                    self.on_ready(lv)
+                return True
+        except Exception as e:
+            log(f"local check failed: {type(e).__name__}: {e}")
+        return False
+
     def check_once(self):
         """One check; installs a newer version if there is one. True if something new happened."""
         if not allowed():                      # re-checked right before connecting
@@ -389,8 +453,8 @@ class Updater(threading.Thread):
         vs, self.etag = feed_versions(self.etag)
         if not vs:
             return False
-        have = max([v for v in (current(), latest_version()) if v] or [(0, 0, 0)])
-        new = [v for v in vs if v > have]
+        have = newest(rank(current(), me=True), rank(latest_version())) or ((0, 0, 0), 0, (0, 0, 0))
+        new = [v for v in vs if rank(v) > have]
         if not new:
             return False
         for v in new:                           # newest first; skip ones that can't be installed

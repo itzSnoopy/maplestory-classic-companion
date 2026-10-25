@@ -1,0 +1,431 @@
+{
+ "source": "meowdb.com/msclassic (item API)",
+ "fetched": "2026-10-25",
+ "items": {
+  "2000000": {
+   "name": "Red Potion",
+   "subtype": "Potion",
+   "hp": 100,
+   "price": 5,
+   "shop": 50,
+   "cooldown": null
+  },
+  "2000001": {
+   "name": "Orange Potion",
+   "subtype": "Potion",
+   "hp": 250,
+   "price": 15,
+   "shop": 150,
+   "cooldown": null
+  },
+  "2000002": {
+   "name": "White Potion",
+   "subtype": "Potion",
+   "hp": 500,
+   "price": 35,
+   "shop": 350,
+   "cooldown": null
+  },
+  "2000003": {
+   "name": "Blue Potion",
+   "subtype": "Potion",
+   "mp": 200,
+   "price": 22,
+   "shop": 220,
+   "cooldown": null
+  },
+  "2000004": {
+   "name": "Elixir",
+   "subtype": "Potion",
+   "hp_pct": 35,
+   "mp_pct": 35,
+   "price": 500,
+   "shop": null,
+   "cooldown": 30
+  },
+  "2000005": {
+   "name": "Power Elixir",
+   "subtype": "Potion",
+   "hp_pct": 100,
+   "mp_pct": 100,
+   "price": 2500,
+   "shop": null,
+   "cooldown": 30
+  },
+  "2000006": {
+   "name": "Mana Elixir",
+   "subtype": "Potion",
+   "mp_pct": 50,
+   "price": 1000,
+   "shop": null,
+   "cooldown": 30
+  },
+  "2000007": {
+   "name": "Red Potion (Alt)",
+   "subtype": "Potion",
+   "hp": 100,
+   "price": 5,
+   "shop": null,
+   "cooldown": null
+  },
+  "2000008": {
+   "name": "Blue Potion (Alt)",
+   "subtype": "Potion",
+   "mp": 200,
+   "price": 22,
+   "shop": null,
+   "cooldown": null
+  },
+  "2010000": {
+   "name": "Roger's Apple",
+   "subtype": "Food",
+   "hp": 30,
+   "price": 0,
+   "shop": null,
+   "cooldown": null
+  },
+  "2010001": {
+   "name": "Apple",
+   "subtype": "Food",
+   "hp": 40,
+   "price": 2,
+   "shop": 20,
+   "cooldown": null
+  },
+  "2010002": {
+   "name": "Egg",
+   "subtype": "Food",
+   "hp": 60,
+   "price": 3,
+   "shop": 30,
+   "cooldown": null
+  },
+  "2010003": {
+   "name": "Meat",
+   "subtype": "Food",
+   "hp": 160,
+   "price": 8,
+   "shop": 80,
+   "cooldown": null
+  },
+  "2010004": {
+   "name": "Orange",
+   "subtype": "Food",
+   "mp": 50,
+   "price": 5,
+   "shop": 50,
+   "cooldown": null
+  },
+  "2010005": {
+   "name": "Lemon",
+   "subtype": "Food",
+   "mp": 150,
+   "price": 15,
+   "shop": 150,
+   "cooldown": null
+  },
+  "2010006": {
+   "name": "Watermelon",
+   "subtype": "Food",
+   "hp": 800,
+   "mp": 800,
+   "price": 192,
+   "shop": 1920,
+   "cooldown": null
+  },
+  "2010007": {
+   "name": "Green Apple",
+   "subtype": "Food",
+   "mp": 30,
+   "price": 3,
+   "shop": null,
+   "cooldown": null
+  },
+  "2010008": {
+   "name": "Lemon (Alt)",
+   "subtype": "Food",
+   "mp": 150,
+   "price": 15,
+   "shop": null,
+   "cooldown": null
+  },
+  "2020000": {
+   "name": "Salad",
+   "subtype": "Food",
+   "mp": 200,
+   "price": 22,
+   "shop": 220,
+   "cooldown": null
+  },
+  "2020001": {
+   "name": "Fried Chicken",
+   "subtype": "Food",
+   "hp": 120,
+   "price": 6,
+   "shop": 60,
+   "cooldown": null
+  },
+  "2020002": {
+   "name": "Cake",
+   "subtype": "Food",
+   "hp": 100,
+   "mp": 100,
+   "price": 15,
+   "shop": 150,
+   "cooldown": null
+  },
+  "2020003": {
+   "name": "Pizza",
+   "subtype": "Food",
+   "hp": 360,
+   "price": 25,
+   "shop": 252,
+   "cooldown": null
+  },
+  "2020004": {
+   "name": "Hamburger",
+   "subtype": "Food",
+   "hp": 500,
+   "price": 35,
+   "shop": 350,
+   "cooldown": null
+  },
+  "2020005": {
+   "name": "Hot Dog",
+   "subtype": "Food",
+   "hp": 300,
+   "price": 18,
+   "shop": 180,
+   "cooldown": null
+  },
+  "2020006": {
+   "name": "Hot Dog Supreme",
+   "subtype": "Food",
+   "hp": 600,
+   "price": 48,
+   "shop": 480,
+   "cooldown": null
+  },
+  "2020007": {
+   "name": "Dried Squid",
+   "subtype": "Food",
+   "hp": 300,
+   "price": 18,
+   "shop": 180,
+   "cooldown": null
+  },
+  "2020008": {
+   "name": "Fat Sausage",
+   "subtype": "Food",
+   "hp": 800,
+   "price": 80,
+   "shop": null,
+   "cooldown": null
+  },
+  "2020009": {
+   "name": "Orange Juice",
+   "subtype": "Food",
+   "mp": 450,
+   "price": 54,
+   "shop": 540,
+   "cooldown": null
+  },
+  "2020010": {
+   "name": "Grape Juice",
+   "subtype": "Food",
+   "mp": 900,
+   "price": 126,
+   "shop": 1260,
+   "cooldown": null
+  },
+  "2020011": {
+   "name": "W Ramen",
+   "subtype": "Food",
+   "hp_pct": 40,
+   "mp_pct": 40,
+   "price": 200,
+   "shop": null,
+   "cooldown": null
+  },
+  "2020012": {
+   "name": "Ice Cream Pop",
+   "subtype": "Food",
+   "hp": 1500,
+   "price": 150,
+   "shop": 1500,
+   "cooldown": null
+  },
+  "2020013": {
+   "name": "Red Bean Sundae",
+   "subtype": "Food",
+   "mp": 1500,
+   "price": 225,
+   "shop": 2250,
+   "cooldown": null
+  },
+  "2020014": {
+   "name": "Melting Cheese",
+   "subtype": null,
+   "hp": 2000,
+   "price": 200,
+   "shop": null,
+   "cooldown": null
+  },
+  "2020015": {
+   "name": "Reindeer Milk",
+   "subtype": null,
+   "hp": 2500,
+   "price": 250,
+   "shop": null,
+   "cooldown": null
+  },
+  "2020016": {
+   "name": "Sunrise Dew",
+   "subtype": null,
+   "mp": 2000,
+   "price": 300,
+   "shop": null,
+   "cooldown": null
+  },
+  "2020017": {
+   "name": "Sunset Dew",
+   "subtype": null,
+   "mp": 2500,
+   "price": 375,
+   "shop": null,
+   "cooldown": null
+  },
+  "2020018": {
+   "name": "Mrs. Ming Ming's Stew",
+   "subtype": null,
+   "hp": 300,
+   "mp": 300,
+   "price": 48,
+   "shop": null,
+   "cooldown": null
+  },
+  "2020019": {
+   "name": "Andre's Seafood Soup",
+   "subtype": null,
+   "hp": 300,
+   "mp": 300,
+   "price": 48,
+   "shop": null,
+   "cooldown": null
+  },
+  "2020020": {
+   "name": "Red Malady's Candy",
+   "subtype": "Food",
+   "hp": 600,
+   "price": 1,
+   "shop": null,
+   "cooldown": null
+  },
+  "2020021": {
+   "name": "Blue Malady's Candy",
+   "subtype": "Food",
+   "mp": 450,
+   "price": 1,
+   "shop": null,
+   "cooldown": null
+  },
+  "2020022": {
+   "name": "Green Malady's Candy",
+   "subtype": "Food",
+   "hp": 300,
+   "mp": 300,
+   "price": 1,
+   "shop": null,
+   "cooldown": null
+  },
+  "2020023": {
+   "name": "Cake (Alt)",
+   "subtype": "Food",
+   "hp": 100,
+   "mp": 100,
+   "price": 15,
+   "shop": null,
+   "cooldown": null
+  },
+  "2022000": {
+   "name": "Pure Water",
+   "subtype": "Food",
+   "mp": 800,
+   "price": 112,
+   "shop": 1120,
+   "cooldown": null
+  },
+  "2022003": {
+   "name": "Unagi",
+   "subtype": "Food",
+   "hp": 1000,
+   "price": 100,
+   "shop": 1000,
+   "cooldown": null
+  },
+  "2210000": {
+   "name": "Rainbow-colored Snail Shell",
+   "subtype": "Quest Item",
+   "hp": 50,
+   "price": 100,
+   "shop": null,
+   "cooldown": null
+  },
+  "2210001": {
+   "name": "Red Snail Invasion",
+   "subtype": null,
+   "hp": 50,
+   "price": null,
+   "shop": null,
+   "cooldown": null
+  },
+  "2210002": {
+   "name": "Orange Mushroom Invasion",
+   "subtype": null,
+   "hp": 100,
+   "price": null,
+   "shop": null,
+   "cooldown": null
+  },
+  "2210003": {
+   "name": "Ribbon Pig Invasion",
+   "subtype": null,
+   "hp": 150,
+   "price": null,
+   "shop": null,
+   "cooldown": null
+  },
+  "2210004": {
+   "name": "Red Snail Daydream",
+   "subtype": null,
+   "hp": 50,
+   "price": null,
+   "shop": null,
+   "cooldown": null
+  },
+  "2210005": {
+   "name": "Orange Mushroom Daydream",
+   "subtype": null,
+   "hp": 100,
+   "price": null,
+   "shop": null,
+   "cooldown": null
+  },
+  "2210006": {
+   "name": "Ribbon Pig Daydream",
+   "subtype": null,
+   "hp": 150,
+   "price": null,
+   "shop": null,
+   "cooldown": null
+  },
+  "2210007": {
+   "name": "Jr. Balrog Invasion",
+   "subtype": null,
+   "hp": 500,
+   "price": 1,
+   "shop": null,
+   "cooldown": null
+  }
+ }
+}
