@@ -5,10 +5,12 @@ clock's next tick matched the real ticks, the checks, and what mpuse.Usage made 
 
   python dev/regen_sim.py LOG.csv [fps=2] [skill_id=level ...]
 """
+import os
 import bisect
 import csv
 import sys
 from pathlib import Path
+os.environ.setdefault("MAPLE_COMPANION_OFFLINE", "1")   # simulations never go online (party relay, updates)
 
 CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))

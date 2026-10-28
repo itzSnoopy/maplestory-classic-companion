@@ -1,4 +1,9 @@
 {
+ "0.7.1": [
+  "New app and tray icon, drawn by an artist friend.",
+  "Updating is clearer and quicker: \"Updating to x.y.z\" or \"Update failed\" right away, a notice in the tray, and the switch takes seconds. The \"Update to\" label in the helper now works when clicked.",
+  "Behind the scenes: the app was reorganized into separate parts so new features are easier to add. Nothing should look different; tell us if something does."
+ ],
  "0.7.0": [
   "Monster album: every monster as ?, greyed out (seen) or caught. Your first kill of each one takes a photo and adds a diary entry with a catch phrase; bosses get their own. Tray > Open monster album, or 👾 Album in the diary.",
   "Training cost panel (off by default, Settings or tray): MP, potions and mesos per kill and per hour on your map, and what it takes to level up; EXP/hr counts your party's share apart.",

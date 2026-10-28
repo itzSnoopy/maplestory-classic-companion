@@ -17,6 +17,7 @@ import time
 from collections import deque
 from datetime import datetime
 from pathlib import Path
+os.environ.setdefault("MAPLE_COMPANION_OFFLINE", "1")   # simulations never go online (party relay, updates)
 
 CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))

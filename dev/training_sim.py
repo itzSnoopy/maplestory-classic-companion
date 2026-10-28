@@ -6,11 +6,13 @@ mpuse.Usage + training.Training, as one visit to MAP, and print the training sum
 fps: looks per second to keep from the recording (the live tracker looks 1-2/s; bursts aside).
 need: EXP needed for the level (for the to-level numbers). Writes nothing.
 """
+import os
 import bisect
 import csv
 import json
 import sys
 from pathlib import Path
+os.environ.setdefault("MAPLE_COMPANION_OFFLINE", "1")   # simulations never go online (party relay, updates)
 
 CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))

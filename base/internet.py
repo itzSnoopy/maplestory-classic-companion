@@ -78,5 +78,7 @@ def allowed(feature, path=None):
     """True if `feature` may connect right now (master switch and its own toggle both on)."""
     if feature not in FEATURES:
         raise KeyError(f"unknown internet feature {feature!r}: add it to internet.FEATURES")
+    if os.environ.get("MAPLE_COMPANION_OFFLINE"):   # tests and simulations: never go online
+        return False
     s = state(path)
     return s["allowed"] and s["features"].get(feature, False)
