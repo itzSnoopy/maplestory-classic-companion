@@ -10,6 +10,7 @@ import csv
 import json
 import os
 import shutil
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -52,7 +53,14 @@ def write_json(path, data, indent=2):
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, indent=indent), encoding="utf-8")
-    os.replace(tmp, path)
+    for i in range(5):          # Windows refuses the swap while the helper is reading the file
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            if i == 4:
+                raise
+            time.sleep(0.05)
 
 
 def read_json(path, default):

@@ -2,7 +2,7 @@
 tracker.py - MapleStory Classic World EXP tracker (reads the game window). No AI needed.
 
 Runs as a long-lived service. Data comes from a pluggable *source* (sources/: `wgc` reads the
-game window; see engine/sources/base.py for the Observation model) and live text goes to *sinks*
+game window; see base/contract.py for the Observation model) and live text goes to *sinks*
 (none built in today). The tracker itself only sees Observations, so
 sources can be swapped without touching anything below.
 
@@ -25,12 +25,15 @@ between `fast_interval` and `interval` seconds.
 Passive only: reads frames of the game window, never the game process or memory,
 never sends input.
 
-Run:   python -m hub.tracker         (console, Ctrl+C to stop)
+Run:   python -m hub.tracker         (console, Ctrl+C to stop; composition lives in launcher/compose.py)
        pythonw companion.py --service  (background; logs to tracker_live.log)
+
+The tracker knows no component and no engine module: it emits events on the hub (hub/bus.py,
+names in base/contract.py) and components react. Whatever else it needs from outside comes in
+through `hub` and the Source interface.
 Stop:  create a file named `stop` in this folder (stop_tracker.cmd does that)
 """
 from base import lean  # noqa: F401,I001  (first: caps math threads, stubs OpenCV; keeps RAM down)
-import argparse
 import csv
 import difflib
 import json
@@ -45,22 +48,16 @@ from collections import deque
 from datetime import datetime
 from pathlib import Path
 
-from components.album import album
-from engine import capture
 from hub import character
-from hub import live
-from components.diary import diary
+from hub.bus import Hub
 from base import perf
 from hub import history as H
-from components.killers import killers
 from gamedata import parse
-from engine import vitals
 from hub.history import fmt_secs, read_json, write_json
-from engine.sources import ABSENT, UNAVAILABLE, make_source, pick_type
+from base.contract import ABSENT, UNAVAILABLE
 
-from base.paths import DATA, asset, load_config
+from base.paths import DATA, asset
 REF_TABLE = asset("gamedata/exp_table_classic.json")       # MeowDB reference (Classic World)
-ALBUM = None                                      # album.Album while the service runs
 
 
 def set_root(root):
@@ -76,9 +73,7 @@ def set_root(root):
     LEVELS_CSV = HISTORY / "levels.csv"
     MAPS = HISTORY / "maps.json"                # map names seen, with frame counts
     LOCK = HISTORY / "tracker.lock"
-    H.set_root(ROOT)
-    diary.set_root(ROOT)
-    album.set_root(ROOT)
+    H.set_root(ROOT)            # components follow through hub.root (Component.attach)
 
 
 set_root(DATA)
@@ -90,15 +85,6 @@ NO_DEATH_PENALTY_BELOW = 10   # pre-BB beginners (Lv 1-9) lose no EXP on death
 BOX_SETTLE_S = 5          # "You have died." box seen: wait this long for the EXP drop, then log
                           # the death anyway (no EXP lost: Lv 1-9, or the bar was already empty)
 BOX_SAME_DEATH_S = 60     # a box and an EXP drop this close together are the same death
-
-
-def _killer(map_name, level):
-    """Who probably killed the player on this map (killers.py); never breaks death tracking."""
-    try:
-        return killers.attribute(map_name, level)
-    except Exception:
-        log("killer guess failed: " + traceback.format_exc())
-        return None
 
 
 def log(msg):
@@ -142,8 +128,9 @@ class MapStats:
 
 
 class Tracker:
-    def __init__(self, cfg, level=None):
+    def __init__(self, cfg, level=None, hub=None):
         self.cfg = cfg
+        self.hub = hub
         self.base_iv = cfg.get("interval", 30)
         self.fast_iv = cfg.get("fast_interval", 2)
         self.frames_before = cfg.get("frames_before_level", 15)
@@ -161,7 +148,7 @@ class Tracker:
         self.box_pending = None             # when the "You have died." box appeared, not yet logged
         self.box_only_t = None              # last death logged from the box alone (no EXP drop)
         self.hist = deque()                 # (t, exp_total, pct_total)
-        self.rate_source = None             # -> exprate summary of this map visit (live.Live.exp_rate)
+        self.rate_source = None             # -> exprate summary of this map visit (hub.ask("exp_rate"))
         self.last_t = None
         self.last_progress_t = None
         self.active_total = 0.0
@@ -275,8 +262,11 @@ class Tracker:
     def _death(self, t, lost, pct_lost, box, hp=None):
         self.deaths += 1
         self.last_death_t, self.box_pending = t, None
+        killer = {}                         # components fill it (killers: who probably did it)
+        if self.hub is not None:
+            self.hub.emit("death_guess", map=self.map, level=self.level, killer=killer)
         self.events.append({"type": "death", "lost": lost, "level": self.level, "map": self.map,
-                            "killer": _killer(self.map, self.level), "pct_lost": pct_lost,
+                            "killer": killer or None, "pct_lost": pct_lost,
                             "box": box, "hp": hp})
 
     def death_box(self, t):
@@ -354,7 +344,7 @@ class Tracker:
 
     # ---------------------------------------------------------------- main update
     def hints(self):
-        """Context a source may use to read better (see engine/sources/base.py)."""
+        """Context a source may use to read better (see base/contract.py)."""
         return {"need": self.need, "level": self.level, "cur": self.cur, "pct": self.pct,
                 "plausible": self.plausible}
 
@@ -636,8 +626,8 @@ class Tracker:
 class Session:
     """Files for one play session. Knows nothing about where observations come from."""
 
-    def __init__(self, cfg, args, journal, source):
-        self.cfg, self.args, self.journal, self.source = cfg, args, journal, source
+    def __init__(self, cfg, args, journal, source, hub):
+        self.cfg, self.args, self.journal, self.source, self.hub = cfg, args, journal, source, hub
         self.dir = ROOT / "sessions" / datetime.now().strftime("%Y%m%d_%H%M%S")
         self.dir.mkdir(parents=True, exist_ok=True)
         self.csv_f = open(self.dir / "exp_log.csv", "w", newline="", encoding="utf-8")
@@ -645,26 +635,21 @@ class Session:
         self.csv.writerow(["time", "event", "map", "level", "exp_current", "exp_needed",
                            "exp_pct", "exp_delta", "exp_gained_total", "eta_s", "interval_s",
                            "source", "raw"])
-        self.tr = Tracker(cfg, args.level or cfg.get("level"))
+        self.tr = Tracker(cfg, args.level or cfg.get("level"), hub)
         if args.interval:
             self.tr.base_iv = args.interval
         self.started = datetime.now()
         self.announced = False
-        self.render_at = 0.0
-        self.album_render_at = 0.0       # album.html after a first kill's pictures exist
         self.last_print = 0
         self.closed = False
         source.begin_session(self.dir, ROOT / "screenshots" / "levelups")
+        hub.state.bind(self.tr)
         log(f"session started: {self.dir.name} (source {source.name})")
+        hub.emit("session_start", dir=self.dir, source=source.name)
 
     def process(self, obs):
         tr = self.tr
-        if self.render_at and time.time() >= self.render_at:
-            self.render_at = 0.0
-            diary.render()
-        if self.album_render_at and time.time() >= self.album_render_at and ALBUM is not None:
-            self.album_render_at = 0.0
-            album.render(ALBUM)
+        self.hub.emit("observation", obs=obs)
         event, d_exp, gains = tr.step(obs)
         tr.settle_box(obs.t)
         self.source.after_step(obs, event, tr.ctx())
@@ -676,7 +661,8 @@ class Session:
             self.journal.write(f"Session start: {H.lvl_pct(tr.start_level, tr.start_pct)}"
                                + (f" @ {tr.map}" if tr.map else ""))
         self._drain_events()
-        self._diary({"type": "moment"})     # diary: a random moment now and then (diary decides when)
+        # a random moment now and then (the diary decides when)
+        self.hub.emit("moment", level=tr.level, map=tr.map, job=tr.job, active_total=tr.active_total)
 
         interval = tr.next_interval()
         when = datetime.fromtimestamp(obs.t)
@@ -697,104 +683,25 @@ class Session:
                 f"  | next {interval:.0f}s{tag}")
         return interval, event
 
-    def _shots(self, kind, when, delays=(0,)):
-        """Ask the source for diary pictures; paths relative to the project root."""
-        stem = f"{when:%Y-%m-%d_%H%M%S}_{kind}"
-        if max(delays) > 0:     # re-render the diary once the delayed pictures exist
-            self.render_at = max(self.render_at, time.time() + max(delays) + 1)
-        try:
-            paths = self.source.snapshot(diary.SHOTS, stem, delays)
-        except Exception as ex:
-            log(f"diary snapshot failed: {ex}")
-            paths = []
-        return [Path(p).relative_to(ROOT).as_posix() for p in paths]
-
-    def _diary(self, e):
-        tr, now = self.tr, datetime.now()
-        try:
-            if e["type"] == "levelup":
-                lv = e["level_reached"]
-                # the picture comes ~2 s into the animation (levelup_shot.py): render after it
-                self.render_at = max(self.render_at, time.time() + 4)
-                diary.add("levelup", diary.levelup_text(lv, e["map"], e["active_seconds_in_prev_level"]),
-                          level=lv, map=e["map"], job=tr.job, shots=self._shots("levelup", now),
-                          took_s=e["active_seconds_in_prev_level"])
-            elif e["type"] == "death":
-                k = e.get("killer") or {}
-                who = killers.label(k)
-                diary.add("death", diary.death_text(e["level"], e["map"], e["lost"], e.get("pct_lost"),
-                                                    who),
-                          level=e["level"], map=e["map"], job=tr.job,
-                          shots=self._shots("death", now, delays=(0, 2)),   # +2 s: ghost + grave
-                          lost=e["lost"], pct_lost=e.get("pct_lost"), killed_by=who,
-                          death_box=e.get("box") or None,
-                          killer_how=k.get("how"),
-                          killer_guess=k.get("killer") if not who else None,
-                          suspects=k.get("suspects") or None)
-            elif e["type"] == "job":
-                diary.add("job", diary.job_text(e["from"], e["to"], e["level"], e["map"]),
-                          level=e["level"], map=e["map"], job=e["to"],
-                          shots=self._shots("job", now, delays=(0, 10)),
-                          job_from=e["from"], job_to=e["to"])
-            elif e["type"] == "enter" and e["map"] and diary.mark_place(e["map"]):
-                diary.add("first_visit", diary.first_visit_text(e["map"]), level=e["level"],
-                          map=e["map"], job=tr.job, shots=self._shots("first_visit", now, delays=(3,)))
-            elif e["type"] == "moment" and diary.moment_due(tr.active_total):
-                diary.add("moment", diary.MOMENT_TEXT, level=tr.level, map=tr.map, job=tr.job,
-                          shots=self._shots("moment", now))
-        except Exception:
-            log("diary entry failed: " + traceback.format_exc())
-
-    def first_kill(self, mob, map_name, alb, t=None):
-        """Monster album: the first kill of this mob. Photo (album_shot: the middle square from
-        just before, then a full screenshot + close-up), album record, diary beat, journal line."""
-        tr, now = self.tr, datetime.now()
-        stem = f"{now:%Y-%m-%d_%H%M%S}_firstkill"
-        try:
-            take = getattr(self.source, "album_shot", None)
-            paths = take(diary.SHOTS, stem, t) if take else self.source.snapshot(diary.SHOTS, stem, (0.05,))
-        except Exception as ex:
-            log(f"album photo failed: {ex}")
-            paths = []
-        shots = [Path(p).relative_to(ROOT).as_posix() for p in paths]
-        self.render_at = max(self.render_at, time.time() + 3)     # after the next-look picture
-        alb.record(mob, map_name, tr.level, shots)
-        try:
-            diary.add("first_kill", album.first_kill_text(mob, map_name), level=tr.level, map=map_name,
-                      job=tr.job, shots=shots, mob=mob["name"], mob_id=mob["id"],
-                      boss=bool(mob.get("boss")), caught=alb.count())
-        except Exception:
-            log("diary entry failed: " + traceback.format_exc())
-        self.journal.write(f"First {'boss kill' if mob.get('boss') else 'kill'}: {mob['name']}"
-                           + (f" @ {map_name}" if map_name else "") + f" (album: {alb.count()})")
-        log(f"album: first kill {mob['name']} at {map_name} ({alb.count()} caught)")
-        self.album_render_at = time.time() + 3
-
-    def snap(self):
-        """Camera button (helper): a moment entry with a fresh frame (the last reading's frame
-        can be 30 s old; a 0.5 s delay makes the next quick look grab a new one)."""
-        tr = self.tr
-        diary.add("moment", diary.SNAP_TEXT, level=tr.level, map=tr.map, job=tr.job,
-                  shots=self._shots("moment", datetime.now(), delays=(0.5,)), manual=True)
-
-    def note(self, text):
-        tr = self.tr
-        diary.add("note", text, level=tr.level, map=tr.map, job=tr.job,
-                  shots=self._shots("note", datetime.now()))
+    def _emit(self, e):
+        """One Tracker.events entry -> a hub event (see base/contract.py EVENTS)."""
+        tr, data = self.tr, {k: v for k, v in e.items() if k != "type"}
+        kind = e["type"]
+        if kind == "job":
+            self.hub.emit("job_change", old=data.pop("from"), new=data.pop("to"), job=tr.job, **data)
+        elif kind == "enter":
+            self.hub.emit("map_enter", job=tr.job, **data)
+        elif kind == "map":
+            self.hub.emit("map_change", to=data["to"], from_stint=data["from"])
+        else:
+            self.hub.emit(kind, job=tr.job, **data)
 
     def _drain_events(self):
         tr = self.tr
         for e in tr.events:
-            self._diary(e)
-            if e["type"] == "enter" and ALBUM is not None:
-                try:
-                    if ALBUM.on_map(e["map"]):            # new mobs seen: grey in the album
-                        self.album_render_at = self.album_render_at or time.time()
-                except Exception:
-                    log("album: " + traceback.format_exc())
+            self._emit(e)
             if e["type"] == "levelup":
-                took = fmt_secs(e["active_seconds_in_prev_level"]) \
-                    if e["active_seconds_in_prev_level"] else "?"
+                took = fmt_secs(e["active_seconds_in_prev_level"])                     if e["active_seconds_in_prev_level"] else "?"
                 self.journal.write(f"**Level up: Lv {e['level_reached']}** @ {e['map']} "
                                    f"(previous level took {took} of play)")
             elif e["type"] == "job":
@@ -802,7 +709,7 @@ class Session:
                                    f" @ {e['map']}")
             elif e["type"] == "death":
                 k = e.get("killer") or {}
-                who = killers.label(k)
+                who = k.get("label")
                 self.journal.write(f"Died at Lv {e['level']} @ {e['map']}: "
                                    + (f"-{e['lost']:,} EXP" if e["lost"] else "no EXP lost")
                                    + (f", killed by {who}" if who else ""))
@@ -821,7 +728,7 @@ class Session:
         tr.close_stint()
         self._drain_events()
         self.source.end_session()
-        diary.render()
+        self.hub.emit("session_end", reason=reason)
         self.csv_f.close()
         summary = tr.summary(self.dir)
         write_json(self.dir / "summary.json", summary)
@@ -877,8 +784,10 @@ def write_idle_status(state, reason):
     write_json(STATUS, st)
 
 
-def run(cfg, args, source=None, sinks=None):
-    """Service loop. `source`/`sinks` default to what config.json selects; tests inject them."""
+def run(cfg, args, source, sinks=None, hub=None):
+    """Service loop. `source`: a Source, or a function that builds one (called once the lock is held,
+    so a second tracker never opens the game window). `hub` has the components attached
+    (launcher/compose.py builds both); tests inject their own."""
     if getattr(args, "service", False) or sys.stdout is None:
         setup_service_logging()
     lock = acquire_lock()
@@ -888,11 +797,11 @@ def run(cfg, args, source=None, sinks=None):
     if STOP_FILE.exists():          # asked of a tracker that had already gone: not for us
         STOP_FILE.unlink()
         log("removed a stale stop request")
-    if source is None:
-        from engine import ocr
-        if not ocr.setup(cfg.get("tesseract")):
-            log("WARNING: Tesseract not available: map names and some EXP digits will be unread")
-        source = make_source({**cfg, "source": {**cfg.get("source", {}), "type": pick_type(cfg, log)}})
+    if callable(source):
+        source = source()
+    if hub is None:
+        hub = Hub(ROOT, log)
+    hub.source = source
     sinks = [] if sinks is None else sinks
 
     svc = cfg.get("service", {})
@@ -903,15 +812,13 @@ def run(cfg, args, source=None, sinks=None):
     box_on = box_cfg.get("enabled", True)
 
     def box_poll():          # seconds between quick looks: Settings "Screen checks per second"
-        return 1.0 / capture.fps() if box_on else 0
+        return 1.0 / source.checks_per_s() if box_on else 0
     was_dead = False
     digest_every = svc.get("digest_every_s", 300)
 
     H.cleanup(svc.get("retention_days", 14))
     journal = H.Journal()
-    diary.seed_places(list(read_json(MAPS, {})) + list(read_json(HISTORY / "map_stats.json", {})))
-    global ALBUM
-    ALBUM = album.Album(ROOT)                 # monster album (album.py): first kills, seen mobs
+    hub.journal_write = journal.write
     session = None
     absent_since = None
     afk_reading = None                # (cur, pct, level) when a session closed for AFK
@@ -923,79 +830,17 @@ def run(cfg, args, source=None, sinks=None):
     prof = character.Profile(note=lambda s: (log("character: " + s), journal.write(s)),
                              log=lambda s: log("character: " + s))
 
-    feed = live.Live()                        # live.json for the skill bar (HP/MP regen, casts)
-    from components.party import partylink                          # party.json: partners' numbers (relay/, opt-in)
-    link = partylink.PartyLink(log=log)
-    link.start()
-
-    def on_rise(t, map_name, d, party, gap=None):
-        """Every EXP rise (training.py): a first kill for the monster album?"""
-        try:
-            if session is None:
-                return
-            mob = ALBUM.first_kill(map_name, d, party, gap)
-            if mob is not None:
-                session.first_kill(mob, map_name, ALBUM, t)
-        except Exception:
-            log("album: " + traceback.format_exc())
-    feed.rise_hook = on_rise
-
-    def album_follow():
-        """Who plays, their level, and whether the middle square is worth keeping (screen.py)."""
-        try:
-            with perf.timed("album"):
-                if prof.who:
-                    ALBUM.set_who(prof.who, (prof.char() or {}).get("name"))
-                    if not ALBUM.char().get("seeded"):
-                        ALBUM.seed(diary.seen_places())
-                if session is not None:
-                    if ALBUM.set_level(session.tr.level):
-                        session.album_render_at = session.album_render_at or time.time()
-                    source.album_watch = ALBUM.wants_photo(feed.training.visit.name
-                                                           if feed.training.visit else session.tr.map)
-                else:
-                    source.album_watch = False
-        except Exception:
-            log("album: " + traceback.format_exc())
-
     def take_facts():
         try:
             facts = source.take_facts()
             if facts:
                 prof.update(facts)
-                feed.update(facts, prof)
-                album_follow()
+                hub.emit("facts", facts=facts, prof=prof)
         except Exception:
             log("character update failed: " + traceback.format_exc())
-
-    def burst_looks(until):
-        """Between quick looks: the regen clock's bursts (vitals.Meter, live.py). HP/MP strip
-        only at burst_fps while it asks (finding the clock after a start / map change, or a
-        check around a predicted tick); otherwise sleep until the next burst or `until`."""
-        rs = vitals.regen_settings()
-        step = 1.0 / rs["burst_fps"]
-        while (n := time.time()) < until - 0.02:
-            if feed.wants_fast(n):
-                capture.boost(rs["burst_fps"], 1.5)
-                try:
-                    with perf.timed("burst_look"):
-                        ok = source.quick_vitals(n)
-                except Exception:
-                    ok = False
-                take_facts()
-                if not ok:
-                    return
-                time.sleep(max(0.0, min(step - (time.time() - n), until - time.time())))
-            else:
-                d = feed.burst_in(n)
-                if d is None or n + d >= until:
-                    return
-                if d <= 0.8:                  # let Windows speed up its frames just before (a new
-                    # capture session at the new rate takes ~0.5 s to deliver its first frame)
-                    capture.boost(rs["burst_fps"], 1.5)
-                    time.sleep(max(0.01, min(d, until - n)))
-                else:                         # wake at the boost point
-                    time.sleep(max(0.01, min(d - 0.8, until - n)))
+    hub.take_facts = take_facts
+    # components start their threads / open their files here (the album, the party link, the live feed)
+    hub.emit("service_start", maps=list(read_json(MAPS, {})) + list(read_json(HISTORY / "map_stats.json", {})))
     box_since = None                          # when the death box was first seen
 
     def show(text):
@@ -1007,6 +852,7 @@ def run(cfg, args, source=None, sinks=None):
         if session:
             session.close(reason)
             session = None
+            hub.state.bind(None)
             H.build_digest()
 
     def went_away(t, state, reason):
@@ -1027,24 +873,10 @@ def run(cfg, args, source=None, sinks=None):
                 log("stop file found")
                 break
             t = time.time()
-            perf.tick(last_state, capture.fps())
+            perf.tick(last_state, source.checks_per_s())
             sleep_for = idle_poll
-            for req in diary.take_requests():          # `python diary.py note "..."`, camera button
-                try:
-                    if req.get("kind") == "moment":
-                        if session and last_state == "playing":
-                            session.snap()
-                            log("diary moment captured (camera button)")
-                        else:
-                            log("camera button: no game on screen, nothing captured")
-                        continue
-                    if session:
-                        session.note(req["text"])
-                    else:
-                        diary.add("note", req["text"])
-                    log(f"diary note added: {req['text']}")
-                except Exception:
-                    log("diary note failed: " + traceback.format_exc())
+            hub.state.playing = last_state == "playing"
+            hub.emit("loop")                           # diary: `python diary.py note "..."`, camera button
             try:
                 try:
                     with perf.timed("read"):
@@ -1066,11 +898,11 @@ def run(cfg, args, source=None, sinks=None):
                     else:
                         afk_reading = None
                         if session is None:
-                            session = Session(cfg, args, journal, source)
-                            session.tr.rate_source = feed.exp_rate
+                            session = Session(cfg, args, journal, source, hub)
+                            session.tr.rate_source = lambda: hub.ask("exp_rate")
                         interval, event = session.process(obs)
-                        feed.training.set_progress(session.tr.level, session.tr.cur,
-                                                   session.tr.need)
+                        hub.emit("progress", level=session.tr.level, cur=session.tr.cur,
+                                 need=session.tr.need)
                         show(session.tr.overlay_text())
                         sleep_for = interval
                         if session.tr.afk_for(obs.t) > afk_close:
@@ -1114,7 +946,8 @@ def run(cfg, args, source=None, sinks=None):
                         was_dead = dead
                     if getattr(source, "read_now", False):   # poll saw a new map (mapwatch.py)
                         end = now
-                    if diary.has_requests():                 # camera button / note: answer now
+                    hub.emit("poll", now=now)
+                    if hub.take_wake():                      # a component wants a reading (camera button, note)
                         end = now
                     if session.tr.box_pending is not None:   # read again when it settles
                         end = min(end, session.tr.box_pending + BOX_SETTLE_S + 0.1)
@@ -1127,7 +960,7 @@ def run(cfg, args, source=None, sinks=None):
                     wake = getattr(source, "wake_at", lambda: None)()   # level-up picture
                     if wake is not None:
                         next_poll = max(time.time(), min(next_poll, wake))
-                    burst_looks(next_poll)
+                    hub.idle(next_poll)
                     time.sleep(max(0.0, next_poll - time.time()))
                 else:
                     time.sleep(min(left, 1.0))       # 1 s steps: the stop check above
@@ -1140,24 +973,15 @@ def run(cfg, args, source=None, sinks=None):
         for s in sinks:
             s.close()
         source.close()
-        link.stop()
-        perf.tick(last_state, capture.fps(), force=True)
+        hub.emit("service_stop")
+        perf.tick(last_state, source.checks_per_s(), force=True)
         H.build_digest()
         log("tracker service stopped")
         lock.close()
 
 
-def main(argv=None):
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--config", default=None)
-    ap.add_argument("--interval", type=float, help="slowest capture interval (overrides config)")
-    ap.add_argument("--level", type=int, help="current level, if the level crop isn't reliable")
-    ap.add_argument("--service", action="store_true",
-                    help="background mode: log to tracker_live.log (implied under pythonw)")
-    a = ap.parse_args(argv)
-    run(load_config(a.config), a)
-
-
 if __name__ == "__main__":
-    main()
+    # dev entry (python -m hub.tracker): the composition (components, source) lives in the launcher.
+    # Loaded by name so the hub layer doesn't import upward.
+    import importlib
+    importlib.import_module("launcher.compose").service_main()

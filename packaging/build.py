@@ -44,6 +44,9 @@ HIDDEN = ["launcher.setup_ui", "hub.settings_ui", "engine.calibrate", "component
           "components.training.itemicons", "engine.portrait",
           "components.album.album", "components.album.album_html", "components.album.mobicons",
           "components.diary.diary_server",
+          "launcher.compose", "hub.bus", "base.contract", "components",       # composition: the registry loads components by name
+          "components.killers.component", "components.diary.component", "components.skillbar.component",
+          "components.album.component", "components.party.component",
           "engine.sources.wgc", "engine.sources.screen", "engine.sources.csv_replay", "windows_capture",
           "win32gui", "pystray._win32"]
 EXCLUDE = ["cv2",        # only used by windows-capture to save files; replaced by rthook_cv2.py

@@ -438,6 +438,14 @@ class ScreenSource(Source):
             self._save_shot(frame, out_dir, stem)
         log(f"level-up picture taken {late:.2f} s after the EXP reset")
 
+    def checks_per_s(self):
+        from engine import capture
+        return capture.fps()
+
+    def boost(self, fps, seconds):
+        from engine import capture
+        capture.boost(fps, seconds)
+
     def wake_at(self):
         """When the tracker should poll next for a picture (None: no hurry)."""
         return self.lu.shot_at

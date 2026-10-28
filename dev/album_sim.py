@@ -27,9 +27,11 @@ from base import lean  # noqa: F401,E402,I001
 from components.album import album  # noqa: E402
 from components.diary import diary  # noqa: E402
 from hub import live  # noqa: E402
-from hub import tracker as T  # noqa: E402
+from launcher import compose  # noqa: E402
+from components.album.component import AlbumComponent  # noqa: E402
+from components.diary.component import DiaryComponent  # noqa: E402
 
-T.set_root(OUT)
+hub = compose.make_hub(OUT, components=[DiaryComponent, AlbumComponent])   # sets the root, attaches
 fails = []
 
 
@@ -79,32 +81,23 @@ class StubJournal:
         self.lines.append(s)
 
 
-class Sess:                     # just what Session.first_kill uses
-    first_kill = T.Session.first_kill
-
-    def __init__(self, src):
-        self.source, self.journal = src, StubJournal()
-        self.tr = type("Tr", (), {"level": 22, "job": "Magician", "map": None})()
-        self.render_at = self.album_render_at = 0.0
+class FakeTracker:              # what hub.state reads
+    level, job, map, cur, need, active_total = 22, "Magician", None, None, None, 0.0
 
 
-alb = album.Album(OUT)
+src = StubSource()
+sess = type("Sess", (), {"journal": StubJournal()})()
+hub.source = src
+hub.journal_write = sess.journal.write
+hub.state.bind(FakeTracker())
+albc = hub.components[1]
+albc.on_start()                 # the album component opens the album (service_start without the diary's seeding)
+alb = albc.album
 alb.set_who("fp_test", "Snoopy")
 alb.set_level(22)
-src = StubSource()
-sess = Sess(src)
-feed = live.Live(path=OUT / "live.json")
+feed = live.Live(path=OUT / "live.json", hub=hub)
 caught = []
-
-
-def rise_hook(t, map_name, d, party, gap=None):
-    m = alb.first_kill(map_name, d, party, gap)
-    if m:
-        caught.append(m["name"])
-        sess.first_kill(m, map_name, alb, t)
-
-
-feed.rise_hook = rise_hook
+hub.on("first_kill", lambda mob, **_: caught.append(mob["name"]))
 t = time.time()
 
 

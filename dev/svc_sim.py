@@ -18,6 +18,7 @@ CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
 from base import lean  # noqa: F401,I001  (first: caps math threads, stubs OpenCV; keeps RAM down)
 from hub import tracker as T                                  # noqa: E402
+from launcher import compose                                  # noqa: E402
 from engine.sources import make_source                      # noqa: E402
 from engine.sources.screen import ImageFrames, ScreenSource  # noqa: E402
 
@@ -42,7 +43,7 @@ class CaptureSink:
 def main():
     out, mode = Path(sys.argv[1]), sys.argv[2] if len(sys.argv) > 2 else "frames"
     out.mkdir(parents=True, exist_ok=True)
-    T.set_root(out)
+    hub = compose.make_hub(out)          # the same composition path as the launcher's
     cfg = json.loads((CODE / "config.json").read_text(encoding="utf-8"))
     cfg.update(interval=0.3, fast_interval=0.05)
     cfg["service"].update(close_after_absent_s=1, idle_poll_s=0.15, close_after_afk_s=999,
@@ -62,7 +63,7 @@ def main():
         cfg.update(interval=0, fast_interval=0)
         source = make_source(cfg)
 
-    T.run(cfg, args, source=source, sinks=[sink])
+    T.run(cfg, args, source=source, sinks=[sink], hub=hub)
     print("\n===== live text:", sink.texts[:2], "...", sink.texts[-2:])
     for name in ("journal.md", "history/sessions.csv", "history/levels.csv", "status.json"):
         p = out / name

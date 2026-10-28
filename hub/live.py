@@ -1,6 +1,6 @@
 """live.py - the skill bar's feed: live.json, rewritten about once a second while playing.
 
-Fed by tracker.run with the same facts as character.Profile (no pixels here):
+Fed by the skillbar component (components/skillbar/component.py) with the same facts as character.Profile (no pixels here):
   'vitals' {hp: [cur, max], mp: [cur, max]}  -> mpuse.Usage: explains each change (regen tick,
                                                 casts, potions, hits...) and feeds vitals.Meter
                                                 per meter (the regen clock: next tick)
@@ -30,6 +30,7 @@ import time
 import csv
 from datetime import datetime
 
+from base import perf
 from hub import history as H
 from components.skillbar import mpuse
 from components.training import training
@@ -74,8 +75,9 @@ def _skills_data():
 
 
 class Live:
-    def __init__(self, path=None):
+    def __init__(self, path=None, hub=None):
         self.path = path
+        self.hub = hub                      # events out (exp_rise), the source in (burst looks)
         self.model = None                   # regen.RegenModel of the current character
         self.clock_saved = 0.0
         self._new_meters()
@@ -92,13 +94,13 @@ class Live:
         if getattr(self, "training", None):
             self.training.close(t or time.time())
         self.training = training.Training(self.usage)
-        # every EXP rise also goes to the monster album (tracker.py sets rise_hook), with the party
-        # state *now*: EXP is only shared with members on your map (the party box row includes
-        # you), not "partied at some point of this visit" (visit.party, sticky: 2026-10-25 a whole
-        # solo stretch on Caution Falling Down was skipped because of it)
+        # every EXP rise also goes out as the exp_rise event (the monster album listens), with the
+        # party state *now*: EXP is only shared with members on your map (the party box row
+        # includes you), not "partied at some point of this visit" (visit.party, sticky:
+        # 2026-10-25 a whole solo stretch on Caution Falling Down was skipped because of it)
         self.training.on_rise = lambda t, m, d, _visit_party: (
-            getattr(self, "rise_hook", None)
-            and self.rise_hook(t, m, d, self.party_on_map(), self.training.exp_gap))
+            self.hub and self.hub.emit("exp_rise", t=t, map=m, d=d, party=self.party_on_map(),
+                                       gap=self.training.exp_gap))
 
     def _path(self):
         return self.path or (H.ROOT / "live.json")
@@ -111,6 +113,37 @@ class Live:
         """Seconds until the next burst of looks (0 = now, None = none planned)."""
         due = [d for d in (m.burst_in(now) for m in self.meters.values()) if d is not None]
         return min(due) if due else None
+
+    def burst_looks(self, until):
+        """Between quick looks: the regen clock's bursts (vitals.Meter). HP/MP strip only at
+        burst_fps while it asks (finding the clock after a start / map change, or a check around
+        a predicted tick); otherwise sleep until the next burst or `until`."""
+        hub = self.hub
+        source = hub.source
+        rs = vitals.regen_settings()
+        step = 1.0 / rs["burst_fps"]
+        while (n := time.time()) < until - 0.02:
+            if self.wants_fast(n):
+                source.boost(rs["burst_fps"], 1.5)
+                try:
+                    with perf.timed("burst_look"):
+                        ok = source.quick_vitals(n)
+                except Exception:
+                    ok = False
+                hub.take_facts()
+                if not ok:
+                    return
+                time.sleep(max(0.0, min(step - (time.time() - n), until - time.time())))
+            else:
+                d = self.burst_in(n)
+                if d is None or n + d >= until:
+                    return
+                if d <= 0.8:                  # let Windows speed up its frames just before (a new
+                    # capture session at the new rate takes ~0.5 s to deliver its first frame)
+                    source.boost(rs["burst_fps"], 1.5)
+                    time.sleep(max(0.01, min(d, until - n)))
+                else:                         # wake at the boost point
+                    time.sleep(max(0.01, min(d - 0.8, until - n)))
 
     def _log_events(self, ev):
         """history/usage/<date>.csv: one row per explained HP/MP change (not regen ticks)."""
@@ -300,7 +333,10 @@ class Live:
                     regen[k] = {"skill": (self.data.get(sid) or {}).get("name"), "level": lv,
                                 "says": texts[lv - 1] if lv <= len(texts) else None,
                                 "icon": str(icon) if icon.exists() else None}
-        return {"t": round(now, 2), "character": c.get("name") or c.get("name_guess"),
-                "hp": self.meters["hp"].state(now), "mp": mp, "regen": regen, "skills": skills,
-                "usage": self.usage.summary(), "training": self.training.summary(now),
-                "party": self.party}
+        out = {"t": round(now, 2), "character": c.get("name") or c.get("name_guess"),
+               "hp": self.meters["hp"].state(now), "mp": mp, "regen": regen, "skills": skills,
+               "usage": self.usage.summary(), "training": self.training.summary(now),
+               "party": self.party}
+        if self.hub is not None:
+            out.update(self.hub.published())      # sections other components publish (hub.publish)
+        return out

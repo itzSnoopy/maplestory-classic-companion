@@ -21,8 +21,8 @@ def main():
         if updater.adopt(args):
             return
         if "--service" in args:
-            from hub import tracker
-            tracker.main([a for a in args if a not in ("--no-handoff", "--after-update")])
+            from launcher import compose
+            compose.service_main([a for a in args if a not in ("--no-handoff", "--after-update")])
         else:
             from hub import helper_ui
             helper_ui.main()
