@@ -13,6 +13,7 @@ import tkinter as tk
 from PIL import Image, ImageTk
 
 from engine import calibrate
+from gamedata import translate
 from hub import helper_settings as HS
 from base import paths
 from hub.helper_ui import BG, LINE, TEXT, MUTED, GOLD, GREEN, RED
@@ -253,7 +254,7 @@ class SetupWindow:
         exp, lv = self.exp_var.get().strip(), self.lv_var.get().strip()
         if not exp and not lv and len(__import__("glyphs").load()) >= 3:
             return True
-        ok, msg = calibrate.check_typed(self.crops, self.cfg, exp, lv)
+        ok, msg = calibrate.check_typed(self.crops, self.cfg, exp, lv, translate.exp_needed)
         if not ok:
             self.dig_msg.configure(text=msg, fg=RED)
             return False

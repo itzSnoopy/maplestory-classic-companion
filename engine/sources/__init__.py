@@ -7,13 +7,13 @@ required), then register a factory below. Nothing else in the tracker needs to c
 from engine.sources.base import ABSENT, OK, UNAVAILABLE, Observation, Source  # noqa: F401
 
 
-def _wgc(cfg, **kw):
+def _wgc(cfg, translate, **kw):
     from engine.sources.screen import ScreenSource
     from engine.sources.wgc import WgcFrames
-    return ScreenSource(cfg, frames=kw.pop("frames", None) or WgcFrames(cfg), **kw)
+    return ScreenSource(cfg, kw.pop("frames", None) or WgcFrames(cfg), translate, **kw)
 
 
-def _csv_replay(cfg, **kw):
+def _csv_replay(cfg, translate, **kw):         # replays finished readings: nothing to translate
     from engine.sources.csv_replay import CsvReplaySource
     return CsvReplaySource(cfg, **kw)
 
@@ -43,8 +43,9 @@ def pick_type(cfg, log=print):
     return kind
 
 
-def make_source(cfg, **kw):
+def make_source(cfg, translate, **kw):
+    """translate: gamedata.translate, handed in by launcher/compose.py (the engine knows no game names)."""
     kind = cfg.get("source", {}).get("type", DEFAULT_TYPE)
     if kind not in REGISTRY:
         raise ValueError(f"unknown source type {kind!r}; known: {sorted(REGISTRY)}")
-    return REGISTRY[kind](cfg, **kw)
+    return REGISTRY[kind](cfg, translate, **kw)

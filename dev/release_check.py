@@ -145,7 +145,8 @@ from base import paths
 cfg = paths.load_config(); im = Image.open(r'{first}').convert('RGB')
 r = calibrate.cut_templates(im); assert r['world'] and r['header'], r
 c = calibrate.hud_crops(im, cfg)
-ok, msg = calibrate.check_typed(c, cfg, '78[84.78%]', '4'); assert ok, msg
+from gamedata import translate
+ok, msg = calibrate.check_typed(c, cfg, '78[84.78%]', '4', translate.exp_needed); assert ok, msg
 calibrate.learn_typed(c, cfg, '78[84.78%]', '4')
 """
     r = run([sys.executable, "-c", code], {"MAPLE_COMPANION_DATA": str(data)})
@@ -192,11 +193,12 @@ import sys, json; sys.path.insert(0, r'{ROOT}')
 from base import paths
 from engine import ocr
 cfg = paths.load_config(); ocr.setup(cfg.get('tesseract'))
-from engine.sources.screen import ScreenSource, ImageFrames
+from engine.sources.screen import ImageFrames
+from launcher import compose
 from PIL import Image
 out = {{}}
 for f in {list(WINDOW_EXPECT)!r}:
-    src = ScreenSource(cfg, ImageFrames([Image.open(r'{wins}/' + f).convert('RGB')]))
+    src = compose.screen_source(cfg, ImageFrames([Image.open(r'{wins}/' + f).convert('RGB')]))
     src.read({{}})
     got = {{}}
     for t, k, v in src.take_facts():

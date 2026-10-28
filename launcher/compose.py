@@ -5,6 +5,8 @@ The one place that knows every layer. hub/tracker.py only sees a Hub and a Sourc
 
     make_hub(root=None)         Hub with every registered component attached (tests call this too)
     build_source(cfg, log)      the Source config.json asks for (Tesseract set up first)
+    screen_source(cfg, frames)  a ScreenSource on given frames (tests, benches): the engine with the
+                                game-name translator (gamedata/translate.py) handed in
     run_service(cfg, args)      what `companion.py --service` runs
     service_main(argv)          argument parsing for `--service` and for `python -m hub.tracker`
 """
@@ -32,7 +34,15 @@ def build_source(cfg, log):
     from engine.sources import make_source, pick_type
     if not ocr.setup(cfg.get("tesseract")):
         log("WARNING: Tesseract not available: map names and some EXP digits will be unread")
-    return make_source({**cfg, "source": {**cfg.get("source", {}), "type": pick_type(cfg, log)}})
+    from gamedata import translate
+    return make_source({**cfg, "source": {**cfg.get("source", {}), "type": pick_type(cfg, log)}}, translate)
+
+
+def screen_source(cfg, frames):
+    """The one way to get a ready ScreenSource when the frames are not the live game window."""
+    from engine.sources.screen import ScreenSource
+    from gamedata import translate
+    return ScreenSource(cfg, frames, translate)
 
 
 def run_service(cfg, args, source=None, sinks=None, hub=None):

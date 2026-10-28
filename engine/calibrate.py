@@ -112,27 +112,21 @@ def hud_crops(img, cfg):
     return out
 
 
-def exp_table():
-    import json
-    from base.paths import asset
-    t = json.loads((asset("gamedata/exp_table_classic.json")).read_text(encoding="utf-8"))
-    return {int(k): v for k, v in t.items() if not k.startswith("_")}
-
-
-def check_typed(crops, cfg, exp_text, level_text):
+def check_typed(crops, cfg, exp_text, level_text, exp_needed):
     """Check what the player typed against the crops and the EXP table.
+    exp_needed(level) -> EXP needed at that level, or None (gamedata.translate.exp_needed).
     Returns (ok, message). Saves nothing."""
     from engine import glyphs
-    from gamedata import parse
+    from engine import hudtext
     exp_text = "".join(exp_text.split())
     try:
         level = int(level_text.strip())
     except ValueError:
         return False, "Type your level as a number, like 12."
-    need = exp_table().get(level)
+    need = exp_needed(level)
     if not need:
         return False, f"Level {level} isn't in the EXP table (1-99)."
-    cur, _, pct = parse.parse_exp(exp_text)
+    cur, _, pct = hudtext.parse_exp(exp_text)
     if cur is None or pct is None:
         return False, "Type the EXP like it's shown, for example 1,234[56.78%]."
     if abs(cur * 100 / need - pct) > 0.0101:

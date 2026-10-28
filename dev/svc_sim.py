@@ -20,7 +20,7 @@ from base import lean  # noqa: F401,I001  (first: caps math threads, stubs OpenC
 from hub import tracker as T                                  # noqa: E402
 from launcher import compose                                  # noqa: E402
 from engine.sources import make_source                      # noqa: E402
-from engine.sources.screen import ImageFrames, ScreenSource  # noqa: E402
+from engine.sources.screen import ImageFrames  # noqa: E402
 
 # the original is pruned after 14 days; dev/fixtures/ keeps a local copy (git-ignored, Nexon imagery)
 FIXTURE = next((p for p in (Path(os.environ["SVC_SIM_FIXTURE"]) if os.environ.get("SVC_SIM_FIXTURE") else None,
@@ -57,11 +57,11 @@ def main():
         play = sorted(FIXTURE.glob("before_*.png")) + sorted(FIXTURE.glob("at_*.png")) \
             + sorted(FIXTURE.glob("after_*.png"))
         seq = [play[0]] * 2 + play[1:] + ["unavailable"] * 2 + [None] * 12 + [play[-1]] * 3
-        source = ScreenSource(cfg, frames=ImageFrames(seq))
+        source = compose.screen_source(cfg, ImageFrames(seq))
     else:
         cfg["source"] = {"type": "csv_replay", "path": sys.argv[3]}
         cfg.update(interval=0, fast_interval=0)
-        source = make_source(cfg)
+        source = make_source(cfg, None)         # csv replay: nothing to translate
 
     T.run(cfg, args, source=source, sinks=[sink], hub=hub)
     print("\n===== live text:", sink.texts[:2], "...", sink.texts[-2:])

@@ -111,7 +111,9 @@ def bench_stages(n=20, frame_path=None):
     from engine import minimap
     from engine import ocr
     from engine.layout import anchor_for, crop
-    from engine.sources.screen import ImageFrames, ScreenSource, exp_bar_visible, read_exp
+    from engine.sources.screen import ImageFrames, exp_bar_visible, read_exp
+    from gamedata import translate
+    from launcher import compose
     c = cfg()
     ocr.setup(c.get("tesseract"))
     res = tuple(c.get("source_resolution") or (1920, 1080))
@@ -158,10 +160,10 @@ def bench_stages(n=20, frame_path=None):
             row("map OCR (Tesseract, uncached)", lambda: ocr.read(mc, read_rc, kind="map"), 3)
     row("hp bar", lambda: hpbar.hp_pct(frame0, res))
     row("death box check", lambda: deathbox.is_dead(frame0))
-    row("job OCR (rare: start/advancement)", lambda: jobread.read_job(frame0, c.get("job_read"), res), 3)
+    row("job OCR (rare: start/advancement)", lambda: jobread.read_job(frame0, translate, c.get("job_read"), res), 3)
 
     # the whole ScreenSource.read on this frame (map cache warm: the usual case)
-    src = ScreenSource(c, frames=ImageFrames([frame0] * (n + 1)))
+    src = compose.screen_source(c, ImageFrames([frame0] * (n + 1)))
     src.read({})
     row("ScreenSource.read total (cached map)", lambda: src.read({}))
     if frames:

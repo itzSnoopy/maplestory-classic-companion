@@ -15,7 +15,7 @@ CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
 from base import lean  # noqa: F401,E402
 from engine import glyphs  # noqa: E402
-from gamedata import parse  # noqa: E402
+from engine import hudtext  # noqa: E402
 from engine import vitals  # noqa: E402
 from engine.layout import anchor_for, place  # noqa: E402
 from base.paths import load_config  # noqa: E402
@@ -38,7 +38,7 @@ def main():
         r = vitals.read(img, origin=True, learn=False)
         hp, mp = r["hp"] or [None, None], r["mp"] or [None, None]
         g = glyphs.read(eimg, rc.get("white_min", 230))
-        cur, _, pct = parse.parse_exp(g) if g and "?" not in g else (None, None, None)
+        cur, _, pct = hudtext.parse_exp(g) if g and "?" not in g else (None, None, None)
         rows.append([round(tick, 3), hp[0], hp[1], mp[0], mp[1], cur, pct])
         time.sleep(max(0.0, 1 / fps - (time.time() - tick)))
     src.close()

@@ -168,7 +168,7 @@ check(sess.journal.lines and "First boss kill: Mano" in sess.journal.lines[0], "
 fx = sorted((CODE / "dev" / "fixtures" / "levelup_lv5").glob("*.png"))
 if len(fx) >= 2:
     from PIL import Image
-    from components.diary import levelup_shot
+    from engine import levelup_shot
     from engine.sources.screen import ScreenSource
     s = ScreenSource.__new__(ScreenSource)
     s.album_watch, s.album_prev, s.pending_shots = True, deque(maxlen=2), []

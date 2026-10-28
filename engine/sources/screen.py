@@ -24,12 +24,11 @@ from engine import deathbox
 from engine import glyphs
 from engine import hpbar
 from engine import jobread
-from components.diary import levelup_shot
-from gamedata import maplist
+from engine import levelup_shot
+from engine import hudtext
 from engine import mapwatch
 from engine import ocr
 from engine import panels
-from gamedata import parse
 from base import perf
 from engine import vitals
 from engine import party
@@ -105,7 +104,7 @@ def solve_unknowns(g, need):
         s = "".join(s)
         if not EXP_TEXT_RE.match(s):        # e.g. '0[,.74%]' parses loosely as 0 EXP, 0%
             continue
-        cur, _, pct = parse.parse_exp(s)
+        cur, _, pct = hudtext.parse_exp(s)
         if cur is None or pct is None or cur >= need:
             continue
         if abs(cur * 100 / need - pct) <= 0.0101:
@@ -136,7 +135,7 @@ def read_exp(img, rc, hints):
     t = ocr.read(img, {**rc, "glyphs": False}, kind="exp")
     if not _agrees(g, t):
         return g, True          # Tesseract contradicts known glyphs: don't trust it
-    cur, _, pct = parse.parse_exp(t)
+    cur, _, pct = hudtext.parse_exp(t)
     plausible = hints.get("plausible")
     if plausible and plausible(cur, pct):
         try:
@@ -159,8 +158,10 @@ def exp_bar_visible(img, white_min=230):
 class ScreenSource(Source):
     name = "screen"
 
-    def __init__(self, cfg, frames):
+    def __init__(self, cfg, frames, translate):
         self.cfg = cfg
+        self.translate = translate          # gamedata.translate: game names for what is read
+        panels.use(translate)
         self.frames = frames                # sources/wgc.WgcFrames live, ImageFrames in tests
         self.name = f"screen/{self.frames.name}"
         self.retry_s = cfg.get("service", {}).get("source_retry_s", 20)
@@ -173,7 +174,7 @@ class ScreenSource(Source):
         self.session_dir = self.gallery = None
         self.frame = self.crops = self.stamp = None
         self.warned_res = None          # last frame size logged
-        self.jobs = jobread.JobWatcher(cfg.get("job_read"), tuple(self.res or (1920, 1080)), log)
+        self.jobs = jobread.JobWatcher(translate, cfg.get("job_read"), tuple(self.res or (1920, 1080)), log)
         self.pending_shots = []             # [(due_t, out_dir, stem)] for diary snapshots
         self.lu = levelup_shot.Timer()      # level-up picture: fixed time after the EXP reset
         self._nametag = None
@@ -214,7 +215,7 @@ class ScreenSource(Source):
             return Observation(t, ABSENT, source=self.name, note="EXP bar not visible")
         if frame.size != self.warned_res:          # log each window-size change once
             how = ("recorded boxes from layouts.json" if f"{frame.size[0]}x{frame.size[1]}" in layouts()
-                   else "boxes moved by anchor (not in layouts.json yet: python -m engine.layout record)")
+                   else "boxes moved by anchor (not in layouts.json yet: python dev/engine_tools.py record)")
             if self.res and tuple(self.res) != frame.size:
                 log(f"frame is {frame.size[0]}x{frame.size[1]}; using {how}")
             elif self.warned_res:
@@ -243,12 +244,12 @@ class ScreenSource(Source):
         self._take_due_shots(t)
         exp_text = raw.get("exp", "")
         # unknown digits ('?8[??.74%]') would parse loosely into wrong numbers: no reading instead
-        cur, _, pct = parse.parse_exp(exp_text) if "?" not in exp_text else (None, None, None)
+        cur, _, pct = hudtext.parse_exp(exp_text) if "?" not in exp_text else (None, None, None)
         self._levelup_seen(t, pct)
         if self.lu.due(t):
             self._levelup_shot(frame)
         self._track_character(t, frame)
-        level = parse.parse_level(raw["level"]) if raw.get("level") else None
+        level = hudtext.parse_level(raw["level"]) if raw.get("level") else None
         job = self.jobs.update(frame, level, t)       # reads only when due (start / advancement)
         map_name = self.maps.name
         if map_name and map_name != self._map_fact:          # training.py: a new map visit
@@ -302,10 +303,9 @@ class ScreenSource(Source):
         text = self.map_cache[1]
         if not text:
             return self.maps.update(t, None)
-        # snap to the real Classic map list (maps_classic.json); else the cleaned raw read
-        known = maplist.snap(text)
-        name = known["name"] if known else parse.parse_map(text)
-        return self.maps.update(t, name or None, text, known["id"] if known else None)
+        # the translator snaps to the real Classic map list; else the cleaned raw read
+        name, map_id = self.translate.map_name(text)
+        return self.maps.update(t, name or None, text, map_id)
 
     def poll(self, t):
         """Between readings: is the "You have died." box up? (deathbox.py, ~20 ms a frame).
@@ -408,7 +408,7 @@ class ScreenSource(Source):
                 g = glyphs.read(img, rc.get("white_min", 230))
             if not g or "?" in g:
                 return
-            cur, _, pct = parse.parse_exp(g)
+            cur, _, pct = hudtext.parse_exp(g)
             if cur is not None and pct is not None:
                 self.facts.append((t, "exp", {"cur": cur, "pct": pct}))
                 self._levelup_seen(t, pct)
@@ -558,14 +558,14 @@ class ScreenSource(Source):
             rc = self.regions["exp"]
             text, _ = read_exp(crop(frame, rc["box"], self.res, anchor_for("exp", rc), "exp"), rc, {})
             if text and "?" not in text:
-                cur, _, pct = parse.parse_exp(text)
+                cur, _, pct = hudtext.parse_exp(text)
             lrc = self.regions.get("level") or {}
             if lrc.get("box") and lrc.get("glyphs"):
                 from engine import glyphs
                 lt = glyphs.read(crop(frame, lrc["box"], self.res, anchor_for("level", lrc), "level"),
                                  lrc.get("white_min", 230), lrc.get("templates"))
                 if lt and "?" not in lt:
-                    level = parse.parse_level(lt)
+                    level = hudtext.parse_level(lt)
         except Exception as e:
             log(f"HUD read for window digits failed: {type(e).__name__}: {e}")
         return (cur, pct, level)

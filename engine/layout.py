@@ -22,7 +22,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
-from base.paths import DATA, asset, load_config
+from base.paths import DATA, asset
 MINIMAP_TEMPLATE = DATA / "templates" / "minimap_header.png"
 MINIMAP_REF = (16, 7, 66, 23)       # where the template was cut, in 1920x1080 frame pixels
 MATCH_MAX = 6.0                     # mean abs gray difference that still counts as found
@@ -63,7 +63,7 @@ _layouts = None
 
 
 def layouts():
-    """Per-size table {"WxH": {"boxes": {region: box}, ...}} recorded by `python layout.py record`."""
+    """Per-size table {"WxH": {"boxes": {region: box}, ...}} recorded by `python dev/engine_tools.py record`."""
     global _layouts
     if _layouts is None:
         try:
@@ -109,13 +109,14 @@ def make_minimap_template(frame_path, out=MINIMAP_TEMPLATE):
     print(f"saved {out} {im.size}")
 
 
-def record(img, cfg, save=True):
+def record(img, cfg, translate, save=True):
     """Measure this frame's size: compute the status-bar boxes, check they read, and store them
-    in layouts.json under "WxH". Also notes where the minimap was seen. Returns the entry."""
+    in layouts.json under "WxH". Also notes where the minimap was seen. Returns the entry.
+    translate: gamedata.translate (the job read is checked against the job list)."""
     from engine import glyphs
     from engine import minimap
     from engine import ocr
-    from engine.jobread import DEFAULT_RC as JOB_RC, snap as snap_job
+    from engine.jobread import DEFAULT_RC as JOB_RC
     ocr.setup(cfg.get("tesseract"))
     ref = tuple(cfg.get("source_resolution") or (1920, 1080))
     regions = {**{k: v for k, v in cfg["regions"].items() if v.get("box") and k != "map"},
@@ -131,7 +132,7 @@ def record(img, cfg, save=True):
         elif name == "level":
             checks[name] = glyphs.read(c, rc.get("white_min", 240), rc.get("templates"))
         elif name == "job":
-            checks[name] = snap_job(ocr._tess(c, rc))
+            checks[name] = translate.job_name(ocr._tess(c, rc))
     state, mbox, _ = minimap.locate(img, cfg["regions"]["map"], ref)
     ok = "?" not in checks.get("exp", "?") and checks.get("exp") and checks.get("level")
     entry = {"recorded": date.today().isoformat(), "verified": bool(ok), "boxes": boxes,
@@ -143,7 +144,7 @@ def record(img, cfg, save=True):
         except (OSError, ValueError):
             data = {"reference": list(ref),
                     "note": "Per window size: exact crop boxes (game pixels of the client area). "
-                            "Written by `python -m engine.layout record`; sizes not listed are computed "
+                            "Written by `python dev/engine_tools.py record`; sizes not listed are computed "
                             "from the anchors in layout.py. The minimap is always located live.",
                     "sizes": {}}
         data["sizes"][f"{W}x{H}"] = entry
@@ -160,16 +161,6 @@ if __name__ == "__main__":
     import sys
     if len(sys.argv) == 3 and sys.argv[1] == "learn-minimap":
         make_minimap_template(sys.argv[2])
-    elif len(sys.argv) in (2, 3) and sys.argv[1] == "record":
-        cfg = load_config()
-        if len(sys.argv) == 3:
-            frame = Image.open(sys.argv[2]).convert("RGB")
-        else:
-            from engine.sources.wgc import WgcFrames
-            f = WgcFrames(cfg)
-            frame = f.grab()
-            f.close()
-        record(frame, cfg)
     else:
-        print("usage: python -m engine.layout record [FRAME.png] (no frame = grab the game window)\n"
+        print("usage: python dev/engine_tools.py record [FRAME.png] (no frame = grab the game window)\n"
               "       python -m engine.layout learn-minimap FRAME_1920x1080.png")

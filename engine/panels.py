@@ -1,7 +1,7 @@
 """panels.py - read short-lived game windows that show long-lived character facts.
 
   Character Stat window  -> name, job, level, HP/MP max, fame, STR/DEX/INT/LUK, ability points
-  Skill window           -> each visible skill's level (names snapped to skills_classic.json), SP
+  Skill window           -> each visible skill's level (names snapped by the translator), SP
   Change Channel window  -> world and the highlighted channel (no text read: grid position)
 
 The windows can be dragged anywhere, but the game draws them at a fixed pixel size (they don't
@@ -24,16 +24,14 @@ Two stages, so the cost stays near zero while no window is open:
 
 Text in these windows is a pure-black pixel font (every text pixel is (0,0,0), no smoothing), so
 numbers are read exactly by glyph lookup (glyphs_ui.json, learned locally like glyphs.json:
-taught from the EXP and level the tracker already knows; `python panels.py learn` for a frame
+taught from the EXP and level the tracker already knows; `python dev/engine_tools.py panels learn` for a frame
 whose values you can see). Words (name, job, skill names, world) go through Tesseract once per
 distinct crop and are snapped to known lists. No game art is stored or shipped: only colors,
 offsets, and locally learned glyph bitmaps.
 
-  python panels.py FRAME [FRAME...]          what's open and what it says (dev check)
-  python panels.py learn FRAME FIELD=TEXT..  teach digit glyphs, e.g. int=77 hp=408/408
+  python dev/engine_tools.py panels FRAME [FRAME...]   what's open and what it says (dev check)
+  python dev/engine_tools.py panels learn FRAME FIELD=TEXT..  teach digit glyphs, e.g. int=77 hp=408/408
 """
-import difflib
-import functools
 import hashlib
 import json
 import re
@@ -42,10 +40,9 @@ import sys
 import numpy as np
 from PIL import Image, ImageOps
 
-from base.paths import DATA, asset
+from base.paths import DATA
 
 GLYPHS = DATA / "glyphs_ui.json"
-SKILLS_FILE = asset("gamedata/skills_classic.json")
 SMALL = 4                      # scale of the scan frame (WgcFrames grab step)
 
 PINK = (203, 79, 130)
@@ -236,53 +233,21 @@ def _ocr_words(img_rgb, white=False, psm=7):
     return text
 
 
-# ------------------------------------------------------------------ skill names
-_skills = {"list": None}
+# ------------------------------------------------------------------ skill and job names
+# Classic knowledge (skill list, job list) is not here: gamedata/translate.py, handed in with use().
+_tr = None
 
 
-def skills():
-    if _skills["list"] is None:
-        try:
-            d = json.loads(SKILLS_FILE.read_text(encoding="utf-8"))["skills"]
-        except (OSError, ValueError, KeyError):
-            d = {}
-        _skills["list"] = [{"id": k, **v} for k, v in d.items()]
-    return _skills["list"]
+def use(translate):
+    """Hand over the translator (gamedata/translate.py): snap_skill(text), job_name(text)."""
+    global _tr
+    _tr = translate
 
 
-def _sq(s):
-    return re.sub(r"[^a-z0-9]", "", s.lower())
-
-
-@functools.lru_cache(maxsize=512)
-def _snap_cached(text):
-    return tuple(_snap(text))
-
-
-def snap_skill(text):
-    """See _snap; cached (the same names are read every look while the window is open)."""
-    return list(_snap_cached(text or ""))
-
-
-def _snap(text):
-    """OCR'd skill name ('Improved WP Reco...', 'hax MP Increase') -> the candidate skills: every
-    skill scoring within 0.05 of the best (>= 0.8). Truncated names ('...') match by prefix.
-    Several candidates = a tie (same name in several jobs, or 'WP' fitting HP and MP); the
-    caller breaks it with the other skills on the same tab."""
-    if not text:
-        return []
-    trunc = "..." in text or "…" in text
-    q = _sq(text.split("...")[0].split("…")[0])
-    if len(q) < 3:
-        return []
-    scored = []
-    for s in skills():
-        n = _sq(s["name"])
-        scored.append((difflib.SequenceMatcher(None, q, n[:len(q)] if trunc else n).ratio(), s))
-    best = max((r for r, _ in scored), default=0)
-    if best < 0.8:
-        return []
-    return [s for r, s in scored if r >= best - 0.05 and (r == best or best < 0.999)]
+def _translator():
+    if _tr is None:
+        raise RuntimeError("panels: no translator; call panels.use(gamedata.translate) first")
+    return _tr
 
 
 # ------------------------------------------------------------------ stage 2: read
@@ -389,11 +354,7 @@ def read_stat(a, box):
 
 
 def _snap_job(text):
-    try:
-        from engine import jobread
-        return jobread.snap(text)
-    except Exception:
-        return None
+    return _translator().job_name(text)
 
 
 def read_skills(a, box):
@@ -439,7 +400,7 @@ def read_skills(a, box):
         text = _ocr_words(Image.fromarray(np.ascontiguousarray(name_c)))
         lvl = read_text(lvl_c).replace(" ", "")
         out.append({"row": k, "raw": text, "level": _num(lvl), "raw_level": lvl,
-                    "_snap": snap_skill(text), "_icon": icon})
+                    "_snap": _translator().snap_skill(text), "_icon": icon})
     # one tab = one job: a name several jobs share (Improved MP Recovery: Magician and Crusader)
     # goes to the job most of the tab's other skills belong to
     classes = [r["_snap"][0]["class"] for r in out
@@ -505,8 +466,10 @@ def _clean(r):
     return r
 
 
-def _main(argv):
+def _main(argv, translate):
+    """Dev check; dev/engine_tools.py panels hands in gamedata.translate."""
     import time
+    use(translate)
     try:
         from engine import ocr
         from base.paths import CONFIG
@@ -542,4 +505,4 @@ def _main(argv):
 
 
 if __name__ == "__main__":
-    _main(sys.argv[1:])
+    sys.exit("run: python dev/engine_tools.py panels FRAME... (it supplies the game-name translator)")
