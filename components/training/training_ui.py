@@ -25,7 +25,7 @@ import tkinter as tk
 from PIL import Image, ImageDraw
 
 from base.paths import DATA
-from components.skillbar.skillbar_ui import KEY, _font
+from hub.ui.overlay import KEY, font as _font
 
 LIVE = DATA / "live.json"
 W = 300

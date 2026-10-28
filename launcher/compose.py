@@ -9,6 +9,10 @@ The one place that knows every layer. hub/tracker.py only sees a Hub and a Sourc
                                 game-name translator (gamedata/translate.py) handed in
     run_service(cfg, args)      what `companion.py --service` runs
     service_main(argv)          argument parsing for `--service` and for `python -m hub.tracker`
+    helper_main(argv)           what `companion.py` (no --service) runs: the helper window, handed the
+                                components, the updater, the setup window ... (HelperServices)
+    page_host()                 the diary server with every component's pages registered, for a process
+                                that has no helper (hub/pages.py asks for it by name)
 """
 import argparse
 
@@ -65,3 +69,56 @@ def service_main(argv=None):
                     help="background mode: log to tracker_live.log (implied under pythonw)")
     a = ap.parse_args(argv)
     run_service(load_config(a.config), a)
+
+
+class HelperServices:
+    """What the helper window (hub/helper_ui.py) needs from the layers above and below it. Everything is
+    imported when first used, so the helper starts as light as before."""
+
+    def components(self):
+        """The component classes whose ui(shell) joins the helper."""
+        import components as registry
+        return registry.load_all()
+
+    @property
+    def updater(self):
+        from launcher import updater
+        return updater
+
+    def setup_window(self, app, on_done):
+        from launcher.setup_ui import SetupWindow
+        return SetupWindow(app, on_done=on_done)
+
+    def whats_new(self, app, after_update):
+        from launcher import whats_new
+        return whats_new.check(app, after_update)
+
+    def needs_setup(self):
+        from engine import calibrate
+        return calibrate.needs_setup()
+
+    @property
+    def capture(self):
+        """Settings > General's "screen checks per second" (rate limits, CPU text)."""
+        from engine import capture
+        return capture
+
+
+def helper_main(argv=None):
+    from hub import helper_ui
+    helper_ui.main(argv, services=HelperServices())
+
+
+def page_host():
+    """Register every component's pages (a headless shell: no window) and the diary component
+    makes the diary server the page host. Returns the host."""
+    import components as registry
+    from hub import pages
+    from hub.ui.shell import Shell
+    shell = Shell()
+    for cls in registry.load_all():
+        try:
+            cls().ui(shell)
+        except Exception as e:
+            print(f"{getattr(cls, 'name', cls)}: ui() failed: {e}")
+    return pages.current()      # the diary component's ui() set it

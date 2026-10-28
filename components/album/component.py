@@ -4,7 +4,8 @@ who plays and their level (facts), the album.html page (rebuilt a moment after a
 Subscribes: service_start, observation, map_enter, facts, exp_rise, service_stop (nothing to do).
 Emits: first_kill (the diary component writes the beat; the journal line is written here).
 Asks: hub.ask("seen_places") (diary) and hub.ask("visit_map") (skillbar's training feed).
-Note (Phase 4): album.py still imports the diary for its html page / cli.
+Helper side (ui): "Open monster album" in the menu, and the page at /album.html, which the diary server
+hosts for it (hub/pages.py); the album never imports the diary or its server.
 """
 import time
 import traceback
@@ -17,6 +18,22 @@ from components.album import album
 
 class AlbumComponent(Component):
     name = "album"
+
+    def ui(self, shell):
+        shell.add_page("/album.html", self.render_page)
+        shell.add_command("album", self.open)
+        shell.add_menu([("Open monster album", "album", None, None, None)], slot="open")
+
+    def render_page(self, root, live):
+        from components.album import album_html
+        return album_html.page(root, live=live)
+
+    def open(self):
+        try:
+            album.render()
+            album.open_album(in_process=True)
+        except Exception as e:
+            print(f"open album failed: {e}")
 
     def attach(self, hub):
         self.hub = hub

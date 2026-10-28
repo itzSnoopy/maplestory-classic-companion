@@ -24,8 +24,8 @@ def main():
             from launcher import compose
             compose.service_main([a for a in args if a not in ("--no-handoff", "--after-update")])
         else:
-            from hub import helper_ui
-            helper_ui.main()
+            from launcher import compose
+            compose.helper_main()
     except SystemExit:
         raise
     except BaseException:

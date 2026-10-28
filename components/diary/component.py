@@ -5,6 +5,8 @@ Subscribes: service_start (places seen before the diary), loop (requests), poll 
 when one is waiting), observation (delayed re-render once late pictures exist), levelup, death, job_change,
 map_enter, moment, first_kill (from the album), session_end (render).
 Offers: hub.ask("seen_places").
+Helper side (ui): "Open diary" in the menu, the camera button, the pop-up card on new entries, Settings >
+Diary, and the diary server (it hosts the pages other components register, hub/pages.py).
 """
 import time
 import traceback
@@ -12,10 +14,23 @@ from datetime import datetime
 
 from base.contract import Component
 from components.diary import diary
+from hub import helper_settings as HS
+
+
+class PageHost:
+    """The diary server as hub/pages.py's host; the server module is imported when first used."""
+    def open_page(self, path, in_process=False):
+        from components.diary import diary_server
+        return diary_server.open_page(path, in_process=in_process)
+
+    def serve(self, **kw):
+        from components.diary import diary_server
+        return diary_server.serve(**kw)
 
 
 class DiaryComponent(Component):
     name = "diary"
+    settings_defaults = {"diary": HS.DEFAULTS["diary"]}     # the store keeps the slices in one file
 
     def attach(self, hub):
         self.hub = hub
@@ -29,6 +44,41 @@ class DiaryComponent(Component):
                           ("moment", self.on_moment), ("first_kill", self.on_first_kill),
                           ("session_end", self.on_session_end)):
             hub.on(event, fn)
+
+    # -- the helper window
+    def ui(self, shell):
+        from hub import pages
+        self.shell = shell
+        self.popup = None                 # diary_popup.DiaryPopup: a card on new diary entries
+        if not shell.demo and not shell.headless:
+            try:
+                from components.diary.diary_popup import DiaryPopup
+                self.popup = DiaryPopup(shell)
+            except Exception as e:
+                print(f"diary pop-up unavailable: {e}")
+        pages.set_host(PageHost())        # the diary server opens and serves the registered pages
+        shell.set_camera(diary.request_moment)
+        shell.add_command("diary", self.open)
+        shell.add_menu([("Open diary", "diary", None, None, None)], slot="open")
+        shell.add_settings_page("Diary", self.page, after="Discord")
+        shell.on_refresh(self.check_popup)
+
+    def open(self):
+        try:
+            diary.open_diary(in_process=True)
+        except Exception as e:
+            print(f"open diary failed: {e}")
+
+    def page(self, win, frame):
+        from components.diary import diary_popup
+        return diary_popup.page(win, frame, self.popup)
+
+    def check_popup(self, snap):
+        if self.popup:
+            try:
+                self.popup.check()
+            except Exception as e:
+                print(f"diary pop-up check failed: {e}")
 
     def _shots(self, kind, when, delays=(0,)):
         """Ask the source for diary pictures; paths relative to the data folder."""

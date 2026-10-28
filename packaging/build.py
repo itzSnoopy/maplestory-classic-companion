@@ -46,7 +46,9 @@ HIDDEN = ["launcher.setup_ui", "hub.settings_ui", "engine.calibrate", "component
           "components.diary.diary_server",
           "launcher.compose", "hub.bus", "base.contract", "components",       # composition: the registry loads components by name
           "components.killers.component", "components.diary.component", "components.skillbar.component",
-          "components.album.component", "components.party.component",
+          "components.album.component", "components.party.component", "components.training.component",
+          "components.discord.component", "components.discord.settings_page", "components.discord.text",
+          "hub.pages", "hub.ui.shell", "hub.ui.overlay", "hub.ui.theme",
           "engine.hudtext", "engine.levelup_shot", "gamedata.translate", "gamedata.parse", "gamedata.maplist",
           "engine.sources.wgc", "engine.sources.screen", "engine.sources.csv_replay", "windows_capture",
           "win32gui", "pystray._win32"]

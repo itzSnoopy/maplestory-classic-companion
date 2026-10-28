@@ -27,31 +27,15 @@ import time
 import tkinter as tk
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont, ImageTk
+from PIL import Image, ImageDraw, ImageTk
 
 from base.paths import DATA
+from hub.ui.overlay import KEY, font as _font, text as _text      # what the overlay windows share
 
 LIVE = DATA / "live.json"
-KEY = "#010203"                 # transparent colour of the window
 SLOT, GAP, PAD = 44, 4, 4       # px at 96 dpi
 STALE_S = 6.0
 FPS = 10
-
-
-def _font(size, bold=True):
-    for name in (("segoeuib.ttf" if bold else "segoeui.ttf"), "arialbd.ttf", "arial.ttf"):
-        try:
-            return ImageFont.truetype(name, size)
-        except OSError:
-            continue
-    return ImageFont.load_default()
-
-
-def _text(d, xy, s, font, fill=(255, 255, 255, 255), anchor="mm"):
-    x, y = xy
-    for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, 1), (-1, 1), (1, -1)):
-        d.text((x + dx, y + dy), s, font=font, fill=(0, 0, 0, 255), anchor=anchor)
-    d.text((x, y), s, font=font, fill=fill, anchor=anchor)
 
 
 class SkillBar:

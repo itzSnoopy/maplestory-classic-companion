@@ -5,7 +5,8 @@ can save. A page opened straight from disk (diary.html) can't write files; this 
 
 Listens on 127.0.0.1 only. Requests must carry the right Host and an X-Diary header, which a
 web page on another site can't send without a CORS preflight this server never answers.
-Serves the page, screenshots/diary/ and game_icons/ only. Screenshots are Nexon imagery: never expose this
+Also serves the pages other components register (hub/pages.py: the monster album at /album.html), without
+knowing them. Serves the pages, screenshots/diary/ and game_icons/ only. Screenshots are Nexon imagery: never expose this
 server beyond localhost.
 """
 import json
@@ -18,6 +19,7 @@ from pathlib import Path
 
 from components.diary import diary
 from components.diary import diary_html
+from hub import pages
 
 PORT = 8737
 
@@ -49,9 +51,9 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if path in ("/", "/diary.html"):
             return self._send(200, diary_html.page(diary.ROOT, live=True), "text/html; charset=utf-8")
-        if path == "/album.html":                      # the monster album (album.py)
-            from components.album import album_html
-            return self._send(200, album_html.page(diary.ROOT, live=True), "text/html; charset=utf-8")
+        render = pages.page(path)                      # a component's page (the monster album ...)
+        if render is not None:
+            return self._send(200, render(diary.ROOT, True), "text/html; charset=utf-8")
         from urllib.parse import unquote
         rel = unquote(path.lstrip("/"))
         allowed = {(diary.ROOT / "screenshots" / "diary").resolve(), (diary.ROOT / "game_icons").resolve(),
@@ -136,7 +138,39 @@ def running(port=PORT):
         return False
 
 
-def serve(port=PORT, open_browser=True, idle_exit_s=None):
+def open_page(path="/", in_process=False):
+    """Open a page of this server in the browser (path: "/" the diary, or a registered page). Reuses a
+    running server, else serves from this process (in_process / the packaged build) or starts a
+    background one (from source). Returns what was opened, or None when the player chose files
+    (Settings > Diary > As a file) or no server could start: the caller falls back to a file."""
+    import os
+    import subprocess
+    import sys
+    from base import paths
+    if diary.open_via() != "localhost":
+        return None
+    try:
+        if running():
+            webbrowser.open(url() + path.lstrip("/"))
+            return url() + path.lstrip("/")
+        if in_process or paths.FROZEN:
+            u = start_thread() + path.lstrip("/")
+            webbrowser.open(u)
+            return u
+        exe = Path(sys.executable)
+        exe = exe.with_name("pythonw.exe") if exe.with_name("pythonw.exe").exists() else exe
+        env = {**os.environ, "PYTHONPATH": os.pathsep.join(
+            [str(paths.APP)] + ([os.environ["PYTHONPATH"]] if os.environ.get("PYTHONPATH") else []))}
+        subprocess.Popen([str(exe), "-m", "components.diary.diary", "serve", "--idle-exit=30",
+                          f"--open-path={path}"],
+                         cwd=str(diary.ROOT), env=env, creationflags=0x00000008 | 0x00000200, close_fds=True)
+        return url() + path.lstrip("/") + " (starting; it opens the browser itself)"
+    except Exception as ex:
+        print(f"diary server not started, opening the file: {ex}", file=sys.stderr)
+        return None
+
+
+def serve(port=PORT, open_browser=True, idle_exit_s=None, open_path="/"):
     """idle_exit_s: stop after this many seconds without a request (background starts)."""
     try:
         httpd = ThreadingHTTPServer(("127.0.0.1", port), Handler)
@@ -146,7 +180,7 @@ def serve(port=PORT, open_browser=True, idle_exit_s=None):
     url = f"http://127.0.0.1:{httpd.server_port}/"
     print(f"Diary at {url}  (this PC only; Ctrl+C or close this window to stop)")
     if open_browser:
-        threading.Timer(0.5, webbrowser.open, (url,)).start()
+        threading.Timer(0.5, webbrowser.open, (url + open_path.lstrip("/"),)).start()
     if idle_exit_s:
         def watch():
             while time.time() - httpd.last_hit < idle_exit_s:
@@ -163,4 +197,4 @@ def serve(port=PORT, open_browser=True, idle_exit_s=None):
 
 if __name__ == "__main__":
     import sys
-    serve(open_browser="--no-open" not in sys.argv)
+    pages.serve(open_browser="--no-open" not in sys.argv)

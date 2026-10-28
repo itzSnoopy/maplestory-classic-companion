@@ -320,8 +320,15 @@ def render(album=None):
         pass
 
 
+def seen_places():
+    """Maps the diary has marked as visited (history/places.json: a data file, written by the diary)."""
+    try:
+        return set(json.loads((ROOT / "history" / "places.json").read_text(encoding="utf-8")))
+    except (OSError, ValueError):
+        return set()
+
+
 def _cli(argv):
-    from components.diary import diary
     a = Album()
     cmd = argv[0] if argv else "open"
     if cmd == "status":
@@ -352,50 +359,30 @@ def _cli(argv):
         render(a)
     elif cmd == "html":
         import webbrowser
-        a.seed(diary.seen_places())
+        a.seed(seen_places())
         render(a)
         webbrowser.open(PAGE.resolve().as_uri())
     elif cmd == "serve":                  # background server started by open_album()
-        import threading
-        import webbrowser
-        from components.diary import diary_server
-        threading.Timer(0.8, webbrowser.open, (diary_server.url() + "album.html",)).start()
-        diary_server.serve(open_browser=False, idle_exit_s=30 if "--idle-exit" in argv else None)
+        from hub import pages      # the page server, with the album registered
+        pages.serve(open_browser=True, open_path="/album.html",
+                    idle_exit_s=30 if "--idle-exit" in argv else None)
     else:
-        a.seed(diary.seen_places())
+        a.seed(seen_places())
         render(a)
         print(open_album())
     return 0
 
 
 def open_album(in_process=False):
-    """Open the album in the browser, through the diary's local server like the diary itself
-    (diary.open_diary): reuse a running one, else serve from this process (in_process / packaged)
-    or start a background one. Falls back to album.html from disk."""
+    """Open the album in the browser, through the diary's local server like the diary itself (the
+    server hosts the page this component registered: hub/pages.py): reuse a running one, else serve
+    from this process (in_process / packaged) or start a background one. Falls back to album.html
+    from disk."""
     import os
-    import subprocess
-    import webbrowser
-    from base import paths
-    from components.diary import diary
-    if diary.open_via() == "localhost":
-        try:
-            from components.diary import diary_server
-            if diary_server.running():
-                webbrowser.open(diary_server.url() + "album.html")
-                return diary_server.url() + "album.html"
-            if in_process or paths.FROZEN:
-                url = diary_server.start_thread() + "album.html"
-                webbrowser.open(url)
-                return url
-            exe = Path(sys.executable)
-            exe = exe.with_name("pythonw.exe") if exe.with_name("pythonw.exe").exists() else exe
-            env = {**os.environ, "PYTHONPATH": os.pathsep.join(
-                [str(paths.APP)] + ([os.environ["PYTHONPATH"]] if os.environ.get("PYTHONPATH") else []))}
-            subprocess.Popen([str(exe), "-m", "components.album.album", "serve", "--idle-exit"],
-                             cwd=str(ROOT), env=env, creationflags=0x00000008 | 0x00000200, close_fds=True)
-            return diary_server.url() + "album.html (starting; it opens the browser itself)"
-        except Exception as ex:
-            print(f"album server not started, opening the file: {ex}", file=sys.stderr)
+    from hub import pages
+    url = pages.open_page("/album.html", in_process=in_process)
+    if url:
+        return url
     render()
     os.startfile(str(PAGE))
     return str(PAGE)

@@ -23,6 +23,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from base.paths import APP, DATA as ROOT, self_command
+from hub.ui.shell import Shell
 STATUS = ROOT / "status.json"
 DIGEST = ROOT / "digest.json"
 JOURNAL = ROOT / "journal.md"
@@ -35,16 +36,8 @@ STOP_FILE = ROOT / "stop"
 QUIET_RESTART_S = 60         # an update installs after this long without play
 STALE_AFTER_S = 120          # "playing" but no update for this long = tracker stuck or gone
 
-# colors
-BG = "#16181d"
-LINE = "#2a2e36"
-TEXT = "#e8e6e3"
-MUTED = "#8a8f98"
-GOLD = "#f2b632"
-GREEN = "#4cc38a"
-AMBER = "#e0a43a"
-RED = "#e5534b"
-GREY = "#6b7079"
+# colors (hub/ui/theme.py; re-exported here for the settings window)
+from hub.ui.theme import BG, LINE, TEXT, MUTED, GOLD, GREEN, AMBER, RED, GREY  # noqa: E402
 STATE_COLOR = {"playing": GREEN, "idle": AMBER, "waiting_for_source": AMBER,
                "stale": RED, "stopped": GREY}
 STATE_LABEL = {"playing": "Playing", "idle": "Idle",
@@ -231,6 +224,13 @@ def demo_data():
     return status, digest
 
 
+def default_services():
+    """The launcher's helper services for runs that didn't get any (`python -m hub.helper_ui`, tests).
+    Loaded by name so the hub layer doesn't import upward; the launcher passes its own otherwise."""
+    import importlib
+    return importlib.import_module("launcher.compose").HelperServices()
+
+
 # ------------------------------------------------------------------ tray icon
 # custom artwork (from the user's artist friend): the player's own copy wins over the shipped one
 ART_ICON = next((p for p in (ROOT / "art" / "icon.png", APP / "art" / "icon.png") if p.exists()),
@@ -265,7 +265,9 @@ def make_icon_image(color, s=64):
 def menu_items(app):
     """The helper's menu, shared by the tray icon and right-clicking the helper window:
     [(label or fn() -> label, command, checked fn | None, enabled fn | None, visible fn | None)],
-    None = separator. Commands go through app.post (both menus act the same way)."""
+    None = separator. Commands go through app.post (both menus act the same way). The components'
+    entries come in at two slots (shell.add_menu): the panel toggles and the "Open ..." entries."""
+    sh = app.shell
     return [
         ("Show / hide window", "toggle", None, None, None),
         ("Details", "details", lambda: app.details, None, None),
@@ -273,23 +275,14 @@ def menu_items(app):
         ("Settings…", "settings", None, None, None),
         ("Run setup…", "setup", None, None, None),
         None,
-        ("Skill bar", "skillbar", lambda: app.bar_setting("enabled"), None, None),
-        ("Lock skill bar (click-through)", "skillbar_lock", lambda: app.bar_setting("locked"),
-         lambda: app.bar_setting("enabled"), None),
-        ("Party panel", "partypanel", lambda: app.panel_setting("enabled"), None, None),
-        ("Lock party panel (click-through)", "partypanel_lock",
-         lambda: app.panel_setting("locked"), lambda: app.panel_setting("enabled"), None),
-        ("Training cost panel", "trainingpanel", lambda: app.train_setting("enabled"), None, None),
-        ("Lock training panel (click-through)", "trainingpanel_lock",
-         lambda: app.train_setting("locked"), lambda: app.train_setting("enabled"), None),
+        *sh.menus["panels"],
         (lambda: f"Restart to update to {app.update_label()}", "update", None, None,
          lambda: app.update_ready is not None),
         None,
         ("Start tracker", "start", None, lambda: not app.running, None),
         ("Stop tracker", "stop", None, lambda: app.running, None),
         None,
-        ("Open diary", "diary", None, None, None),
-        ("Open monster album", "album", None, None, None),
+        *sh.menus["open"],
         ("Open journal", "journal", None, None, None),
         ("Open folder", "folder", None, None, None),
         None,
@@ -361,8 +354,9 @@ class Tray:
 class App:
     W = 290
 
-    def __init__(self, demo=False, details=None, at=None, after_update=False):
+    def __init__(self, demo=False, details=None, at=None, after_update=False, services=None):
         self.demo = demo
+        self.services = services or default_services()      # updater, setup, what's new ... (launcher)
         self.dev_at = at              # (x, y) for dev/test runs: place windows there, don't save
         self.q = queue.Queue()
         ui = read_json(UI_STATE, {}) or {}
@@ -378,7 +372,6 @@ class App:
         self.HS = helper_settings
         self.settings = helper_settings.load()
         self.settings_win = None
-        self.presence = None          # discord_rpc.Presence, created only when Discord is on
         self.last_snap = None
         self.flash_until = 0.0         # camera-button message shown until then
 
@@ -401,6 +394,15 @@ class App:
         if not self.visible:
             r.withdraw()
 
+        # the components join the helper (Component.ui): menu entries, settings pages, panels.
+        # One that fails is skipped; the helper still runs.
+        self.shell = Shell(self)
+        for cls in self.services.components():
+            try:
+                cls().ui(self.shell)
+            except Exception:
+                self.log_error(f"component {getattr(cls, 'name', cls)} ui()")
+
         self.tray = None
         try:
             self.tray = Tray(self)
@@ -412,29 +414,16 @@ class App:
         if not demo and (not at or os.environ.get("MAPLE_COMPANION_UPDATE_BASE")):
             self.start_updater()
 
-        self.diary_popup = None       # diary pop-ups on new entries (diary_popup.py)
-        if not demo:
-            try:
-                from components.diary.diary_popup import DiaryPopup
-                self.diary_popup = DiaryPopup(self)
-            except Exception as e:
-                print(f"diary pop-up unavailable: {e}")
-
-        self.skillbar = None          # skillbar_ui.SkillBar over the game (Settings > General)
-        self.partypanel = None        # party_ui.PartyPanel over the game (Settings > General)
-        self.trainingpanel = None     # training_ui.TrainingPanel over the game (Settings > General)
         if not demo and not at:       # "Updated to x.y.z" card after an update (whats_new.py)
             def _whats_new():
                 try:
-                    from launcher import whats_new
-                    self.whats_new = whats_new.check(self, after_update)
+                    self.whats_new = self.services.whats_new(self, after_update)
                 except Exception as e:
                     print(f"what's new card failed: {e}")
             r.after(1500, _whats_new)
             if after_update:              # the other half of "Updating to x.y.z" (tray users)
                 from base.version import VERSION
                 r.after(3000, lambda: self.notify(f"Updated to {VERSION}."))
-        self.at_bar = (at[0], at[1] + 400) if at else None
         r.after(50, self.pump)
         r.after(100, self.refresh)
 
@@ -643,8 +632,9 @@ class App:
             return
         if not self.demo:
             try:
-                from components.diary import diary
-                diary.request_moment()
+                if self.shell.camera is None:
+                    raise RuntimeError("the diary isn't loaded")
+                self.shell.camera()
             except Exception as ex:
                 self.flash_note(f"Snapshot failed: {ex}")
                 return
@@ -697,8 +687,7 @@ class App:
                 return
             except tk.TclError:
                 pass
-        from launcher.setup_ui import SetupWindow
-        self.setup_win = SetupWindow(self, on_done=self.restart_tracker)
+        self.setup_win = self.services.setup_window(self, on_done=self.restart_tracker)
 
     def restart_tracker(self):
         if not tracker_running():
@@ -723,17 +712,6 @@ class App:
         from hub.settings_ui import SettingsWindow
         self.settings_win = SettingsWindow(self, page)
 
-    def update_discord(self, snap):
-        d = self.settings.get("discord", {})
-        cid = str(d.get("client_id") or "").strip()
-        if d.get("enabled") and cid.isdigit() and not self.demo:
-            if self.presence is None:
-                from components.discord.discord_rpc import Presence
-                self.presence = Presence()
-            self.presence.update(cid, self.HS.build_activity(snap, self.settings))
-        elif self.presence is not None:
-            self.presence.disable()
-
     keep_tracker = False            # packaged app: restart the tracker whenever it isn't running
 
     def start_tracker(self):
@@ -756,21 +734,6 @@ class App:
         if tracker_running():
             STOP_FILE.touch()
 
-    def open_diary(self):
-        try:
-            from components.diary import diary
-            diary.open_diary(in_process=True)
-        except Exception as e:
-            print(f"open diary failed: {e}")
-
-    def open_album(self):
-        try:
-            from components.album import album
-            album.render()
-            album.open_album(in_process=True)
-        except Exception as e:
-            print(f"open album failed: {e}")
-
     def open(self, path):
         try:
             os.startfile(str(path))
@@ -781,10 +744,11 @@ class App:
         if stop:
             self.stop_tracker()
         self.save_ui()
-        if self.presence:
-            self.presence.disable()
-            time.sleep(1.5)           # let the worker clear the status before we go
-            self.presence.stop()
+        for fn in self.shell.exit_hooks:
+            try:
+                fn()
+            except Exception:
+                self.log_error("component exit hook")
         if self.tray:
             self.tray.stop()
         self.root.destroy()
@@ -813,28 +777,6 @@ class App:
                     self.open_settings()
                 elif cmd == "setup":
                     self.open_setup()
-                elif cmd == "skillbar":
-                    self.put_bar(enabled=not self.bar_setting("enabled"))
-                elif cmd == "skillbar_lock":
-                    self.put_bar(locked=not self.bar_setting("locked"))
-                    if self.skillbar:
-                        self.skillbar.set_locked(self.bar_setting("locked"))
-                elif cmd == "partypanel":
-                    self.put_panel(enabled=not self.panel_setting("enabled"))
-                elif cmd == "trainingpanel":
-                    self.put_train(enabled=not self.train_setting("enabled"))
-                elif cmd == "trainingpanel_lock":
-                    self.put_train(locked=not self.train_setting("locked"))
-                    if self.trainingpanel:
-                        self.trainingpanel.set_locked(self.train_setting("locked"))
-                elif cmd == "partypanel_lock":
-                    self.put_panel(locked=not self.panel_setting("locked"))
-                    if self.partypanel:
-                        self.partypanel.set_locked(self.panel_setting("locked"))
-                elif cmd == "diary":
-                    self.open_diary()
-                elif cmd == "album":
-                    self.open_album()
                 elif cmd == "journal":
                     self.open(JOURNAL)
                 elif cmd == "folder":
@@ -848,6 +790,8 @@ class App:
                 elif cmd in ("exit", "exit_all"):
                     self.exit(stop=cmd == "exit_all")
                     return
+                elif cmd in self.shell.commands:      # a component's menu entry
+                    self.shell.commands[cmd]()
         except queue.Empty:
             pass
         except Exception:                 # one bad command must not stop the tray / buttons
@@ -884,19 +828,12 @@ class App:
             self.start_tracker()
         snap = Snapshot(status, digest, self.running)
         self.last_snap = snap
-        self.sync_skillbar()
-        self.sync_partypanel()
-        self.sync_trainingpanel()
+        self.run_hooks(self.shell.early_hooks, snap)        # panels over the game
         self.sync_update_lbl()
         self.render(snap)
-        self.update_discord(snap)
+        self.run_hooks(self.shell.refresh_hooks, snap)      # Discord, diary pop-ups
         if self.tray:
             self.tray.update(snap)
-        if self.diary_popup:
-            try:
-                self.diary_popup.check()
-            except Exception as e:
-                print(f"diary pop-up check failed: {e}")
         # quiet moment: a whole minute of status files that say "not playing" (a failed read of
         # status.json or a loading screen isn't one: 2026-10-24 an update restarted mid-play)
         quiet = bool(status) and snap.state in ("idle", "stopped", "waiting_for_source")
@@ -906,95 +843,12 @@ class App:
             return self.restart_into_update(f"not playing for {QUIET_RESTART_S} s")
         self.root.after(1000, self.refresh)
 
-    # ---------------------------------------------------------------- skill bar
-    def bar_setting(self, key):
-        return (self.settings.get("skillbar") or {}).get(key)
-
-    def put_bar(self, **kw):
-        """Change the skill bar's settings (from the bar itself or the tray) and save them."""
-        self.settings.setdefault("skillbar", {}).update(kw)
-        if not self.dev_at:
+    def run_hooks(self, hooks, snap):
+        for fn in hooks:
             try:
-                self.HS.save(self.settings)
-            except Exception as e:
-                print(f"skill bar settings save failed: {e}")
-        self.sync_skillbar()
-
-    def sync_skillbar(self):
-        """Create / remove the bar to match the setting."""
-        on = bool(self.bar_setting("enabled"))
-        if on and self.skillbar is None:
-            try:
-                from components.skillbar.skillbar_ui import SkillBar
-                self.skillbar = SkillBar(self.root, lambda: self.settings.get("skillbar") or {},
-                                         self.put_bar, k=self.k, demo=self.demo, at=self.at_bar)
-            except Exception as e:
-                print(f"skill bar unavailable: {e}")
-                self.settings.setdefault("skillbar", {})["enabled"] = False
-        elif not on and self.skillbar is not None:
-            self.skillbar.destroy()
-            self.skillbar = None
-
-    # ---------------------------------------------------------------- party panel
-    def panel_setting(self, key):
-        return (self.settings.get("partypanel") or {}).get(key)
-
-    def put_panel(self, **kw):
-        """Change the party panel's settings (from the panel itself or the tray) and save them."""
-        self.settings.setdefault("partypanel", {}).update(kw)
-        if not self.dev_at:
-            try:
-                self.HS.save(self.settings)
-            except Exception as e:
-                print(f"party panel settings save failed: {e}")
-        self.sync_partypanel()
-
-    def sync_partypanel(self):
-        """Create / remove the panel to match the setting (it hides itself with no party)."""
-        on = bool(self.panel_setting("enabled"))
-        if on and self.partypanel is None:
-            try:
-                from components.party.party_ui import PartyPanel
-                at = (self.at_bar[0], self.at_bar[1] + 120) if self.at_bar else None
-                self.partypanel = PartyPanel(self.root,
-                                             lambda: self.settings.get("partypanel") or {},
-                                             self.put_panel, k=self.k, demo=self.demo, at=at)
-            except Exception as e:
-                print(f"party panel unavailable: {e}")
-                self.settings.setdefault("partypanel", {})["enabled"] = False
-        elif not on and self.partypanel is not None:
-            self.partypanel.destroy()
-            self.partypanel = None
-
-    def train_setting(self, key):
-        return (self.settings.get("trainingpanel") or {}).get(key)
-
-    def put_train(self, **kw):
-        """Change the training panel's settings (from the panel or the tray) and save them."""
-        self.settings.setdefault("trainingpanel", {}).update(kw)
-        if not self.dev_at:
-            try:
-                self.HS.save(self.settings)
-            except Exception as e:
-                print(f"training panel settings save failed: {e}")
-        self.sync_trainingpanel()
-
-    def sync_trainingpanel(self):
-        """Create / remove the training cost panel to match the setting (hidden while not playing)."""
-        on = bool(self.train_setting("enabled"))
-        if on and self.trainingpanel is None:
-            try:
-                from components.training.training_ui import TrainingPanel
-                at = (self.at_bar[0], self.at_bar[1] + 360) if self.at_bar else None
-                self.trainingpanel = TrainingPanel(self.root,
-                                                   lambda: self.settings.get("trainingpanel") or {},
-                                                   self.put_train, k=self.k, demo=self.demo, at=at)
-            except Exception as e:
-                print(f"training panel unavailable: {e}")
-                self.settings.setdefault("trainingpanel", {})["enabled"] = False
-        elif not on and self.trainingpanel is not None:
-            self.trainingpanel.destroy()
-            self.trainingpanel = None
+                fn(snap)
+            except Exception:
+                self.log_error("component refresh hook")
 
     # ---------------------------------------------------------------- updates (updater.py)
     restarting = False
@@ -1005,7 +859,7 @@ class App:
         if not (paths.FROZEN or os.environ.get("MAPLE_COMPANION_UPDATE_BASE")):
             return                    # running from source: git is the update path
         try:
-            from launcher import updater
+            updater = self.services.updater
             lv, cur = updater.latest_version(), updater.current()
             exe, latest = os.path.realpath(sys.executable), os.path.realpath(updater.latest_exe())
             if lv and cur and updater.rank(lv) > updater.rank(cur, me=True) \
@@ -1076,7 +930,7 @@ class App:
             time.sleep(5)
             if self.restarting:
                 return                               # the window loop has it
-            from launcher import updater
+            updater = self.services.updater
             updater.log(f"window loop didn't answer the update click within 5 s "
                         f"(last tick {time.time() - self.pump_tick:.0f} s ago); updating from the tray")
             self.dump_threads("update click not answered by the window loop")
@@ -1139,7 +993,7 @@ class App:
 
     def restart_into_update(self, why="from the tray"):
         """Stop the tracker, start the new version (latest), and close this one."""
-        from launcher import updater
+        updater = self.services.updater
         if self.restarting:                          # second click while it's already going
             return
         updater.log(f"update to {self.update_label()} requested ({why})")
@@ -1273,7 +1127,10 @@ class App:
         self.root.mainloop()
 
 
-def main():
+def main(argv=None, services=None):
+    """argv: command-line arguments (default sys.argv). services: launcher/compose.py:HelperServices,
+    which launcher/compose.py:helper_main passes; `python -m hub.helper_ui` gets default_services()."""
+    services = services or default_services()
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--demo", action="store_true", help="show fake data (layout test)")
     ap.add_argument("--details", action="store_true", help="start with details open")
@@ -1282,7 +1139,7 @@ def main():
     ap.add_argument("--at", help="dev: place the windows at X,Y (use --at=-2400,40 for the second monitor)")
     ap.add_argument("--after-update", action="store_true", help=argparse.SUPPRESS)
     ap.add_argument("--no-handoff", action="store_true", help=argparse.SUPPRESS)
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
     lock = None
     at = tuple(int(v) for v in args.at.split(",")) if args.at else None
     if not args.demo and not at:
@@ -1296,16 +1153,15 @@ def main():
             return            # already running
     try:
         app = App(demo=args.demo, details=True if args.details else None, at=at,
-                  after_update=args.after_update)
+                  after_update=args.after_update, services=services)
         if args.settings:
             app.root.after(300, lambda: app.open_settings(args.settings))
         if not args.demo:
-            from engine import calibrate
             from base import paths
             # packaged app: the tracker comes with the helper and is kept running (refresh);
             # after a first-run setup it starts when setup finishes
             app.watch_tracker = paths.FROZEN
-            if args.setup or calibrate.needs_setup():
+            if args.setup or services.needs_setup():
                 app.root.after(300, app.open_setup)
             elif paths.FROZEN:
                 app.root.after(500, app.start_tracker)
@@ -1316,4 +1172,5 @@ def main():
 
 
 if __name__ == "__main__":
+    # dev entry (python -m hub.helper_ui): launcher/companion.py is the real one (compose.helper_main)
     main()

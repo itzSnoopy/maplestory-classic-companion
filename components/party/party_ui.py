@@ -24,7 +24,7 @@ import tkinter as tk
 from PIL import Image, ImageDraw
 
 from base.paths import DATA
-from components.skillbar.skillbar_ui import KEY, _font, _text
+from hub.ui.overlay import KEY, font as _font, text as _text
 
 LIVE, STATUS, PARTY = DATA / "live.json", DATA / "status.json", DATA / "party.json"
 W_CARD = 236

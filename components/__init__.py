@@ -4,7 +4,10 @@ COMPONENTS is the registry, like engine/sources/__init__.py is for sources: "mod
 component that runs in the tracker process. They are loaded by name (load_all) so importing
 `components.diary.diary` in the helper doesn't pull in every feature. Order matters: handlers run in
 this order, so a component that fills a payload (killers) or whose services others ask (skillbar's
-live feed) comes before the ones that read it.
+live feed) comes before the ones that read it. The helper process calls ui(shell) on each in this
+order too: it sets the order of the menu entries (skill bar, party, training; diary, album) and of
+same-slot Settings pieces; a Settings page names the page it follows (Discord after Character, Diary
+after Discord).
 """
 import importlib
 
@@ -14,6 +17,8 @@ COMPONENTS = [
     "components.skillbar.component:SkillbarComponent",   # live.json feed: HP/MP, regen, training costs
     "components.album.component:AlbumComponent",         # monster album (after the live feed's exp_rise)
     "components.party.component:PartyComponent",         # party link thread
+    "components.training.component:TrainingComponent",  # training cost panel (helper only)
+    "components.discord.component:DiscordComponent",    # Discord Rich Presence (helper only)
 ]
 
 

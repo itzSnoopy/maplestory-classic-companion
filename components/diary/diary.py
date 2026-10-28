@@ -691,10 +691,11 @@ if __name__ == "__main__":
         set_nickname(" ".join(sys.argv[2:]).strip())
         print(f"Captions now call you {nickname()}.")
     elif cmd == "serve":
-        from components.diary import diary_server
+        from hub import pages        # the server with every component's pages (the album) registered
         idle = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--idle-exit=")), None)
-        diary_server.serve(open_browser="--no-open" not in sys.argv,
-                           idle_exit_s=float(idle) * 60 if idle else None)
+        path = next((a.split("=", 1)[1] for a in sys.argv if a.startswith("--open-path=")), "/")
+        pages.serve(open_browser="--no-open" not in sys.argv,
+                    idle_exit_s=float(idle) * 60 if idle else None, open_path=path)
     elif cmd == "open":
         print(open_diary(via="file" if "--file" in sys.argv else None))
     elif cmd == "killed-by" and len(sys.argv) > 2:
