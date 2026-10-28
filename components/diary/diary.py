@@ -620,14 +620,17 @@ def annotate_last_death(killed_by):
     return None
 
 
-def backfill():
-    """Diary entries for level-ups recorded before the diary existed."""
+def backfill(portrait=None):
+    """Diary entries for level-ups recorded before the diary existed. portrait(frame) -> the
+    character close-up (a PIL image) or None; default: the screen engine's (hub/tools.py)."""
     import csv
     from PIL import Image
-    from engine.portrait import NameTag
+    if portrait is None:
+        from hub import tools
+        portrait = tools.portrait_maker()
     have = {(e["kind"], e.get("level")) for e in entries()}
     rows = list(csv.DictReader(open(ROOT / "history" / "levels.csv", encoding="utf-8")))
-    tag, n = NameTag(), 0
+    n = 0
     for r in rows:
         lv = int(r["level_reached"])
         if ("levelup", lv) in have:
@@ -641,7 +644,7 @@ def backfill():
             stem = f"{when:%Y-%m-%d_%H%M%S}_levelup"
             frame.save(SHOTS / f"{stem}.jpg", quality=88)
             shots.append(f"screenshots/diary/{stem}.jpg")
-            p = tag.portrait(frame)
+            p = portrait(frame)
             if p:
                 p.save(SHOTS / f"{stem}_char.png")
                 shots.insert(0, f"screenshots/diary/{stem}_char.png")

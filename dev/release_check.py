@@ -1,6 +1,6 @@
 """Release checks: everything that must pass before a build is published.
 
-    python dev/release_check.py            code checks (compile, data files, privacy, simulations)
+    python dev/release_check.py            code checks (compile, layers, data files, privacy, simulations)
     python dev/release_check.py --build    code checks, then build, audit the zip, smoke-test the exe
 
 Never touches the real history/, journal.md, sessions/ or %LOCALAPPDATA%: simulations and the exe
@@ -18,6 +18,7 @@ import tempfile
 import time
 import zipfile
 from pathlib import Path
+os.environ.setdefault("MAPLE_COMPANION_OFFLINE", "1")   # simulations never go online (party relay, updates)
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -67,6 +68,14 @@ def check_compile():
         except py_compile.PyCompileError as e:
             bad.append(f"{p.relative_to(ROOT)}: {e.msg.strip().splitlines()[-1]}")
     check("all Python files compile", not bad, "; ".join(bad))
+
+
+def check_layers():
+    """The layer rules (dev/check_layers.py, plan 09): no import against them."""
+    r = run([sys.executable, str(ROOT / "dev" / "check_layers.py"), "--strict"], timeout=120)
+    lines = [ln for ln in r.stdout.splitlines() if ln.strip().startswith(("TOTAL", "hub.", "components.", "engine.", "gamedata.", "base.", "launcher."))
+             or "->" in ln]
+    check("import layers hold (check_layers --strict)", r.returncode == 0, "; ".join(x.strip() for x in lines[:4]))
 
 
 def check_data_files():
@@ -303,6 +312,7 @@ def check_exe():
 def main():
     TMP.mkdir(parents=True, exist_ok=True)
     check_compile()
+    check_layers()
     check_data_files()
     check_privacy()
     if ensure_fixture():

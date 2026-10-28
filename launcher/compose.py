@@ -11,6 +11,7 @@ The one place that knows every layer. hub/tracker.py only sees a Hub and a Sourc
     service_main(argv)          argument parsing for `--service` and for `python -m hub.tracker`
     helper_main(argv)           what `companion.py` (no --service) runs: the helper window, handed the
                                 components, the updater, the setup window ... (HelperServices)
+    portrait_maker()            the character close-up finder for saved frames (diary backfill; hub/tools.py asks)
     page_host()                 the diary server with every component's pages registered, for a process
                                 that has no helper (hub/pages.py asks for it by name)
 """
@@ -47,6 +48,12 @@ def screen_source(cfg, frames):
     from engine.sources.screen import ScreenSource
     from gamedata import translate
     return ScreenSource(cfg, frames, translate)
+
+
+def portrait_maker():
+    """fn(frame) -> the character close-up of a saved full frame, or None (engine/portrait.py)."""
+    from engine.portrait import NameTag
+    return NameTag().portrait
 
 
 def run_service(cfg, args, source=None, sinks=None, hub=None):

@@ -1,15 +1,21 @@
-"""party component: the party link thread (partylink.py) shares your numbers with your party through
-the relay you host, and writes party.json. Opt-in (Settings > Internet > Party link).
+"""party component: the party box under the minimap (rows from the 'party' fact: HP %, on your map,
+leader, names) and the party link thread (partylink.py), which shares your numbers with your party
+through the relay you host and writes party.json. The link is opt-in (Settings > Internet > Party link).
 
-Subscribes: service_start (starts the thread), service_stop (stops it).
+Subscribes: service_start (starts the thread), service_stop (stops it), fact (party).
+Publishes: the party section of live.json ({t, rows [{name, me, on_map, hp, leader}]}; rows [] = no box).
+Offers: hub.ask("party_on_map") (another member is on your map, so EXP rises are shares).
+Names come from the source (hub.source.party_name / party_reset, an optional Source hook).
 Helper side (ui): the party panel over the game (party_ui.py), its menu toggles, its line in Settings >
 General and the server / code fields under Settings > Internet > Party link.
 """
 import copy
+import time
 
 from base.contract import Component
 from components.party import partylink
 from hub import helper_settings as HS
+from hub import history as H
 
 
 class PartyComponent(Component):
@@ -78,8 +84,12 @@ class PartyComponent(Component):
     def attach(self, hub):
         self.hub = hub
         self.link = None
+        self.box = {"t": None, "rows": []}      # the party box at the last look
         hub.on("service_start", self.on_start)
         hub.on("service_stop", self.on_stop)
+        hub.on("fact", self.on_fact)
+        hub.provide("party_on_map", self.party_on_map)
+        hub.publish("party", lambda now, prof: self.box)
 
     def on_start(self, **_):
         self.link = partylink.PartyLink(log=self.hub.log)    # party.json: partners' numbers (relay/, opt-in)
@@ -88,6 +98,40 @@ class PartyComponent(Component):
     def on_stop(self, **_):
         if self.link is not None:
             self.link.stop()
+
+    def on_fact(self, t, kind, value, prof=None, **_):
+        if kind == "party":
+            self._party(t, value, prof)
+
+    def party_on_map(self, now=None, max_age=10.0):
+        """Another party member is on your map right now (so your EXP rises are shares)."""
+        now = now or time.time()
+        p = self.box
+        if not p.get("t") or now - p["t"] > max_age:
+            return False
+        return sum(1 for r in p["rows"] if r.get("on_map")) > 1
+
+    def _party(self, t, rows, prof):
+        src = self.hub.source
+        name_of = getattr(src, "party_name", None)
+        c = (prof.char() if prof is not None else None) or {}
+        me = c.get("name") or c.get("name_guess")
+        mates = [m.get("name") for m in (H.read_json(H.ROOT / "party.json", {}).get("members")
+                                         or [])]
+        known = [n for n in [me] + mates if n]
+        if len(rows) != len(self.box["rows"]) and getattr(src, "party_reset", None):
+            src.party_reset()                    # row names no longer line up
+        out = []
+        for i, r in enumerate(rows):
+            name = name_of(i, r.get("mask"), known, t) if name_of else None
+            out.append({"name": name, "me": bool(me and name == me), "on_map": r["on_map"],
+                        "hp": r["hp"], "leader": r["leader"]})
+        # one unreadable row and one partner not matched to any row: that's them
+        missing = [n for n in mates if n and n not in {o["name"] for o in out}]
+        blank = [o for o in out if not o["name"] or o["name"] not in known]
+        if len(missing) == 1 and len(blank) == 1:
+            blank[0]["name"] = missing[0]
+        self.box = {"t": round(t, 2), "rows": out}
 
 
 def make_panel(root, get, put, **kw):

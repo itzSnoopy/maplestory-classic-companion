@@ -18,7 +18,8 @@ sys.path.insert(0, str(CODE))
 from base import lean  # noqa: F401,E402
 from engine import capture  # noqa: E402
 from hub import history as H  # noqa: E402
-from hub import live  # noqa: E402
+from components.skillbar import feed as skillbar_feed  # noqa: E402
+from components.skillbar import meter  # noqa: E402
 from engine import vitals  # noqa: E402
 from engine.sources.wgc import WgcFrames  # noqa: E402
 
@@ -28,8 +29,8 @@ def main():
     secs = float(sys.argv[2]) if len(sys.argv) > 2 else 120
     fps = float(sys.argv[3]) if len(sys.argv) > 3 else 2
     out.mkdir(parents=True, exist_ok=True)
-    H.ROOT = out                                # live.py writes history/usage under H.ROOT
-    feed = live.Live(path=out / "live.json")
+    H.ROOT = out                                # feed.py writes history/usage under H.ROOT
+    feed = skillbar_feed.Feed()
     for m in feed.meters.values():
         m.prior = 10.0
     levels = {"2000000": 5, "2000001": 1, "2001002": 1, "2001003": 9, "0001000": 3,
@@ -41,7 +42,7 @@ def main():
     rows, slow = [], []
     t0 = time.time()
     next_poll = t0
-    rs = vitals.regen_settings()
+    rs = meter.regen_settings()
 
     def look(kind):
         a = time.time()

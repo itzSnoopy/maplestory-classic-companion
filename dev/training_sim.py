@@ -6,17 +6,19 @@ mpuse.Usage + training.Training, as one visit to MAP, and print the training sum
 fps: looks per second to keep from the recording (the live tracker looks 1-2/s; bursts aside).
 need: EXP needed for the level (for the to-level numbers). Writes nothing.
 """
+import os
 import bisect
 import csv
 import json
 import sys
 from pathlib import Path
+os.environ.setdefault("MAPLE_COMPANION_OFFLINE", "1")   # simulations never go online (party relay, updates)
 
 CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
 from components.skillbar import mpuse  # noqa: E402
 from components.training import training  # noqa: E402
-from engine import vitals  # noqa: E402
+from components.skillbar import meter  # noqa: E402
 
 
 def main():
@@ -28,8 +30,8 @@ def main():
     levels = {k: int(v) for k, v in kv.items()}
     rows = list(csv.DictReader(open(path)))
     T = [float(r["t"]) for r in rows]
-    fixed = lambda: dict(vitals.REGEN_DEFAULTS)     # noqa: E731
-    meters = {k: vitals.Meter(prior=10.0, settings_fn=fixed) for k in ("hp", "mp")}
+    fixed = lambda: dict(meter.REGEN_DEFAULTS)     # noqa: E731
+    meters = {k: meter.Meter(prior=10.0, settings_fn=fixed) for k in ("hp", "mp")}
     u = mpuse.Usage(meters)
     u.set_context(levels=levels)
     tr = training.Training(u, path=Path("NUL"))
