@@ -1089,6 +1089,8 @@ def run(cfg, args, source=None, sinks=None):
             # once a second (it can be gone in a second or two if the player clicks Revive)
             end = t + sleep_for
             while (left := end - time.time()) > 0:
+                if STOP_FILE.exists():               # stop / update: don't wait up to 30 s for
+                    break                            # the next reading (handled at loop top)
                 if box_on and session and last_state == "playing":
                     now = time.time()
                     try:
@@ -1128,8 +1130,7 @@ def run(cfg, args, source=None, sinks=None):
                     burst_looks(next_poll)
                     time.sleep(max(0.0, next_poll - time.time()))
                 else:
-                    time.sleep(left)
-                    break
+                    time.sleep(min(left, 1.0))       # 1 s steps: the stop check above
     except KeyboardInterrupt:
         pass
     finally:

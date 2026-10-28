@@ -314,6 +314,8 @@ class Tray:
         pystray, out = self.pystray, []
 
         def act(c):                      # pystray checks the argument count: no extra defaults
+            if c == "update":            # answered here, in the tray's own thread (see tray_update)
+                return lambda: app.tray_update()
             return lambda: app.post(c)
 
         def test(f):
@@ -429,6 +431,9 @@ class App:
                 except Exception as e:
                     print(f"what's new card failed: {e}")
             r.after(1500, _whats_new)
+            if after_update:              # the other half of "Updating to x.y.z" (tray users)
+                from base.version import VERSION
+                r.after(3000, lambda: self.notify(f"Updated to {VERSION}."))
         self.at_bar = (at[0], at[1] + 400) if at else None
         r.after(50, self.pump)
         r.after(100, self.refresh)
@@ -518,9 +523,14 @@ class App:
         self.ver_lbl.place(relx=1.0, rely=1.0, x=-px(4), y=-px(2), anchor="se")
         # an update waiting: "Update to x.y.z" left of the version, click = switch now (even
         # while playing: the play session closes and a new one starts after the restart)
-        self.upd_lbl = tk.Label(outer, text="", font=(F, 7, "bold"), fg=GOLD, bg=BG, bd=0,
-                                padx=0, pady=0, cursor="hand2")
-        self.upd_lbl.bind("<Button-1>", lambda e: self.post("update_now"))
+        self.upd_font = (F, 7, "bold")
+        self.upd_lbl = tk.Label(outer, text="", font=self.upd_font, fg=GOLD, bg=BG, bd=0,
+                                padx=0, pady=0, cursor="hand2", anchor="e")
+        # while "Updating to…" runs it's plain text: no hand, no underline, clicks ignored
+        self.upd_lbl.bind("<Button-1>", lambda e: None if self.restarting else self.post("update_now"))
+        self.upd_lbl.bind("<Enter>", lambda e: None if self.restarting else
+                          self.upd_lbl.configure(font=(F, 7, "bold underline")))
+        self.upd_lbl.bind("<Leave>", lambda e: self.upd_lbl.configure(font=(F, 7, "bold")))
         self.upd_shown = False
         # camera, small in the bottom-left corner (same padding as the version): save this
         # moment to the diary (screenshot + close-up), via the tracker
@@ -534,7 +544,9 @@ class App:
         # menu
         # drag / click bindings on every widget
         def bind_all(w):
-            if w not in (close, self.more, self.cam):
+            # buttons keep their own click: <ButtonPress-1> here would replace their <Button-1>
+            # (the same event; the update label never worked before 2026-10-28)
+            if w not in (close, self.more, self.cam, self.upd_lbl):
                 w.bind("<ButtonPress-1>", self.drag_start)
                 w.bind("<B1-Motion>", self.drag_move)
                 w.bind("<ButtonRelease-1>", self.drag_end)
@@ -780,7 +792,10 @@ class App:
     def post(self, cmd):          # called from the tray thread
         self.q.put(cmd)
 
+    pump_tick = 0.0                  # when the window loop last ran pump() (tray fallback)
+
     def pump(self):
+        self.pump_tick = time.time()
         try:
             while True:
                 cmd = self.q.get_nowait()
@@ -826,18 +841,29 @@ class App:
                     self.open(ROOT)
                 elif cmd == "update_ready":
                     self.on_update_ready()
-                elif cmd == "update":
+                elif cmd == "update":          # keep pumping: a failed restart must stay usable
                     self.restart_into_update("from the tray")
-                    return
                 elif cmd == "update_now":
                     self.restart_into_update("from the helper's update button")
-                    return
                 elif cmd in ("exit", "exit_all"):
                     self.exit(stop=cmd == "exit_all")
                     return
         except queue.Empty:
             pass
+        except Exception:                 # one bad command must not stop the tray / buttons
+            self.log_error(f"command {cmd!r}")
         self.root.after(100, self.pump)
+
+    def log_error(self, where):
+        """An error inside the helper: traceback to crash.log (the packaged app has no console)."""
+        import traceback
+        try:
+            from base.paths import DATA
+            with open(DATA / "crash.log", "a", encoding="utf-8") as f:
+                f.write(f"\n=== {datetime.now():%Y-%m-%d %H:%M:%S}  helper: {where}\n")
+                f.write(traceback.format_exc())
+        except Exception:
+            pass
 
     # ---------------------------------------------------------------- refresh
     def refresh(self):
@@ -997,20 +1023,107 @@ class App:
     def update_label(self):
         return ".".join(map(str, self.update_ready)) if self.update_ready else ""
 
+    upd_msg = None                    # (text, colour) while updating / after a failure
+    upd_w = 0                         # the update label's width in pixels (grows during an update)
+
+    def update_msg(self, text=None, color=GOLD, clear_after=None):
+        """Progress or failure text in place of "Update to x.y.z" (None = back to normal)."""
+        self.upd_msg = (text, color) if text else None
+        self.sync_update_lbl()
+        try:
+            self.root.update_idletasks()
+        except Exception:
+            pass
+        if clear_after:
+            self.root.after(int(clear_after * 1000),
+                            lambda: self.upd_msg == (text, color) and self.update_msg(None))
+
     def sync_update_lbl(self):
-        """Show / hide the "Update to x.y.z" button next to the version."""
-        want = self.update_ready is not None and not self.restarting
+        """Show / hide the "Update to x.y.z" button next to the version (or the update's progress)."""
+        want = self.upd_msg is not None or (self.update_ready is not None and not self.restarting)
+        self.upd_lbl.configure(cursor="arrow" if self.restarting else "hand2")
+        if self.restarting:
+            self.upd_lbl.configure(font=self.upd_font)
+        if self.upd_msg:
+            self.upd_lbl.configure(text=f"{self.upd_msg[0]} ·", fg=self.upd_msg[1])
+        elif want:
+            self.upd_lbl.configure(text=f"Update to {self.update_label()} ·", fg=GOLD)
         if want:
-            self.upd_lbl.configure(text=f"Update to {self.update_label()} ·")
-        if want != self.upd_shown:
-            if want:
-                self.root.update_idletasks()
-                w = self.ver_lbl.winfo_reqwidth()
-                self.upd_lbl.place(relx=1.0, rely=1.0, x=-self.px(4) - w - self.px(4),
-                                   y=-self.px(2), anchor="se")
-            else:
-                self.upd_lbl.place_forget()
-            self.upd_shown = want
+            # never shrink while an update runs: a shorter text left the old one's edge on
+            # screen ("StrStarting…", 2026-10-28). The label's own background covers it now
+            self.root.update_idletasks()
+            req = self.upd_lbl.winfo_reqwidth()
+            self.upd_w = max(self.upd_w, req) if (self.upd_msg and self.upd_shown) else req
+            w = self.ver_lbl.winfo_reqwidth()
+            self.upd_lbl.place(relx=1.0, rely=1.0, x=-self.px(4) - w - self.px(4),
+                               y=-self.px(2), anchor="se", width=self.upd_w)
+        elif self.upd_shown:
+            self.upd_lbl.place_forget()
+        self.upd_shown = want
+
+    def updating_text(self):
+        return (f"Updating to {self.update_label() or 'the new version'}: the helper closes and "
+                "opens again in a few seconds.")
+
+    def tray_update(self):
+        """Tray > Restart to update, in the TRAY's thread: say so at once, hand it to the window
+        loop, and if that loop doesn't take it within 5 s (stuck: 2026-10-28 a click went
+        nowhere), dump every thread's stack to crash.log and do the update from here."""
+        self.notify(self.updating_text())
+        self.post("update")
+
+        def fallback():
+            time.sleep(5)
+            if self.restarting:
+                return                               # the window loop has it
+            from launcher import updater
+            updater.log(f"window loop didn't answer the update click within 5 s "
+                        f"(last tick {time.time() - self.pump_tick:.0f} s ago); updating from the tray")
+            self.dump_threads("update click not answered by the window loop")
+            try:
+                self.restarting = True
+                if tracker_running():
+                    STOP_FILE.touch()
+                for _ in range(40):
+                    if not tracker_running():
+                        break
+                    time.sleep(0.5)
+                exe = updater.real_latest_exe()
+                if exe is None:
+                    raise FileNotFoundError("the new version's folder is missing")
+                updater._launch([str(exe), "--after-update"])
+                updater.log(f"restarting into {self.update_label()} (from the tray, fallback)")
+            except Exception as e:
+                updater.log(f"restart into update failed (tray fallback): {e}")
+                self.notify(f"Update failed: {e}. Exit the helper from the tray and start it again.")
+                self.restarting = False
+                return
+            try:
+                if self.tray:
+                    self.tray.stop()
+            except Exception:
+                pass
+            os._exit(0)                              # the stuck window can't close itself
+        threading.Thread(target=fallback, daemon=True).start()
+
+    def dump_threads(self, why):
+        """Every thread's current stack into crash.log (works while the window loop is stuck)."""
+        try:
+            import faulthandler
+            with open(ROOT / "crash.log", "a", encoding="utf-8") as f:
+                f.write(f"\n=== {datetime.now():%Y-%m-%d %H:%M:%S}  helper: {why}\n")
+                f.flush()
+                faulthandler.dump_traceback(f, all_threads=True)
+        except Exception:
+            pass
+
+    def notify(self, text):
+        """A Windows notification from the tray icon (no tray: nothing)."""
+        try:
+            if self.tray:
+                self.tray.icon.notify(text, "Maple Classic Companion")
+        except Exception:
+            pass
 
     def on_update_ready(self):
         if self.updater and self.updater.ready:
@@ -1027,11 +1140,15 @@ class App:
     def restart_into_update(self, why="from the tray"):
         """Stop the tracker, start the new version (latest), and close this one."""
         from launcher import updater
+        if self.restarting:                          # second click while it's already going
+            return
+        updater.log(f"update to {self.update_label()} requested ({why})")
         self.restarting = True
-        try:
-            self.upd_lbl.configure(text="Updating… ·")
-        except Exception:
-            pass
+        if not self.visible:                         # clicked in the tray: show the progress
+            self.show()
+        if "tray" not in why:                        # the tray click already said so
+            self.notify(self.updating_text())
+        self.update_msg(f"Updating to {self.update_label() or 'new version'}…")
         self.stop_tracker()
 
         def go(tries=0):
@@ -1040,15 +1157,20 @@ class App:
             try:
                 exe = updater.real_latest_exe()      # the real folder, never via the junction
                 if exe is None:
-                    raise FileNotFoundError("latest version missing")
+                    raise FileNotFoundError("the new version's folder is missing")
                 at = [f"--at={self.dev_at[0]},{self.dev_at[1]}"] if self.dev_at else []
                 updater._launch([str(exe), "--after-update", *at])
                 updater.log(f"restarting into {self.update_label()} ({why})")
             except Exception as e:
                 updater.log(f"restart into update failed: {e}")
                 self.restarting = False
-                self.update_ready = None
-                self.sync_update_lbl()
+                if isinstance(e, FileNotFoundError):
+                    self.update_ready = None         # nothing to switch to: hide the button
+                    self.update_msg("Update failed", RED, clear_after=15)
+                else:                                # keep the button: a click tries again
+                    self.update_msg("Update failed, click to retry", RED, clear_after=30)
+                self.notify(f"Update failed: {e}. The tracker keeps running on this version.")
+                self.keep_tracker = True             # bring the stopped tracker back (refresh)
                 return self.root.after(1000, self.refresh)
             if self.updater:
                 self.updater.stop()
