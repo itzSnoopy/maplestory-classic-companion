@@ -41,14 +41,15 @@ EXCLUDE = ["cv2",        # only used by windows-capture to save files; replaced 
            "pkg_resources", "setuptools"]   # not used; its runtime hook breaks the build
 FORBIDDEN = ["config.json", "helper_settings.json", "glyphs.json", "glyphs_level.json", "glyphs_ui.json", "glyphs_hud.json",
              "party.json", "live.json",
-             "minimap_world.png", "minimap_header.png", "nametag.png", "icon.png"]
+             "minimap_world.png", "minimap_header.png", "nametag.png"]
 
 
 def make_icon():
     import helper_ui
     BUILD.mkdir(exist_ok=True)
     ico = BUILD / "icon.ico"
-    helper_ui.make_icon_image(helper_ui.GREEN, 256).save(
+    from PIL import Image
+    Image.open(ROOT / "art" / "icon.png").convert("RGBA").resize((256, 256), Image.LANCZOS).save(
         ico, sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
     return ico
 
@@ -94,6 +95,7 @@ def main():
     for f in DATA_FILES:
         cmd += ["--add-data", f"{ROOT / f}{os.pathsep}."]
     cmd += ["--add-data", f"{ROOT / 'packaging' / 'THIRD_PARTY.txt'}{os.pathsep}."]
+    cmd += ["--add-data", f"{ROOT / 'art' / 'icon.png'}{os.pathsep}art"]      # tray icon (original art)
     for h in HIDDEN:
         cmd += ["--hidden-import", h]
     for x in EXCLUDE:

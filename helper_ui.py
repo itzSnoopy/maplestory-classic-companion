@@ -238,22 +238,24 @@ ART_ICON = next((p for p in (ROOT / "art" / "icon.png", APP / "art" / "icon.png"
 
 
 def make_icon_image(color, s=64):
-    """Tray/preview icon: dark circle with a state-colored ring. Inside: art/icon.png if it
-    exists (custom artwork), else the placeholder (arrow + gold EXP bar)."""
+    """Tray/preview icon: art/icon.png (round artwork) filling the circle, with a state-colored
+    ring on its edge. Without the file: dark circle + arrow + gold EXP bar."""
     from PIL import Image, ImageDraw
     k = s / 64
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.ellipse((2 * k, 2 * k, s - 2 * k, s - 2 * k), fill=(22, 24, 29, 255), outline=color,
-              width=max(1, round(6 * k)))
     if ART_ICON.exists():
         try:
-            art = Image.open(ART_ICON).convert("RGBA")
-            art.thumbnail((int(s * 0.74), int(s * 0.74)), Image.LANCZOS)   # keeps aspect ratio
-            img.alpha_composite(art, ((s - art.width) // 2, (s - art.height) // 2))
+            art = Image.open(ART_ICON).convert("RGBA").resize((s, s), Image.LANCZOS)
+            mask = Image.new("L", (s, s), 0)
+            ImageDraw.Draw(mask).ellipse((0, 0, s - 1, s - 1), fill=255)
+            img.paste(art, (0, 0), mask)
+            d.ellipse((0, 0, s - 1, s - 1), outline=color, width=max(1, round(5 * k)))
             return img
         except Exception:
             pass                                # unreadable file: fall back to the placeholder
+    d.ellipse((2 * k, 2 * k, s - 2 * k, s - 2 * k), fill=(22, 24, 29, 255), outline=color,
+              width=max(1, round(6 * k)))
     d.rounded_rectangle((14 * k, 36 * k, 50 * k, 46 * k), radius=4 * k, fill=(42, 46, 54, 255))
     d.rounded_rectangle((14 * k, 36 * k, 36 * k, 46 * k), radius=4 * k, fill=GOLD)
     d.polygon([(32 * k, 14 * k), (42 * k, 28 * k), (22 * k, 28 * k)], fill=color)   # up arrow

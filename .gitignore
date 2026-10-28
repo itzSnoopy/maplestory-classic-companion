@@ -10,9 +10,9 @@ helper_settings.json
 *.jpeg
 *.bmp
 *.gif
-# Allowed: Microsoft Fluent Emoji maple leaf (MIT) and the placeholder built from it. Not Nexon art.
+# Allowed: the app icon, original art by the player's artist friend (also used as discord_icon.png). Not Nexon art.
 !/discord_icon.png
-!/art/fluent_maple_leaf_3d.png
+!/art/icon.png
 # Allowed: app-only screenshots for the docs (anonymized data, placeholder photos, no game imagery)
 !/docs/img/*.png
 screenshots/

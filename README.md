@@ -103,7 +103,6 @@ the app itself never does.
 - EXP table, map names and map mob lists: [MeowDB / NiaDB](https://meowdb.com/msclassic) (fan-run).
 - Map title OCR: [Tesseract](https://github.com/tesseract-ocr/tesseract) (Apache-2.0). Other bundled
   libraries are listed in `packaging/THIRD_PARTY.txt`.
-- `discord_icon.png` is built from Microsoft's [Fluent Emoji](https://github.com/microsoft/fluentui-emoji)
-  "Maple leaf" (MIT License, © Microsoft Corporation), modified.
+- App icon (`art/icon.png`, `discord_icon.png`): original artwork by the project's artist friend.
 
 MapleStory is a trademark of Nexon. This project is not affiliated with or endorsed by Nexon.
