@@ -23,9 +23,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-import updater as U  # noqa: E402
+from launcher import updater as U  # noqa: E402
 
-VERSION_PY = ROOT / "version.py"
+VERSION_PY = ROOT / "base" / "version.py"
 COUNTER = ROOT / "build" / "testbuilds.json"      # {base: last n} (build/ is git-ignored)
 FIRST = 90
 
@@ -34,7 +34,7 @@ def base_release():
     m = re.search(r'^VERSION = "([^"]+)"', VERSION_PY.read_text(encoding="utf-8"), re.M)
     v = U.parse_version(m.group(1)) if m else None
     if not v or v[2] >= FIRST:
-        sys.exit(f"version.py should hold the last release, not {m and m.group(1)}")
+        sys.exit(f"base/version.py should hold the last release, not {m and m.group(1)}")
     return v
 
 

@@ -16,10 +16,10 @@ from pathlib import Path
 
 CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
-import lean  # noqa: F401,I001  (first: caps math threads, stubs OpenCV; keeps RAM down)
-import tracker as T                                  # noqa: E402
-from sources import make_source                      # noqa: E402
-from sources.screen import ImageFrames, ScreenSource  # noqa: E402
+from base import lean  # noqa: F401,I001  (first: caps math threads, stubs OpenCV; keeps RAM down)
+from hub import tracker as T                                  # noqa: E402
+from engine.sources import make_source                      # noqa: E402
+from engine.sources.screen import ImageFrames, ScreenSource  # noqa: E402
 
 # the original is pruned after 14 days; dev/fixtures/ keeps a local copy (git-ignored, Nexon imagery)
 FIXTURE = next((p for p in (Path(os.environ["SVC_SIM_FIXTURE"]) if os.environ.get("SVC_SIM_FIXTURE") else None,
@@ -51,7 +51,7 @@ def main():
     sink = CaptureSink()
 
     if mode == "frames":
-        import ocr
+        from engine import ocr
         ocr.setup(cfg.get("tesseract"))
         play = sorted(FIXTURE.glob("before_*.png")) + sorted(FIXTURE.glob("at_*.png")) \
             + sorted(FIXTURE.glob("after_*.png"))

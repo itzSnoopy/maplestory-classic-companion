@@ -36,6 +36,7 @@ ZIP_FORBIDDEN = re.compile(r"(^|/)(config\.json|helper_settings\.json|party\.jso
                            r"captions_custom\.json|placeholder_source\.jpg)$|(^|/)(history|sessions|"
                            r"screenshots|templates|assets|crops|glyphs|game_icons|fixtures)/|\.jpe?g$", re.I)
 ALLOWED_IMAGES ={"discord_icon.png", "art/icon.png"}     # original art from the player's artist friend
+CODE_DIRS = {"base", "launcher", "engine", "gamedata", "hub", "components"}
 # root JSON files that are the player's own (never shipped)
 LOCAL_JSON = {"config.json", "helper_settings.json", "glyphs.json", "glyphs_level.json", "glyphs_ui.json", "glyphs_hud.json", "live.json", "party.json",
               "digest.json", "status.json"}
@@ -74,10 +75,11 @@ def check_data_files():
     shipped = set(build.DATA_FILES)
     missing = [f for f in shipped if not (ROOT / f).exists()]
     tracked = run(["git", "ls-files", "*.json"]).stdout.split()
-    root_json = {f for f in tracked if "/" not in f}
-    unshipped = sorted(root_json - shipped - LOCAL_JSON)
+    # every tracked .json that is code-side data: root files and the layer folders (not docs/, dev/, art/, ...)
+    layer_json = {f for f in tracked if "/" not in f or f.split("/")[0] in CODE_DIRS}
+    unshipped = sorted(layer_json - shipped - LOCAL_JSON)
     check("build DATA_FILES exist", not missing, ", ".join(missing))
-    check("every tracked root .json is shipped or known-local", not unshipped,
+    check("every tracked code-side .json is shipped or known-local", not unshipped,
           "add to packaging/build.py DATA_FILES or LOCAL_JSON here: " + ", ".join(unshipped))
 
 
@@ -128,8 +130,8 @@ def check_sim_regular():
 
 def check_sim_fresh():
     """Fresh install: calibrate from the first frame like the setup window, then simulate."""
-    import glyphs
-    import paths
+    from engine import glyphs
+    from base import paths
     data = TMP / "fresh_data"
     out = TMP / "sim_fresh"
     for d in (data, out):
@@ -138,7 +140,8 @@ def check_sim_fresh():
     code = f"""
 import sys; sys.path.insert(0, r'{ROOT}')
 from PIL import Image
-import calibrate, paths
+from engine import calibrate
+from base import paths
 cfg = paths.load_config(); im = Image.open(r'{first}').convert('RGB')
 r = calibrate.cut_templates(im); assert r['world'] and r['header'], r
 c = calibrate.hud_crops(im, cfg)
@@ -181,14 +184,15 @@ def check_fresh_windows():
     for f in ("glyphs_hud.json", "glyphs_ui.json"):
         (data / f).unlink(missing_ok=True)
     # a fresh install learns the EXP digits within minutes of play; give it the full set
-    import paths
+    from base import paths
     exp = json.loads((paths.DATA / "glyphs.json").read_text(encoding="utf-8"))
     (data / "glyphs.json").write_text(json.dumps(exp), encoding="utf-8")
     code = f"""
 import sys, json; sys.path.insert(0, r'{ROOT}')
-import paths, ocr
+from base import paths
+from engine import ocr
 cfg = paths.load_config(); ocr.setup(cfg.get('tesseract'))
-from sources.screen import ScreenSource, ImageFrames
+from engine.sources.screen import ScreenSource, ImageFrames
 from PIL import Image
 out = {{}}
 for f in {list(WINDOW_EXPECT)!r}:
@@ -216,7 +220,7 @@ print('RESULT ' + json.dumps(out))
 
 
 def check_killers():
-    r = run([sys.executable, "killers.py", "audit"])
+    r = run([sys.executable, "-m", "components.killers.killers", "audit"])
     check("killers audit runs", r.returncode == 0 and "Traceback" not in r.stderr, r.stderr[-200:])
 
 

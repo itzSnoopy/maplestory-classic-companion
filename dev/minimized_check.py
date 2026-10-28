@@ -15,13 +15,13 @@ from pathlib import Path
 
 CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
-import lean  # noqa: E402,F401
+from base import lean  # noqa: E402,F401
 
 import win32gui  # noqa: E402
 
-import sources.wgc as W  # noqa: E402
-from layout import anchor_for, crop  # noqa: E402
-from sources.screen import exp_bar_visible  # noqa: E402
+import engine.sources.wgc as W  # noqa: E402
+from engine.layout import anchor_for, crop  # noqa: E402
+from engine.sources.screen import exp_bar_visible  # noqa: E402
 
 
 class AskAnyway(W.WgcFrames):

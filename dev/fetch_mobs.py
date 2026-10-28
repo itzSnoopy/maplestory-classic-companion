@@ -20,7 +20,7 @@ from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "mobs_classic.json"
+OUT = ROOT / "gamedata" / "mobs_classic.json"
 UA = {"User-Agent": "MapleClassicCompanion mob fetch (personal use, one-off)"}
 URL = "https://meowdb.com/msclassic/monsters/{}"
 
@@ -68,7 +68,7 @@ def parse(html):
 
 def mob_maps():
     """{mob id: {"name", "maps": [{"id", "name", "region", "count", "respawn"}]}} from map_mobs.json."""
-    data = json.loads((ROOT / "map_mobs.json").read_text(encoding="utf-8"))["maps"]
+    data = json.loads((ROOT / "gamedata" / "map_mobs.json").read_text(encoding="utf-8"))["maps"]
     mobs = {}
     for mid, mp in data.items():
         for x in mp["mobs"]:

@@ -19,7 +19,7 @@ from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "potions_classic.json"
+OUT = ROOT / "gamedata" / "potions_classic.json"
 UA = {"User-Agent": "MapleClassicCompanion potion fetch (personal use, one-off)"}
 API = "https://meowdb.com/msclassic/api/items?type=Use&ossyria={o}&page={p}&limit=100&locale=en"
 # stats keys -> our fields (MeowDB's names; *Pct = % of max). Plain "hp" / "mp" are scroll

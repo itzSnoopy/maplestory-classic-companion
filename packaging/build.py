@@ -5,8 +5,8 @@
 Needs: pip install -r requirements.txt pyinstaller, and Tesseract (UB Mannheim) installed at
 TESSERACT_DIR (only tesseract.exe, the DLLs it loads, English data and its license are copied).
 
-What goes in: the code, maps_classic.json, exp_table_classic.json, layouts.json,
-config.example.json. What never goes in: anything from the player's data (config.json,
+What goes in: the code, the shipped read-only JSON listed in DATA_FILES (gamedata/*.json,
+engine/layouts.json, ...), config.example.json. What never goes in: anything from the player's data (config.json,
 helper_settings.json, templates/, glyphs, history, screenshots). Those are Nexon imagery or
 personal, and each player's copy makes its own on first run (setup window).
 """
@@ -19,24 +19,33 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-from version import VERSION  # noqa: E402
+from base.version import VERSION  # noqa: E402
 
 NAME = "MapleClassicCompanion"
 BUILD = ROOT / "build"
 DIST = ROOT / "dist"
 TESSERACT_DIR = Path(os.environ.get("TESSERACT_DIR", r"C:\Program Files\Tesseract-OCR"))
-DATA_FILES = ["maps_classic.json", "exp_table_classic.json", "layouts.json", "config.example.json",
-              "map_mobs.json", "killers.json", "captions.json", "important_maps.json",
-              "game_refs.json", "skills_classic.json", "potions_classic.json", "whats_new.json",
-              "mobs_classic.json"]
+# shipped read-only files (repo-relative path); each lands at the same relative path in the bundle,
+# where paths.asset("<same path>") reads it
+DATA_FILES = ["config.example.json",
+              "gamedata/maps_classic.json", "gamedata/exp_table_classic.json", "gamedata/map_mobs.json",
+              "gamedata/important_maps.json", "gamedata/game_refs.json", "gamedata/skills_classic.json",
+              "gamedata/potions_classic.json", "gamedata/mobs_classic.json",
+              "engine/layouts.json", "launcher/whats_new.json",
+              "components/killers/killers.json", "components/diary/captions.json"]
 # imported lazily inside functions; listed so the bundle has them for sure
-HIDDEN = ["setup_ui", "settings_ui", "calibrate", "discord_rpc", "diary_html", "jobread",
-          "diary_popup", "killers", "game_refs", "internet", "capture", "perf",
-          "panels", "character", "charname", "vitals", "live", "mpuse", "skillbar_ui", "whats_new",
-          "party", "partylink", "party_ui", "training", "training_ui", "regen", "itemicons", "portrait",
-          "album", "album_html", "mobicons", "diary_server",
-          "sources.wgc", "sources.screen", "sources.csv_replay", "windows_capture", "win32gui",
-          "pystray._win32"]
+HIDDEN = ["launcher.setup_ui", "hub.settings_ui", "engine.calibrate", "components.discord.discord_rpc",
+          "components.diary.diary_html", "engine.jobread", "components.diary.diary_popup",
+          "components.killers.killers", "gamedata.game_refs", "base.internet", "engine.capture", "base.perf",
+          "engine.panels", "hub.character", "engine.charname", "engine.vitals", "hub.live",
+          "components.skillbar.mpuse", "components.skillbar.skillbar_ui", "launcher.whats_new",
+          "engine.party", "components.party.partylink", "components.party.party_ui",
+          "components.training.training", "components.training.training_ui", "components.skillbar.regen",
+          "components.training.itemicons", "engine.portrait",
+          "components.album.album", "components.album.album_html", "components.album.mobicons",
+          "components.diary.diary_server",
+          "engine.sources.wgc", "engine.sources.screen", "engine.sources.csv_replay", "windows_capture",
+          "win32gui", "pystray._win32"]
 EXCLUDE = ["cv2",        # only used by windows-capture to save files; replaced by rthook_cv2.py
            "pkg_resources", "setuptools"]   # not used; its runtime hook breaks the build
 FORBIDDEN = ["config.json", "helper_settings.json", "glyphs.json", "glyphs_level.json", "glyphs_ui.json", "glyphs_hud.json",
@@ -45,7 +54,7 @@ FORBIDDEN = ["config.json", "helper_settings.json", "glyphs.json", "glyphs_level
 
 
 def make_icon():
-    import helper_ui
+    from hub import helper_ui  # noqa: F401
     BUILD.mkdir(exist_ok=True)
     ico = BUILD / "icon.ico"
     from PIL import Image
@@ -93,7 +102,8 @@ def main():
            "--distpath", str(DIST), "--workpath", str(BUILD / "pyi"), "--specpath", str(BUILD),
            "--paths", str(ROOT)]
     for f in DATA_FILES:
-        cmd += ["--add-data", f"{ROOT / f}{os.pathsep}."]
+        dest = Path(f).parent.as_posix()            # "." for a root file, else the folder the code reads it from
+        cmd += ["--add-data", f"{ROOT / f}{os.pathsep}{dest}"]
     cmd += ["--add-data", f"{ROOT / 'packaging' / 'THIRD_PARTY.txt'}{os.pathsep}."]
     cmd += ["--add-data", f"{ROOT / 'art' / 'icon.png'}{os.pathsep}art"]      # tray icon (original art)
     for h in HIDDEN:

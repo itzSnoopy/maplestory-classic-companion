@@ -25,7 +25,7 @@ OUT.mkdir(parents=True)
 os.environ["MAPLE_COMPANION_PROGRAMS"] = str(OUT / "Programs")
 os.environ["MAPLE_COMPANION_DATA"] = str(OUT / "data")
 
-import updater as U  # noqa: E402
+from launcher import updater as U  # noqa: E402
 
 RELEASES = {}          # url path -> bytes
 HITS = []              # every request the fake GitHub got

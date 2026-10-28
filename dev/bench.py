@@ -21,7 +21,7 @@ from pathlib import Path
 
 CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
-import lean  # noqa: E402,F401  (measure what the app runs: same caps)
+from base import lean  # noqa: E402,F401  (measure what the app runs: same caps)
 
 k32 = ctypes.windll.kernel32
 psapi = ctypes.windll.psapi
@@ -84,7 +84,7 @@ def cfg():
 def bench_idle(secs=8):
     """An open WGC session gets frames from Windows at minimum_update_interval even when we
     don't want them. How much does just keeping it open cost?"""
-    import sources.wgc as W
+    import engine.sources.wgc as W
     print(f"\n== open capture session, no readings ({secs} s each) ==")
     print(f"{'update every':>14} {'cpu %':>7} {'grab ms':>8} {'RAM +MB':>8}")
     for ms in (100, 250, 500, 1000):
@@ -104,14 +104,14 @@ def bench_idle(secs=8):
 
 # ---------------------------------------------------------------- per-step cost of one reading
 def bench_stages(n=20, frame_path=None):
-    import deathbox
-    import glyphs
-    import hpbar
-    import jobread
-    import minimap
-    import ocr
-    from layout import anchor_for, crop
-    from sources.screen import ImageFrames, ScreenSource, exp_bar_visible, read_exp
+    from engine import deathbox
+    from engine import glyphs
+    from engine import hpbar
+    from engine import jobread
+    from engine import minimap
+    from engine import ocr
+    from engine.layout import anchor_for, crop
+    from engine.sources.screen import ImageFrames, ScreenSource, exp_bar_visible, read_exp
     c = cfg()
     ocr.setup(c.get("tesseract"))
     res = tuple(c.get("source_resolution") or (1920, 1080))
@@ -122,7 +122,7 @@ def bench_stages(n=20, frame_path=None):
         frame0 = Image.open(frame_path).convert("RGB")
         frames = None
     else:
-        import sources.wgc as W
+        import engine.sources.wgc as W
         frames = W.WgcFrames(c)
         frame0 = frames.grab()
         if frame0.getbbox() is None:

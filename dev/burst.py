@@ -13,7 +13,7 @@ from pathlib import Path
 
 CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
-from sources.wgc import WgcFrames  # noqa: E402
+from engine.sources.wgc import WgcFrames  # noqa: E402
 
 
 def main():

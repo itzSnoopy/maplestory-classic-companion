@@ -15,12 +15,12 @@ from pathlib import Path
 
 CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
-import lean  # noqa: F401,E402
-import capture  # noqa: E402
-import history as H  # noqa: E402
-import live  # noqa: E402
-import vitals  # noqa: E402
-from sources.wgc import WgcFrames  # noqa: E402
+from base import lean  # noqa: F401,E402
+from engine import capture  # noqa: E402
+from hub import history as H  # noqa: E402
+from hub import live  # noqa: E402
+from engine import vitals  # noqa: E402
+from engine.sources.wgc import WgcFrames  # noqa: E402
 
 
 def main():

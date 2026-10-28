@@ -16,7 +16,7 @@ from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "map_mobs.json"
+OUT = ROOT / "gamedata" / "map_mobs.json"
 UA = {"User-Agent": "MapleClassicCompanion map-mobs fetch (personal use, one-off)"}
 URL = "https://meowdb.com/msclassic/maps/{}"
 
@@ -69,7 +69,7 @@ def parse(html):
 
 
 def main():
-    maps = json.loads((ROOT / "maps_classic.json").read_text(encoding="utf-8"))["maps"]
+    maps = json.loads((ROOT / "gamedata" / "maps_classic.json").read_text(encoding="utf-8"))["maps"]
     old = {}
     if OUT.exists() and "--all" not in sys.argv:
         old = json.loads(OUT.read_text(encoding="utf-8")).get("maps", {})

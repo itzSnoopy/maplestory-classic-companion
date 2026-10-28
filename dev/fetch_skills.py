@@ -15,7 +15,7 @@ from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "skills_classic.json"
+OUT = ROOT / "gamedata" / "skills_classic.json"
 UA = {"User-Agent": "MapleClassicCompanion skills fetch (personal use, one-off)"}
 BASE = "https://meowdb.com/msclassic"
 

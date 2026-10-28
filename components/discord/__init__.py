@@ -1,0 +1,1 @@
+"""Discord component: Rich Presence."""

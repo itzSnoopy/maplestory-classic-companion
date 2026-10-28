@@ -13,13 +13,13 @@ from pathlib import Path
 
 CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
-import lean  # noqa: F401,E402
-import glyphs  # noqa: E402
-import parse  # noqa: E402
-import vitals  # noqa: E402
-from layout import anchor_for, place  # noqa: E402
-from paths import load_config  # noqa: E402
-from sources.wgc import WgcFrames  # noqa: E402
+from base import lean  # noqa: F401,E402
+from engine import glyphs  # noqa: E402
+from gamedata import parse  # noqa: E402
+from engine import vitals  # noqa: E402
+from engine.layout import anchor_for, place  # noqa: E402
+from base.paths import load_config  # noqa: E402
+from engine.sources.wgc import WgcFrames  # noqa: E402
 
 
 def main():

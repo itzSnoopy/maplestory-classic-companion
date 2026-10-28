@@ -23,11 +23,11 @@ sys.path.insert(0, str(CODE))
 OUT = Path(sys.argv[1] if len(sys.argv) > 1 else "album_sim_out").resolve()
 OUT.mkdir(parents=True, exist_ok=True)
 os.environ["MAPLE_COMPANION_DATA"] = str(OUT)        # helper_settings etc. read from here
-import lean  # noqa: F401,E402,I001
-import album  # noqa: E402
-import diary  # noqa: E402
-import live  # noqa: E402
-import tracker as T  # noqa: E402
+from base import lean  # noqa: F401,E402,I001
+from components.album import album  # noqa: E402
+from components.diary import diary  # noqa: E402
+from hub import live  # noqa: E402
+from hub import tracker as T  # noqa: E402
 
 T.set_root(OUT)
 fails = []
@@ -40,7 +40,7 @@ def check(ok, what):
 
 
 # 1 ------------------------------------------------------------------------------------------
-maps = json.loads((CODE / "map_mobs.json").read_text(encoding="utf-8"))["maps"]
+maps = json.loads((CODE / "gamedata" / "map_mobs.json").read_text(encoding="utf-8"))["maps"]
 can = set()
 for mp in maps.values():
     for x in mp["mobs"]:
@@ -163,7 +163,7 @@ boss = next(e for e in ents if e["mob"] == "Mano")
 check(boss["boss"] is True and boss["caught"] == 1, "Mano beat: boss, caught 1")
 cap_boss, src_boss = diary.caption_info(boss)
 boss_lines = [x if isinstance(x, str) else x["text"]
-              for x in json.loads((CODE / "captions.json").read_text(encoding="utf-8"))["first_kill_boss"]]
+              for x in json.loads((CODE / "components" / "diary" / "captions.json").read_text(encoding="utf-8"))["first_kill_boss"]]
 check(any(cap_boss == ln.format(mob="Mano", map=boss["map"], name=diary.nickname(),
                                 time=diary.clock(datetime.fromisoformat(boss["time"])), caught=1)
           for ln in boss_lines), f"boss caption from first_kill_boss: {cap_boss!r} ({src_boss})")
@@ -175,8 +175,8 @@ check(sess.journal.lines and "First boss kill: Mano" in sess.journal.lines[0], "
 fx = sorted((CODE / "dev" / "fixtures" / "levelup_lv5").glob("*.png"))
 if len(fx) >= 2:
     from PIL import Image
-    import levelup_shot
-    from sources.screen import ScreenSource
+    from components.diary import levelup_shot
+    from engine.sources.screen import ScreenSource
     s = ScreenSource.__new__(ScreenSource)
     s.album_watch, s.album_prev, s.pending_shots = True, deque(maxlen=2), []
     s.lu, s.frame, s._nametag = levelup_shot.Timer(), None, None
@@ -204,7 +204,7 @@ else:
 album.render(alb)
 html = (OUT / "album.html").read_text(encoding="utf-8")
 check("Monster <span>Album</span>" in html and '"state": "caught"' in html, "album.html built")
-import diary_html  # noqa: E402
+from components.diary import diary_html  # noqa: E402
 diary_html.build(OUT)
 dh = (OUT / "diary.html").read_text(encoding="utf-8")
 check('"kind": "first_kill"' in dh and "_kill.jpg" in dh, "diary.html has the first kill and its photo")
