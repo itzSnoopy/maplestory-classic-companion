@@ -82,23 +82,36 @@ listing its files; read the one for the folder you touch. Full picture: `.claude
 | `NOTES.md` | **Running log of formats, OCR findings, design decisions. Read before changing OCR/parsing, and add to it after.** | - |
 
 Adding a feature = a new `components/<name>/` that subscribes to bus events; the tracker core doesn't change.
-Component handoffs (local only): `.claude/handoff/components/` (diary, skillbar, album, party, installer).
+Per-part maps and memories: see "Working on one part" below.
 Sims set `MAPLE_COMPANION_OFFLINE=1` so they never go online.
 
 Test changes offline before restarting the live tracker. Save simulation output to the scratchpad,
 not the real `history/`, `journal.md` or `sessions/`.
 
+## Working on one part
+
+Most work touches one part. Then read **only**: that part's map (`<folder>/CLAUDE.md`), its memory
+(`.claude/handoff/components/<name>.md`, local) and `base/contract.py`. Skip the rest of the handoff
+unless the map sends you there. Template for both: `.claude/handoff/components/_TEMPLATE.md`.
+
+| Part | Map | Memory |
+|---|---|---|
+| Screen reading (OCR, layout, HP/MP, windows) | `engine/CLAUDE.md` | `engine.md` |
+| Classic game data, name snapping, EXP table | `gamedata/CLAUDE.md` | `gamedata.md` |
+| Tracker core, bus, history, helper shell | `hub/CLAUDE.md` (+ `base/CLAUDE.md`) | `hub.md` |
+| Entry, wiring, updater, setup, packaging, releases | `launcher/CLAUDE.md` | `installer.md` |
+| Diary | `components/diary/CLAUDE.md` | `diary.md` |
+| Monster album | `components/album/CLAUDE.md` | `album.md` |
+| Killer guess | `components/killers/CLAUDE.md` | `killers.md` |
+| Discord presence | `components/discord/CLAUDE.md` | `discord.md` |
+| Party box, link, panel (+ relay server) | `components/party/CLAUDE.md` (+ `relay/CLAUDE.md`) | `party.md` |
+| Skill bar (regen, casts, HP/MP usage) | `components/skillbar/CLAUDE.md` | `skillbar.md` |
+| Training cost panel, EXP/hr | `components/training/CLAUDE.md` | `training.md` |
+
+**From another folder:** `python dev/workspace.py <part> <folder>` writes a `CLAUDE.md` there that
+imports just that part's map, memory and the rules (`python dev/workspace.py --list` shows the parts).
+Add this project folder to that session so it can edit and run things here.
+
 ## Rules
 
-- **Screenshots and frames are Nexon game imagery.** Keep them local. Never upload, commit to a
-  public repo, or publish them. (Root project rule 1 applies.)
-- `config.json` is local (may still hold an old OBS password from before 2026-10-23). Never share or print it.
-- Data sources are pluggable (`sources/`), but the default stays passive (frames of the game window only).
-  Reading game memory or intercepting game traffic violates Nexon's terms on the official server
-  (anti-cheat ban risk): don't build such a source unless the player explicitly decides to accept
-  that risk, and flag it when asked. Never send input or automate gameplay.
-- **One exception (player's decision, 2026-10-24, ban risk understood):** `dev/local/game_click.py`
-  (gitignored, dev only, never in the app) may click through the options menus only (ESC > Game
-  Options > Graphics: Resolution, UI Size) to test window/UI sizes. Run it **only after the player
-  OKs that specific run in chat**, only when a task needs it, short (its limits: 15 inputs, 90 s).
-  Never extend it to gameplay, never run it on your own, never loosen its limits without asking.
+@RULES.md
