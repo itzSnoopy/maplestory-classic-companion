@@ -11,26 +11,15 @@ seen are kept per character (+50 sitting on the user's chair, 2026-10-24) in `hp
 Reconciling: a tick that fits the math changes nothing. MP: the same unexplained extra seen
 LEARN_AFTER times is added to `mp_extra`. HP: a size seen LEARN_AFTER times joins `hp_sizes`.
 """
-import math
-import re
 from collections import Counter
+
+from gamedata import formulas
+from gamedata.formulas import mp_flat, mp_pct   # noqa: F401  (old names, kept for callers)
 
 MP_SKILLS = ("2000000", "1110000", "1210000")      # Improved MP Recovery (Mage, Crusader, WK)
 DEFAULT = {"mp_extra": [3, 6], "hp_sizes": []}
 LEARN_AFTER = 3
 MAX_HP_SIZES = 4
-
-
-def mp_pct(skill_text):
-    """'Regenerates 1% of Max MP every 10 seconds' -> 1; anything else -> 0."""
-    m = re.search(r"(\d+)% of Max MP", skill_text or "")
-    return int(m.group(1)) if m else 0
-
-
-def mp_flat(skill_text):
-    """'Recover 3 additional MP every 10 sec' (3rd job) -> 3; else 0."""
-    m = re.search(r"Recover (\d+) additional MP", skill_text or "")
-    return int(m.group(1)) if m else 0
 
 
 class RegenModel:
@@ -48,8 +37,7 @@ class RegenModel:
             return []
         pct = max((mp_pct(t) for t in texts), default=0)
         flat = sum(mp_flat(t) for t in texts)
-        part = math.floor(max_mp * pct / 100) + flat
-        return [part + e for e in self.data["mp_extra"]]
+        return [formulas.mp_tick(max_mp, pct, flat, e) for e in self.data["mp_extra"]]
 
     def hp_ticks(self):
         return list(self.data["hp_sizes"])
@@ -61,7 +49,7 @@ class RegenModel:
             if d in self.mp_ticks(max_v, texts):
                 return False
             pct = max((mp_pct(t) for t in texts), default=0)
-            extra = d - math.floor(max_v * pct / 100) - sum(mp_flat(t) for t in texts)
+            extra = d - formulas.mp_part(max_v, pct, sum(mp_flat(t) for t in texts))
             if extra <= 0:
                 return False
             self.odd[("mp", extra)] += 1

@@ -417,6 +417,22 @@ class Profile:
         extra.update(how="from what its casts cost", name=name or extra.get("name"))
         return self._keep("skills", sid, level, t, name or sid, True, extra)
 
+    def base_max(self, kind):
+        """The stored base max HP / MP ('hp' | 'mp'), or None (Stat window or learn_base_max)."""
+        c = self.char()
+        v = ((((c or {}).get("stats") or {}).get(kind + "_max")) or {}).get("value")
+        return v if isinstance(v, int) else None
+
+    def learn_base_max(self, kind, value, t, source="hud"):
+        """A lasting max HP / MP seen on the status bar that no buff explains (feed -> maxwatch):
+        stored like a Stat window read, marked with where it came from. The Stat window stays
+        authoritative: its next read replaces this one. Returns True when the stored value changed."""
+        c = self.char()
+        key = kind + "_max"
+        if c is None or key not in LABEL or not value:
+            return False
+        return self._keep("stats", key, int(value), t, LABEL[key], True, {"how": f"from the {source}"})
+
     def regen(self):
         """This character's regen numbers (live.py): {"mp": {...}, "hp": {...}, "clock": {...}}."""
         c = self.char()

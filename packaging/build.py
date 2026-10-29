@@ -38,7 +38,7 @@ HIDDEN = ["launcher.setup_ui", "hub.settings_ui", "engine.calibrate", "component
           "components.diary.diary_html", "engine.jobread", "components.diary.diary_popup",
           "components.killers.killers", "gamedata.game_refs", "base.internet", "engine.capture", "base.perf",
           "engine.panels", "hub.character", "engine.charname", "engine.vitals", "hub.live",
-          "components.skillbar.mpuse", "components.skillbar.feed", "components.skillbar.meter",
+          "components.skillbar.mpuse", "components.skillbar.maxwatch", "gamedata.formulas", "components.skillbar.feed", "components.skillbar.meter",
           "components.skillbar.skillbar_ui", "hub.tools", "launcher.whats_new",
           "engine.party", "components.party.partylink", "components.party.party_ui",
           "components.training.training", "components.training.training_ui", "components.skillbar.regen",

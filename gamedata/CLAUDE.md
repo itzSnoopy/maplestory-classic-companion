@@ -16,6 +16,7 @@ folder's v83 `reference/` data (values differ). Every number here is fan-run dat
 |---|---|
 | `translate.py` | The engine's translator: `map_name(text) -> (name, map_id)`, `job_name(text)`, `next_job_level(job)` (`NEXT_ADVANCE` {0:10, 1:30, 2:70, 3:120}, `JOBS`/`TIER`), `snap_skill(text) -> [candidates]` + `skills()`, `exp_table()` / `exp_needed(level)` |
 | `maplist.py` | Snap a minimap title to the 453 real map names (exact, look-alike fold, fuzzy >= 0.88 with the same roman suffix, unique prefix) |
+| `formulas.py` | HP/MP and skill math, pure (stdlib only): `mp_pct`/`mp_flat`/`mp_part`/`mp_tick` (regen), `item_bonus_pct`/`potion_amount`, `skill_mp_cost(s)`, `buff_pct(record, level, stat)`/`buff_seconds`/`buffed_max` (Hyper Body: Max HP +N% for N s). `STATUS` {formula: (verified\|measured\|guess, source)} says how far each can be trusted |
 | `parse.py` | `parse_map` (title clean-up), `parse_gain` + chat helpers (EXP-notice parsing, not used live yet). The HUD's EXP/level format is `engine/hudtext.py` |
 | `game_refs.py` | Caption source -> Steam app id, fetches the small game icons for diary captions (local only; `python -m components.diary.diary icons`) |
 
@@ -35,7 +36,7 @@ Not here (player-measured, hub-owned, in the data folder): `history/exp_table.js
 `history/characters.json` (stats, skills, regen per character), `history/map_stats.json`, `history/maps.json`.
 
 ## Interfaces
-- **Called by:** engine (translator, injected by `launcher/compose.py`), `hub/tracker.py` and `hub/history.py` (read `exp_table_classic.json` directly as `REF_TABLE`), `hub/character.py`, components (killers, album, training, skillbar `feed.py`/`mpuse.py`/`regen.py`, diary).
+- **Called by:** engine (translator, injected by `launcher/compose.py`), `hub/tracker.py` and `hub/history.py` (read `exp_table_classic.json` directly as `REF_TABLE`), `hub/character.py`, components (killers, album, training, skillbar `feed.py`/`mpuse.py`/`regen.py`/`maxwatch.py` (the math: `formulas.py`), diary).
 - **Emits/listens/settings:** none. Pure data and functions.
 
 ## Test it

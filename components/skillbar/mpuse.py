@@ -36,6 +36,7 @@ from collections import Counter, deque
 from itertools import combinations_with_replacement
 
 from base.paths import asset
+from gamedata import formulas
 
 MAX_CASTS = 3           # casts that can fall in one window at most
 CAST_S = 0.6            # about the fastest one cast follows another (attack animation)
@@ -56,11 +57,6 @@ def _load(name, key):
         return json.loads(asset(name).read_text(encoding="utf-8"))[key]
     except (OSError, ValueError, KeyError):
         return {}
-
-
-def _pct(text, pattern):
-    m = re.search(pattern, text or "")
-    return int(m.group(1)) if m else 0
 
 
 class Usage:
@@ -100,8 +96,7 @@ class Usage:
 
     def item_bonus(self, k):
         """Recovery from items +N% (Improved MP / HP Recovery's text at its level)."""
-        return max([_pct(self._skill_text(s), r"from items by (\d+)%") for s in ITEM_BONUS[k]]
-                   + [0])
+        return max([formulas.item_bonus_pct(self._skill_text(s)) for s in ITEM_BONUS[k]] + [0])
 
     def costs(self):
         """[(cost, skill id, level, is the known level)]: every MP cost a cast could have now."""
@@ -109,7 +104,7 @@ class Usage:
             out = []
             for sid in self.levels:
                 lv = self.level(sid)
-                mp = (self.data.get(sid) or {}).get("mp") or []
+                mp = formulas.skill_mp_costs(self.data.get(sid))
                 if not lv or lv > len(mp):
                     continue
                 for L in range(lv, len(mp) + 1):        # the level can only have gone up
@@ -152,12 +147,9 @@ class Usage:
         for it in self.items.values():
             rank = ITEM_RANK.get(it.get("subtype"), 2) + 0.001 * (it.get("price") or 0) ** 0.5
             flat, pct = it.get(k), it.get(k + "_pct")
-            if flat:
-                out.append((int(flat * (100 + b) / 100 + 1e-6), rank, it))
-            if pct and mx:
-                out.append((int(mx * pct / 100 * (100 + b) / 100 + 1e-6), rank, it))
-                if b:                           # does the bonus apply to % items? not measured
-                    out.append((int(mx * pct / 100 + 1e-6), rank + 0.01, it))
+            for i, g in enumerate(formulas.potion_amount(flat, pct, mx, b)):
+                # the % item without the bonus (last of three) is not measured: rank + 0.01
+                out.append((g, rank + (0.01 if pct and i == (1 if not flat else 2) else 0), it))
         return out
 
     # -- one look --------------------------------------------------------------------

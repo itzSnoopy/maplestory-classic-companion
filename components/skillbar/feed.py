@@ -28,7 +28,7 @@ from datetime import datetime
 
 from base import perf
 from base.paths import DATA, asset
-from components.skillbar import meter, mpuse, regen
+from components.skillbar import maxwatch, meter, mpuse, regen
 from hub import history as H
 
 CLOCK_SAVE_S = 10       # the regen clock's position goes into the character's record this often
@@ -77,6 +77,8 @@ class Feed:
 
     def _new_meters(self, t=None):
         self.meters = {"hp": meter.Meter(), "mp": meter.Meter()}
+        self.watch = {k: maxwatch.MaxWatch(k, self.data) for k in ("hp", "mp")}
+        self.hud_seen = False               # a vitals look since the character was set
         self.usage = mpuse.Usage(self.meters)
         self.usage.reset_totals(t)
 
@@ -150,18 +152,26 @@ class Feed:
         if prof is not None and prof.who != self.who:      # another character: start over
             self.who = prof.who
             self._new_meters(now)
-            self._load_regen(prof, now)
+            fresh = True
+        else:
+            fresh = False
         if prof is not None:
             c = prof.char() or {}
             self.usage.set_context(
                 levels={sid: (s.get("value") or 0) for sid, s in (c.get("skills") or {}).items()},
                 party=self.party_n > 1)
+        if fresh:
+            self._load_regen(prof, now)
+            self._predict(prof)
 
     def fact(self, t, kind, v, prof=None):
         if kind == "vitals":
             self._expect(v)
+            self.hud_seen = True
             before = {k: len(m.rises) for k, m in self.meters.items()}
-            self._log_events(self.usage.look(t, v.get("hp"), v.get("mp")))
+            ev = self.usage.look(t, v.get("hp"), v.get("mp"))
+            self._log_events(ev)
+            self._watch_max(t, v, ev, prof)
             self._reconcile(before, prof)
         elif kind == "away":                # portal / channel change: new regen clock
             for m in self.meters.values():
@@ -201,6 +211,42 @@ class Feed:
             self.meters["mp"].known = self.model.mp_ticks(mp[1], self._texts())
         self.meters["hp"].known = self.model.hp_ticks()
 
+    def _predict(self, prof):
+        """Predict first: as soon as the character is known, the tick sizes follow from the stored
+        base max MP and the stored skill levels (a HUD read then reconciles them in _expect)."""
+        if self.model is None or prof is None or not prof.who:
+            return
+        base = prof.base_max("mp")
+        if base:
+            self.meters["mp"].known = self.model.mp_ticks(base, self._texts())
+        self.meters["hp"].known = self.model.hp_ticks()
+
+    def _watch_max(self, t, v, ev, prof):
+        """HUD max vs the stored base (maxwatch.py): a max buff is not a new base; a lasting
+        difference is, and goes into the character's record."""
+        if prof is None or not prof.who:
+            return
+        lvl = any(e["kind"] == "levelup" for e in ev)
+        with perf.timed("max_watch"):
+            for k in ("hp", "mp"):
+                if v.get(k):
+                    new = self.watch[k].look(t, v[k][1], prof.base_max(k), levelup=lvl,
+                                             levels=self.usage.levels)
+                    if new:
+                        prof.learn_base_max(k, new, t, "hud")
+
+    def _max_info(self, k, prof):
+        w = self.watch[k]
+        return {"base_max": prof.base_max(k) if prof is not None and prof.who else None,
+                "buff": w.state()}
+
+    def _predicted(self, k):
+        """True while the tick size shown comes from the math (stored or HUD max), not a tick seen."""
+        m = self.meters[k]
+        if m.amount or not m.known:
+            return False
+        return "stored" if not self.hud_seen else "hud"
+
     def _reconcile(self, before, prof):
         """Ticks just seen vs the math; skill levels learned from cast costs; the clock."""
         if self.model is None or prof is None or not prof.who:
@@ -225,11 +271,16 @@ class Feed:
     # -- live.json sections: fn(now, prof), evaluated in the order they are published ---------
     # (mp, skills, regen, hp, usage: the regen section sets a meter's prior from the skill text, which
     # hp's state then shows but mp's did not on the first write; the order keeps that as it was)
+    def _section(self, k, now, prof):
+        p = self._predicted(k)
+        return {**self.meters[k].state(now), **self._max_info(k, prof),
+                "predicted": bool(p), "predicted_from": p or None}
+
     def section_mp(self, now, prof):
-        return self.meters["mp"].state(now)
+        return self._section("mp", now, prof)
 
     def section_hp(self, now, prof):
-        return self.meters["hp"].state(now)
+        return self._section("hp", now, prof)
 
     def section_usage(self, now, prof):
         return self.usage.summary()
