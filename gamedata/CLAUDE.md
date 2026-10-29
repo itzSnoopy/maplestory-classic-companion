@@ -14,7 +14,7 @@ folder's v83 `reference/` data (values differ). Every number here is fan-run dat
 ## Files
 | File | Role |
 |---|---|
-| `translate.py` | The engine's translator: `map_name(text) -> (name, map_id)`, `job_name(text)`, `next_job_level(job)` (`NEXT_ADVANCE` {0:10, 1:30, 2:70, 3:120}, `JOBS`/`TIER`), `snap_skill(text) -> [candidates]` + `skills()`, `exp_table()` / `exp_needed(level)` |
+| `translate.py` | The engine's translator: `map_name(text) -> (name, map_id)`, `job_name(text)`, `next_job_level(job)` (`NEXT_ADVANCE` {0:10, 1:30, 2:70, 3:120}, `JOBS`/`TIER`), `snap_skill(text) -> [candidates]` + `skills()`, `exp_table()` / `exp_needed(level)`, `skill_kind(id) -> {kind, sub, target, duration_s, until, name}` or None (from `skill_kinds_classic.json`) |
 | `maplist.py` | Snap a minimap title to the 453 real map names (exact, look-alike fold, fuzzy >= 0.88 with the same roman suffix, unique prefix) |
 | `formulas.py` | HP/MP and skill math, pure (stdlib only): `mp_pct`/`mp_flat`/`mp_part`/`mp_tick` (regen), `item_bonus_pct`/`potion_amount`, `skill_mp_cost(s)`, `buff_pct(record, level, stat)`/`buff_seconds`/`buffed_max` (Hyper Body: Max HP +N% for N s). `STATUS` {formula: (verified\|measured\|guess, source)} says how far each can be trusted |
 | `parse.py` | `parse_map` (title clean-up), `parse_gain` + chat helpers (EXP-notice parsing, not used live yet). The HUD's EXP/level format is `engine/hudtext.py` |
@@ -28,6 +28,7 @@ folder's v83 `reference/` data (values differ). Every number here is fan-run dat
 | `map_mobs.json` | per map id: `{name, street, region, mobs[{id, name, level, exp, count, respawn}]}` | `python dev/fetch_map_mobs.py [--all]` (1.5 s/page, resumable) | 2026-10-23 |
 | `mobs_classic.json` | 131 mobs `{name, level, hp, exp, boss, maps[], drops[]}` (drops = OSMLib reference rates) | `python dev/fetch_mobs.py [--all]` | 2026-10-25 |
 | `skills_classic.json` | 163 skills by id `{name, class, job, max, levels[] (per-level text), mp[], cd, time}` | `python dev/fetch_skills.py` (class pages; per-level text, mp, time, cd parsed from it) | 2026-10-23 |
+| `skill_kinds_classic.json` | per skill id `{kind: attack\|buff\|passive\|other, sub (proc, booster, charge, debuff, summon, heal, mobility, utility), target (self\|party\|mobs), duration_s[] per level, until ("death"), name}` | `python dev/make_skill_kinds.py` (text rule + hand-checked `OVERRIDES`; edit OVERRIDES, never the json; `--check` compares) | 2026-10-29 |
 | `potions_classic.json` | 52 Use items `{name, subtype, hp, mp, hp_pct, mp_pct, price, shop, cooldown}`; `shop` = cheapest NPC price | `python dev/fetch_potions.py [--keys]` (item API + npc-shops) | 2026-10-25 |
 | `important_maps.json` | maps worth a diary "first visit" (`towns`, `landmarks` with `why`) | curated by hand (player's copy in DATA wins) | 2026-10-23 |
 | `game_refs.json` | caption source -> Steam app id | curated by hand (player's copy in DATA wins) | 2026-10-23 |

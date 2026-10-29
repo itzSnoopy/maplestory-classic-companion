@@ -29,7 +29,7 @@ TESSERACT_DIR = Path(os.environ.get("TESSERACT_DIR", r"C:\Program Files\Tesserac
 # where paths.asset("<same path>") reads it
 DATA_FILES = ["config.example.json",
               "gamedata/maps_classic.json", "gamedata/exp_table_classic.json", "gamedata/map_mobs.json",
-              "gamedata/important_maps.json", "gamedata/game_refs.json", "gamedata/skills_classic.json",
+              "gamedata/important_maps.json", "gamedata/game_refs.json", "gamedata/skills_classic.json", "gamedata/skill_kinds_classic.json",
               "gamedata/potions_classic.json", "gamedata/mobs_classic.json",
               "engine/layouts.json", "launcher/whats_new.json",
               "components/killers/killers.json", "components/diary/captions.json"]

@@ -92,6 +92,25 @@ def check_data_files():
           "add to packaging/build.py DATA_FILES or LOCAL_JSON here: " + ", ".join(unshipped))
 
 
+def check_skill_kinds():
+    try:
+        sk = json.loads((ROOT / "gamedata" / "skills_classic.json").read_text(encoding="utf-8"))["skills"]
+        kd = json.loads((ROOT / "gamedata" / "skill_kinds_classic.json").read_text(encoding="utf-8"))["kinds"]
+    except (OSError, ValueError, KeyError) as e:
+        return check("skill kinds cover every skill", False, str(e))
+    bad = [f"missing {i}" for i in sk if i not in kd] + [f"extra {i}" for i in kd if i not in sk]
+    for i, v in kd.items():
+        if v.get("kind") not in ("attack", "buff", "passive", "other"):
+            bad.append(f"{i} kind {v.get('kind')}")
+        d = v.get("duration_s")
+        if d is not None and i in sk and len(d) != sk[i]["max"]:
+            bad.append(f"{i} duration_s length")
+    r = run([sys.executable, "dev/make_skill_kinds.py", "--check"])
+    if r.returncode:
+        bad.append("file differs from dev/make_skill_kinds.py (edit OVERRIDES, not the json)")
+    check("skill kinds: every skill has one, valid, matches the generator", not bad, "; ".join(bad[:5]))
+
+
 def check_privacy():
     files = set(run(["git", "ls-files"]).stdout.split())
     files |= set(run(["git", "diff", "--cached", "--name-only"]).stdout.split())
@@ -314,6 +333,7 @@ def main():
     check_compile()
     check_layers()
     check_data_files()
+    check_skill_kinds()
     check_privacy()
     if ensure_fixture():
         check_sim_regular()

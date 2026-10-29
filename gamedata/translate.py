@@ -8,6 +8,7 @@ The engine (engine/) reads pixels and text and knows no game names. It is handed
     job_name(text)         OCR'd job text -> a pre-Big Bang job name, or None
     next_job_level(job)    level from which the next job advancement is possible (None: no more)
     snap_skill(text)       OCR'd skill name -> the candidate skills (skills_classic.json), cached
+    skill_kind(id)         skill id -> {kind, sub, target, duration_s, until, name} (skill_kinds_classic.json), or None
     exp_needed(level)      EXP needed at that level (exp_table_classic.json), or None
 """
 import difflib
@@ -21,6 +22,7 @@ from gamedata import parse
 
 SKILLS_FILE = asset("gamedata/skills_classic.json")
 EXP_TABLE_FILE = asset("gamedata/exp_table_classic.json")
+KINDS_FILE = asset("gamedata/skill_kinds_classic.json")
 
 
 # ------------------------------------------------------------------ maps
@@ -86,6 +88,20 @@ def skills():
             d = {}
         _skills["list"] = [{"id": k, **v} for k, v in d.items()]
     return _skills["list"]
+
+
+_kinds = {"d": None}
+
+
+def skill_kind(sid):
+    """{kind: attack|buff|passive|other, sub, target, duration_s[], until, name} for a skill id, or None.
+    Made by dev/make_skill_kinds.py (skill_kinds_classic.json); never classify from the text at run time."""
+    if _kinds["d"] is None:
+        try:
+            _kinds["d"] = json.loads(KINDS_FILE.read_text(encoding="utf-8"))["kinds"]
+        except (OSError, ValueError, KeyError):
+            _kinds["d"] = {}
+    return _kinds["d"].get(str(sid).zfill(7))
 
 
 def _sq(s):
