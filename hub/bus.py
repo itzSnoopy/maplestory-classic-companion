@@ -5,7 +5,10 @@ Component.attach(). The helper process never sees this: it still reads status/li
 
   hub.on(event, fn) / hub.emit(event, **data)   events; each subscriber is timed as perf "bus.<event>",
                                                 an exception in one is logged and the rest still run
-  hub.publish(section, value) / hub.published() extra sections for live.json (merged by hub/live.py)
+  hub.publish(section, value) / hub.published() a section of live.json: a value, or fn(now, prof) called at
+                                                write time (hub/live.py composes the file)
+  hub.feed_facts(facts, prof)                   the tracker's facts: facts_begin, one "fact" event each,
+                                                the live.json write, then "facts" (base/contract.py EVENTS)
   hub.settings(name)                            a component's slice of helper_settings.json (read-only)
   hub.provide(name, fn) / hub.ask(name)         pull-style data one component offers another (no imports)
   hub.state                                     read-only view of the tracker (level, map, job, ...)
@@ -17,10 +20,12 @@ Component.attach(). The helper process never sees this: it still reads status/li
 
 The tracker fills hub.source, hub.take_facts, hub.journal_write and hub.state while the service runs.
 """
+import time
 import traceback
 from pathlib import Path
 
 from base import perf
+from hub import live
 
 
 class State:
@@ -60,6 +65,7 @@ class Hub:
         self._services = {}
         self._idle = []
         self._wake = False
+        self.live = live.LiveFile(self)
 
     # -- events
     def on(self, event, fn):
@@ -79,8 +85,21 @@ class Hub:
             except Exception:
                 self.log(f"bus: {event} -> {getattr(fn, '__qualname__', fn)} failed:\n" + traceback.format_exc())
 
+    def feed_facts(self, facts, prof, now=None):
+        """Deal out a batch of the source's facts (prof already holds them). The order is what the
+        components rely on: per-batch work, every fact in the order the source saw them (so the
+        training visit's start sees the HP/MP looks that came before its map, not after), then
+        live.json (written once a batch has a vitals look), then the whole batch."""
+        now = now or time.time()
+        self.emit("facts_begin", facts=facts, prof=prof, now=now)
+        for t, kind, value in facts:
+            self.emit("fact", t=t, kind=kind, value=value, prof=prof)
+        self.live.after_facts(facts, prof, now)
+        self.emit("facts", facts=facts, prof=prof)
+
     # -- live feed sections
     def publish(self, section, value):
+        """A live.json section: a value, or fn(now, prof) evaluated at every write (hub/live.py)."""
         self._live[section] = value
 
     def published(self):

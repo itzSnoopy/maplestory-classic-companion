@@ -835,7 +835,7 @@ def run(cfg, args, source, sinks=None, hub=None):
             facts = source.take_facts()
             if facts:
                 prof.update(facts)
-                hub.emit("facts", facts=facts, prof=prof)
+                hub.feed_facts(facts, prof)
         except Exception:
             log("character update failed: " + traceback.format_exc())
     hub.take_facts = take_facts

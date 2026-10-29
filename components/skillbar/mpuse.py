@@ -1,9 +1,9 @@
 """mpuse.py - what every HP / MP change was: regen tick, skill casts, potions, hits, ...
 
-Core side (no pixels). Fed every HP/MP look (live.py, from the 'vitals' facts). Between two looks
+Core side (no pixels). Fed every HP/MP look (feed.py, from the 'vitals' facts). Between two looks
 the change in MP (and HP) is explained as a sum of exact parts:
 
-  MP  = regen tick (vitals.Meter's clock says whether one fell in the window)
+  MP  = regen tick (meter.Meter's clock says whether one fell in the window)
         - skill casts (MP cost per level, skills_classic.json; one cast per ~0.6 s of window)
         + a potion / food (potions_classic.json, MeowDB; times the recovery skill's item bonus:
           Improved MP Recovery Lv 5 = +14%, so a Blue Potion's 200 shows as 228, measured
@@ -65,7 +65,7 @@ def _pct(text, pattern):
 
 class Usage:
     def __init__(self, meters, skills=None, potions=None):
-        self.meters = meters                    # {"hp": vitals.Meter, "mp": vitals.Meter}
+        self.meters = meters                    # {"hp": meter.Meter, "mp": meter.Meter}
         self.data = skills if skills is not None else _load("gamedata/skills_classic.json", "skills")
         self.items = potions if potions is not None else _load("gamedata/potions_classic.json", "items")
         self.levels = {}                        # {skill id: level} (Skill window)
@@ -369,10 +369,10 @@ class Usage:
 
 def _replay(path, levels, quiet=False):
     import csv
-    from engine import vitals
-    fixed = lambda: dict(vitals.REGEN_DEFAULTS)     # noqa: E731
-    meters = {"hp": vitals.Meter(prior=10.0, settings_fn=fixed),
-              "mp": vitals.Meter(prior=10.0, settings_fn=fixed)}
+    from components.skillbar import meter
+    fixed = lambda: dict(meter.REGEN_DEFAULTS)      # noqa: E731
+    meters = {"hp": meter.Meter(prior=10.0, settings_fn=fixed),
+              "mp": meter.Meter(prior=10.0, settings_fn=fixed)}
     u = Usage(meters)
     u.set_context(levels=levels)
     for r in csv.DictReader(open(path)):

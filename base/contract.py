@@ -94,6 +94,14 @@ class Source:
     def boost(self, fps, seconds):
         """Ask for a higher frame rate for the next `seconds` (the regen clock's bursts). Default: none."""
 
+    def party_name(self, i, mask, known, t):
+        """Name of party box row i from its text mask (OCR), snapped to `known` names; None when it
+        can't tell. The party component calls it for every 'party' fact. Default: None."""
+        return None
+
+    def party_reset(self):
+        """The party box changed its row count: forget the row names read so far."""
+
     def end_session(self):
         pass
 
@@ -119,7 +127,13 @@ EVENTS = (
     ("service_stop", "-. The loop ended; stop threads"),
     ("loop", "-. Top of every service-loop pass, before the source is read (state.playing is current)"),
     ("poll", "now. Each quick look between readings while playing (about once a second)"),
-    ("facts", "facts [(t, kind, value)], prof (character.Profile). Character facts the source saw; prof is updated"),
+    ("facts_begin", "facts [(t, kind, value)], prof (character.Profile), now. A batch of facts is about to be dealt out "
+                    "(prof already holds it): per-batch work (skillbar: another character starts over)"),
+    ("fact", "t, kind, value, prof. Each fact of the batch in order: 'vitals' {hp, mp: [cur, max]}, 'away', 'map' "
+             "(name), 'exp' {cur, pct}, 'party' (box rows), plus the Profile's who / stat / skills / channel. "
+             "Components that share state through the facts see them interleaved exactly as the source made them"),
+    ("facts", "facts [(t, kind, value)], prof (character.Profile). The whole batch, after every fact event and the "
+              "live.json write; prof is updated"),
     # -- session
     ("session_start", "dir (Path), source (name). A play session's files exist"),
     ("observation", "obs. A reading is about to be processed (start of Session.process)"),
@@ -137,11 +151,29 @@ EVENTS = (
     ("map_change", "to, from_stint ({map, start, active, exp}). Left a map after >= 30 s of play"),
     # -- from components, for other components
     ("exp_rise", "t, map, d (EXP gained since the last look), party (another member on your map), gap "
-                 "(s since the last look). Every EXP rise on a quick look (skillbar's training feed)"),
+                 "(s since the last look). Every EXP rise on a quick look (the training component)"),
     ("first_kill", "mob (album record), map, level, job, shots [relative paths], caught (album count), text "
                    "(the diary line). The album caught a mob for the first time and already saved it"),
 )
 EVENT_NAMES = tuple(n for n, _ in EVENTS)
+
+# Services: hub.provide(name, fn) / hub.ask(name, default): data one component offers another, no imports.
+# fn takes no arguments (a service that needs one returns a function). Provided in service_start, in
+# registry order, so a provider comes before the components that ask in the same event.
+SERVICES = (
+    ("exp_rate", "training. EXP/hr summary of this map visit, or None outside a visit (the tracker's ETA)"),
+    ("visit_map", "training. Name of the map visit under way, else the tracker's map (album)"),
+    ("seen_places", "diary. Places already visited, to seed the album"),
+    ("usage", "skillbar. The mpuse.Usage of the current character: every HP/MP change explained (training "
+              "diffs its totals; replaced when another character plays, training starts over then)"),
+    ("mp_price", "training. (potion name, mesos per MP point, MP per potion): what one MP costs you (skills list)"),
+    ("price_of", "training. Returns fn(item name) -> mesos or None: the player's price, else the shop's"),
+    ("party_on_map", "party. True while another party member is on your map (so EXP rises are shares)"),
+)
+
+# live.json (hub/live.py writes it about once a second while playing; the helper's overlays read it): t and
+# character come from the hub, the rest are sections the components publish with hub.publish(name, fn(now,
+# prof)): hp, mp, regen, skills, usage (skillbar), training (training), party (party).
 
 
 class Component:

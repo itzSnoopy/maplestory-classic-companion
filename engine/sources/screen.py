@@ -192,6 +192,7 @@ class ScreenSource(Source):
         self.size = tuple(self.res or (1920, 1080))     # last full frame size (for part boxes)
         self.party_t = 0.0                  # last party box look (party.py, about once a second)
         self.party = party.Finder()         # remembers where the box is
+        self._party_names = party.Names()   # row masks -> names (Tesseract once per row)
         self.stat_teach_t = 0.0             # last whole-frame grab to teach Stat window digits
         self.album_watch = False            # the tracker sets it: a first kill is possible here
         self.album_prev = deque(maxlen=2)   # [(t, middle square)] of the last looks (album.py)
@@ -438,6 +439,12 @@ class ScreenSource(Source):
             self._save_shot(frame, out_dir, stem)
         log(f"level-up picture taken {late:.2f} s after the EXP reset")
 
+    def party_name(self, i, mask, known, t):
+        return self._party_names.name(i, mask, known, t)
+
+    def party_reset(self):
+        self._party_names.reset()
+
     def checks_per_s(self):
         from engine import capture
         return capture.fps()
@@ -541,7 +548,7 @@ class ScreenSource(Source):
 
     def _party(self, t, img, origin):
         """The party box (party.py) -> a 'party' fact: rows top to bottom (empty = no box).
-        Names are matched later (live.py), where your own and your partners' names are known."""
+        Names are matched later (party component), where your own and your partners' names are known."""
         self.party_t = t
         try:
             with perf.timed("party"):

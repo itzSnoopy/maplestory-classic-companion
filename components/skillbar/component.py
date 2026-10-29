@@ -1,17 +1,15 @@
-"""skillbar component: owns the live feed (hub/live.py): HP/MP from the status bar, the regen clock,
-what the HP/MP went on, the training costs of this map visit, the party box. Writes live.json (the
-skill bar over the game and the party link read it).
+"""skillbar component: HP/MP from the status bar, the regen clock, what the HP/MP went on, casts left
+(components/skillbar/feed.py). Publishes the hp / mp / regen / skills / usage sections of live.json,
+which the skill bar over the game reads.
 
-Subscribes: service_start (builds the feed), facts, progress (training needs level/EXP).
-Emits (through the feed): exp_rise. Offers: hub.ask("exp_rate"), hub.ask("visit_map").
+Subscribes: service_start (builds the feed), facts_begin, fact (vitals, away, party).
+Offers: hub.ask("usage") (mpuse.Usage; the training component prices it).
+Asks: hub.ask("mp_price") / hub.ask("price_of") (training) for the skills list.
 Between quick looks it runs the regen clock's bursts (hub.on_idle).
-Phase 3/4: hub/live.py still holds the vitals / mpuse / training / party code and merges
-hub.published() into live.json; splitting those into their own components is left for later.
 Helper side (ui): the skill bar over the game (skillbar_ui.py), its two menu toggles and its line in
 Settings > General.
 """
 import copy
-import traceback
 
 from base.contract import Component
 from hub import helper_settings as HS
@@ -45,27 +43,27 @@ class SkillbarComponent(Component):
     def attach(self, hub):
         self.hub = hub
         self.feed = None
+        self.prof = None
         hub.on("service_start", self.on_start)
-        hub.on("facts", self.on_facts)
-        hub.on("progress", self.on_progress)
+        hub.on("facts_begin", self.on_begin)
+        hub.on("fact", self.on_fact)
 
     def on_start(self, **_):
-        from hub import live          # here, not at the top: the helper loads this module for ui() and must stay light
+        from components.skillbar import feed     # here, not at the top: the helper loads this module for ui() and must stay light
         hub = self.hub
-        self.feed = feed = live.Live(hub=hub)         # live.json for the skill bar (HP/MP regen, casts)
-        hub.provide("exp_rate", feed.exp_rate)
-        hub.provide("visit_map",
-                    lambda: feed.training.visit.name if feed.training.visit else hub.state.map)
-        hub.on_idle(feed.burst_looks)
+        self.feed = f = feed.Feed(hub=hub)        # HP/MP regen, casts
+        hub.provide("usage", lambda: f.usage)
+        hub.on_idle(f.burst_looks)
+        # live.json sections, evaluated in this order (see Feed: the regen section sets a prior)
+        for name, fn in (("mp", f.section_mp), ("skills", f.section_skills), ("regen", f.section_regen),
+                         ("hp", f.section_hp), ("usage", f.section_usage)):
+            hub.publish(name, fn)
 
-    def on_facts(self, facts, prof, **_):
-        try:
-            self.feed.update(facts, prof)
-        except Exception:
-            self.hub.log("character update failed: " + traceback.format_exc())
+    def on_begin(self, prof, now=None, **_):
+        self.feed.begin(prof, now)
 
-    def on_progress(self, level, cur, need, **_):
-        self.feed.training.set_progress(level, cur, need)
+    def on_fact(self, t, kind, value, prof=None, **_):
+        self.feed.fact(t, kind, value, prof)
 
 
 def make_bar(root, get, put, **kw):

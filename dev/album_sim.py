@@ -4,7 +4,7 @@ real history/, diary or screenshots.
   python dev/album_sim.py OUT_DIR
 
 1. kill matching: every spawn entry in map_mobs.json, which mobs can be caught from one EXP rise
-2. EXP facts -> live.Live -> training.Training -> rise hook -> album -> Session.first_kill
+2. EXP facts -> hub.feed_facts -> training component -> exp_rise -> album -> Session.first_kill
    (a normal mob, a boss, a repeat kill, an ambiguous rise, party EXP), with a stub source
 3. screen.py's middle-square keeper + album_shot on a saved frame (dev/fixtures, if present)
 4. album.html / diary.html build; captions for first_kill and first_kill_boss
@@ -27,12 +27,15 @@ os.environ["MAPLE_COMPANION_DATA"] = str(OUT)        # helper_settings etc. read
 from base import lean  # noqa: F401,E402,I001
 from components.album import album  # noqa: E402
 from components.diary import diary  # noqa: E402
-from hub import live  # noqa: E402
 from launcher import compose  # noqa: E402
 from components.album.component import AlbumComponent  # noqa: E402
 from components.diary.component import DiaryComponent  # noqa: E402
+from components.party.component import PartyComponent  # noqa: E402
+from components.skillbar.component import SkillbarComponent  # noqa: E402
+from components.training.component import TrainingComponent  # noqa: E402
 
-hub = compose.make_hub(OUT, components=[DiaryComponent, AlbumComponent])   # sets the root, attaches
+hub = compose.make_hub(OUT, components=[DiaryComponent, AlbumComponent, SkillbarComponent, PartyComponent,
+                                         TrainingComponent])   # sets the root, attaches
 fails = []
 
 
@@ -96,14 +99,24 @@ albc.on_start()                 # the album component opens the album (service_s
 alb = albc.album
 alb.set_who("fp_test", "Snoopy")
 alb.set_level(22)
-feed = live.Live(path=OUT / "live.json", hub=hub)
+skc, party_c, trc = hub.components[2:5]
+skc.on_start()                  # the feed (usage), then the training that accounts against it
+trc.on_start()
 caught = []
 hub.on("first_kill", lambda mob, **_: caught.append(mob["name"]))
 t = time.time()
 
 
+class PROF:                     # what the tracker's character.Profile gives the components, nobody playing
+    who = None
+
+    @staticmethod
+    def char():
+        return {}
+
+
 def facts(*fs):
-    feed.update(list(fs), None, now=t)
+    hub.feed_facts(list(fs), PROF, now=t)
 
 
 facts((t, "map", "Thicket Around the Beach III"))
@@ -124,17 +137,17 @@ if other:
 n = len(caught)
 base = cur + 296 + (other["exp"] if other else 0)
 # partied earlier on this visit (sticky visit.party), nobody else on the map now: still counts
-feed.training.visit.party = True
-feed.party = {"t": time.time(), "rows": [{"on_map": True}, {"on_map": False}]}
+trc.training.visit.party = True
+party_c.box = {"t": time.time(), "rows": [{"on_map": True}, {"on_map": False}]}
 orange = album.find("Orange Mushroom")
 facts((t + 5, "exp", {"cur": base + orange["exp"], "pct": 13.0}))
 check(caught[-1:] == ["Orange Mushroom"], "partied this visit, partner elsewhere: Orange Mushroom caught")
 n = len(caught)
 # a partner on your map: EXP is shared, nothing counts (Stump 10 EXP would match otherwise)
-feed.party = {"t": time.time(), "rows": [{"on_map": True}, {"on_map": True}]}
+party_c.box = {"t": time.time(), "rows": [{"on_map": True}, {"on_map": True}]}
 facts((t + 6, "exp", {"cur": base + orange["exp"] + 10, "pct": 13.2}))
 check(len(caught) == n, "partner on the map: nothing caught")
-feed.party = {"t": time.time(), "rows": []}
+party_c.box = {"t": time.time(), "rows": []}
 b2 = base + orange["exp"] + 10
 facts((t + 30, "map", "Kerning City Construction Site"))
 facts((t + 31, "exp", {"cur": b2, "pct": 14.0}))

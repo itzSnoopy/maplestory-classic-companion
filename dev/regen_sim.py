@@ -1,6 +1,6 @@
 """dev/regen_sim.py - replay a dev/vitals_log.py recording (8-10 looks/s) the way the tracker
 looks live: normal looks at `fps` (Settings > General), plus bursts at burst_fps when the regen
-clock asks for them (vitals.Meter.wants_fast). Reports how many looks it took, how well the
+clock asks for them (meter.Meter.wants_fast). Reports how many looks it took, how well the
 clock's next tick matched the real ticks, the checks, and what mpuse.Usage made of the changes.
 
   python dev/regen_sim.py LOG.csv [fps=2] [skill_id=level ...]
@@ -15,7 +15,7 @@ os.environ.setdefault("MAPLE_COMPANION_OFFLINE", "1")   # simulations never go o
 CODE = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(CODE))
 from components.skillbar import mpuse  # noqa: E402
-from engine import vitals  # noqa: E402
+from components.skillbar import meter  # noqa: E402
 
 
 def main():
@@ -28,8 +28,8 @@ def main():
     truth = [(T[i - 1] + T[i]) / 2 for i in range(1, len(rows))
              if mp[i] - mp[i - 1] in (9, 10, 11, 12, 13) or
              (mp[i] - mp[i - 1] < 0 and (mp[i] - mp[i - 1]) % 17 in (10,))]
-    s = dict(vitals.REGEN_DEFAULTS)
-    meters = {k: vitals.Meter(prior=10.0, settings_fn=lambda: s) for k in ("hp", "mp")}
+    s = dict(meter.REGEN_DEFAULTS)
+    meters = {k: meter.Meter(prior=10.0, settings_fn=lambda: s) for k in ("hp", "mp")}
     u = mpuse.Usage(meters)
     u.set_context(levels=levels)
     t, looks, fast_looks, errs = T[0], 0, 0, []
