@@ -1,12 +1,12 @@
 """skillbar_ui.py - a movable hotbar-style strip over the game (FF14-like), fed by live.json.
 
 Skill corner number (right-click, helper_settings skillbar.show): casts left (default), MP per
-cast, or mesos per cast (live.py: the MP at what your MP potion costs per point, training.py
-mp_price, plus items like Magic Rock at your own price, plus mesos like Shadow Meso).
+cast, or mesos per cast (feed.py: the MP at what your MP potion costs per point, training's
+mp_price via hub.ask, plus items like Magic Rock at your own price, plus mesos like Shadow Meso).
 
 Slots, left to right:
   MP regen   tick size ("+6"), seconds to the next tick, and a dark sweep that empties as the
-             tick comes (vitals.Meter measures it from the status bar; nothing is guessed)
+             tick comes (meter.Meter measures it from the status bar; nothing is guessed)
   HP regen   the same for HP
   skills     every skill with an MP cost at level >= 1: its icon (cut from your own Skill window,
              templates/skill_icons/) and how many casts your current MP allows
@@ -18,7 +18,7 @@ Position/lock/removed skills: helper_settings.json "skillbar" (right-click a ski
 the bar"; "Add back" lists the removed ones). Draws at ~10 frames a second, reads live.json
 once a second.
 
-  python skillbar_ui.py --demo [--at=X,Y]     fake data, for trying it out
+  python -m components.skillbar.skillbar_ui --demo [--at=X,Y]     fake data, for trying it out
 """
 import json
 import math
@@ -173,7 +173,7 @@ class SkillBar:
         slots = []                  # (slot image, caption image or None)
         ids = []                    # skill id per slot (None = regen), for the right-click menu
         reg = L.get("regen") or {}
-        # a regen slot only for a meter the character has a recovery skill for (live.py)
+        # a regen slot only for a meter the character has a recovery skill for (feed.py REGEN_SKILLS)
         for k, label, color, text_color in (("mp", "MP", (30, 90, 200), (140, 190, 255, 255)),
                                             ("hp", "HP", (190, 40, 40), (255, 140, 140, 255))):
             if k not in reg:

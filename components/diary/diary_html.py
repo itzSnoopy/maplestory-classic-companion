@@ -4,7 +4,7 @@ Built from history/timeline.jsonl, history/levels.csv, history/map_stats.json, d
 maps_classic.json. One self-contained file (no internet needed); pictures are linked by relative
 path from screenshots/diary/, so open it straight from disk:
 
-  python diary.py html          rebuild and open in the browser
+  python -m components.diary.diary html          rebuild and open in the browser
 
 diary.render() rebuilds it automatically, so it stays current while the tracker runs.
 It shows Nexon game imagery: local only, never publish or upload it.
@@ -635,7 +635,7 @@ document.addEventListener("keydown", e => { if (!$("#lb").classList.contains("on
   else if (e.key === "f" || e.key === "F") { const g = lbList[lbi]; if (g.pics.length > 1) openLb(lbi, null, (lbp + 1) % g.pics.length); } });
 
 // story: oldest at the top, beats alternate sides, one photo print per beat.
-// Served by `python diary.py serve` (D.live), each line gets Edit / Generate buttons that save.
+// Served by `python -m components.diary.diary serve` (D.live), each line gets Edit / Generate buttons that save.
 async function api(path, body) {
   const r = await fetch(path, {method: "POST", headers: {"Content-Type": "application/json", "X-Diary": "1"},
                                body: JSON.stringify(body)});

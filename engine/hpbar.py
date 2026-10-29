@@ -5,10 +5,10 @@ interior x 780..884, y 1063..1076. The fill is read along rows 1065-1070, where 
 brightest (R 226-243, G ~10, B 0). No digits or font involved, so nothing to learn or calibrate.
 The status bar moves with the window size like the EXP text ("bottom-center" anchor, layout.py).
 
-Used to tell deaths from level-ups (tracker.py): HP 0 + EXP drop = death; pre-Big Bang level-ups
-refill HP, so a full bar contradicts a death.
+Read with every reading (ScreenSource.read) and sent as the Observation's hp_pct. Deaths come from the
+death box (deathbox.py) since 2026-10-23, not from this bar.
 
-  python hpbar.py FRAME [FRAME...]      print HP % of saved frames (dev check)
+  python -m engine.hpbar FRAME [FRAME...]      print HP % of saved frames (dev check)
 """
 import sys
 

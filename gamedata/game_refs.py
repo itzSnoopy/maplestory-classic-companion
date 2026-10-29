@@ -4,7 +4,7 @@ game_refs.json maps a caption `source` to its Steam app id. `fetch_icons()` asks
 for each game's small capsule image (184x69) and saves it as game_icons/<appid>.jpg in the player's
 data folder. Only Steam's own hosts are downloaded from.
 
-  python diary.py icons            fetch missing icons (then rebuild diary.html)
+  python -m components.diary.diary icons   fetch missing icons (then rebuild diary.html)
 
 The icons are the publishers' art: local only, never commit, publish or ship them.
 """

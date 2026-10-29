@@ -15,7 +15,7 @@ Lives in the helper process like the skill bar and party panel (Settings > Gener
 "Training cost panel", off by default); drag to move, right-click to lock (click-through) or
 hide. Position: helper_settings.json "trainingpanel". Hidden while live.json is stale.
 
-  python training_ui.py --demo [--at=X,Y]      fake data, for trying it out
+  python -m components.training.training_ui --demo [--at=X,Y]      fake data, for trying it out
 """
 import json
 import sys

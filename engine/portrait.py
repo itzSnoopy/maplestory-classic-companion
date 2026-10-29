@@ -26,7 +26,7 @@ tried and dropped: after a map change or behind a shop window it pointed at the 
 
 The template is the rendered name of the player's character (Nexon font): kept in memory only.
 
-  python portrait.py test FRAME [FRAME...]      where the tag is, score, hook (dev check)
+  python -m engine.portrait test FRAME [FRAME...]      where the tag is, score, hook (dev check)
 """
 import sys
 import time

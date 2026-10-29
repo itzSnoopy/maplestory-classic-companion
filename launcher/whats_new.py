@@ -8,7 +8,7 @@ HOLD_S. Nothing goes to the diary or the journal.
 A fresh install (no data yet) doesn't get the card; an install that predates this file (0.4.0)
 gets it when it was started by the updater (--after-update).
 
-  python whats_new.py --demo [--at=X,Y]       show the card for the current version
+  python -m launcher.whats_new --demo [--at=X,Y]       show the card for the current version
 """
 import json
 import time

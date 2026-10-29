@@ -9,19 +9,19 @@
 Entry kinds: levelup, death, job, first_visit, first_kill (monster album, album.py), note, moment.
 The tracker adds entries automatically. By hand:
 
-  python diary.py note "Finally got my Metus! Party with Ana"   (screenshot if the tracker runs)
-  python diary.py killed-by "Zombie Mushroom"     annotate the latest death
-  python diary.py caption "I bit the dust"        own words for the latest entry in the Story view
-  python diary.py caption --kind death "..."      ... for the latest death ("" = automatic again)
-  python diary.py caption --random                a random line from captions.json instead
-  python diary.py icons [--force]                 game icons from Steam for the caption tags
-  python diary.py refs [on|off "Game" ...]         which games' lines random captions may use
-  python diary.py nickname Snoopy                 what {name} says in captions ("" = character name)
-  python diary.py open                            the editable diary (starts the server if needed)
-  python diary.py serve                           diary.html with Edit / Generate buttons (localhost)
-  python diary.py render                          rebuild diary.md (and diary.html)
-  python diary.py html                            rebuild diary.html and open it in the browser
-  python diary.py backfill                        add entries for level-ups in history/levels.csv
+  python -m components.diary.diary note "Finally got my Metus! Party with Ana"   (screenshot if the tracker runs)
+  python -m components.diary.diary killed-by "Zombie Mushroom"     annotate the latest death
+  python -m components.diary.diary caption "I bit the dust"        own words for the latest entry in the Story view
+  python -m components.diary.diary caption --kind death "..."      ... for the latest death ("" = automatic again)
+  python -m components.diary.diary caption --random                a random line from captions.json instead
+  python -m components.diary.diary icons [--force]                 game icons from Steam for the caption tags
+  python -m components.diary.diary refs [on|off "Game" ...]         which games' lines random captions may use
+  python -m components.diary.diary nickname Snoopy                 what {name} says in captions ("" = character name)
+  python -m components.diary.diary open                            the editable diary (starts the server if needed)
+  python -m components.diary.diary serve                           diary.html with Edit / Generate buttons (localhost)
+  python -m components.diary.diary render                          rebuild diary.md (and diary.html)
+  python -m components.diary.diary html                            rebuild diary.html and open it in the browser
+  python -m components.diary.diary backfill                        add entries for level-ups in history/levels.csv
                                                   that predate the diary (uses screenshots/levelups)
 
 Screenshots are Nexon game imagery: local only, never publish or upload.
@@ -210,7 +210,7 @@ def clock(when):
 
 
 def nickname():
-    """{name} in captions: the nickname if set (`python diary.py nickname Snoopy`), else the
+    """{name} in captions: the nickname if set (`python -m components.diary.diary nickname Snoopy`), else the
     character name."""
     return custom_captions().get("_nickname") or char_name()
 

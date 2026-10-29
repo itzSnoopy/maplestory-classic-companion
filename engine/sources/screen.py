@@ -458,8 +458,8 @@ class ScreenSource(Source):
         return self.lu.shot_at
 
     def quick_vitals(self, t):
-        """Burst look for the regen clock (vitals.Meter): just the HP/MP strip, ~2 ms. Returns
-        False when it couldn't look (no live frames, no game)."""
+        """Burst look for the skill bar's regen clock (components/skillbar/meter.py): just the HP/MP
+        strip, ~2 ms. Returns False when it couldn't look (no live frames, no game)."""
         if not getattr(self.frames, "pollable", False) or not hasattr(self.frames, "grab_parts"):
             return False
         try:
@@ -471,7 +471,7 @@ class ScreenSource(Source):
         if strip.getbbox() is None:
             return False
         # the loading fade after a portal (~0.7 s dark): the regen clock restarts from it
-        # (vitals.Meter.reset_clock), so a burst look reports it like a quick look does
+        # (meter.Meter.reset_clock), so a burst look reports it like a quick look does
         if sum(strip.resize((16, 4), Image.NEAREST).convert("L").getdata()) < 20 * 64:
             self._away(t)
             return True

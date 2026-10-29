@@ -17,12 +17,12 @@ screen middle (sources/screen.py); on a first kill the square from the look befo
 State per character (the fingerprint character.py uses): history/album.json.
 Mob facts: mobs_classic.json (dev/fetch_mobs.py, MeowDB). Pictures: mobicons.py (downloaded, local).
 
-  python album.py                 open the album (diary server, http://127.0.0.1:8737/album.html)
-  python album.py html            rebuild album.html and open it from disk
-  python album.py status          counts per state for the current character
-  python album.py kill "Mob"      mark a mob as caught by hand (no photo)
-  python album.py unkill "Mob"    undo a catch (wrong mob)
-  python album.py icons           download every mob picture now (Settings > Internet allows it)
+  python -m components.album.album                 open the album (diary server, http://127.0.0.1:8737/album.html)
+  python -m components.album.album html            rebuild album.html and open it from disk
+  python -m components.album.album status          counts per state for the current character
+  python -m components.album.album kill "Mob"      mark a mob as caught by hand (no photo)
+  python -m components.album.album unkill "Mob"    undo a catch (wrong mob)
+  python -m components.album.album icons           download every mob picture now (Settings > Internet allows it)
 
 Screenshots are Nexon game imagery: local only, never publish or upload.
 """

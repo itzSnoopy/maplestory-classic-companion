@@ -13,9 +13,9 @@ The game shows a small translucent box with one row per party member (up to 6), 
 The UI is drawn at a fixed pixel size (layout.py), so the bar shape is the same at every window
 size; it's *found* by its outline anywhere in the top-left area, not at a fixed spot.
 HP % comes from the fill (1 px = 1.6 %); names from Tesseract once per row, snapped to names we
-know (your own from the Stat window, partners' from the party link: partylink.py).
+know (your own from the Stat window, partners' from the party link: components/party/partylink.py).
 
-  python party.py FRAME [FRAME...]     print the rows of saved frames (dev check)
+  python -m engine.party FRAME [FRAME...]     print the rows of saved frames (dev check)
 """
 import difflib
 import sys

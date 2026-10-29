@@ -10,7 +10,7 @@ x 882..998, y 1046..1060; the status bar moves with the window size ("bottom-cen
 The regen model (Meter: tick size, period, phase, the burst-look schedule) is not screen reading:
 it lives in components/skillbar/meter.py; mpuse.py explains every other change.
 
-  python vitals.py FRAME [FRAME...]      read HP/MP of saved frames (dev check)
+  python -m engine.vitals FRAME [FRAME...]      read HP/MP of saved frames (dev check)
 """
 import sys
 

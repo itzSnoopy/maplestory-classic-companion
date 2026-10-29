@@ -7,7 +7,7 @@ a short hash of the white-pixel mask, trimmed to the text. The same character gi
 fingerprint every frame; another character gives another one. The readable name comes from the
 Character Stat window (panels.py, read well), with Tesseract here only as a first guess.
 
-  python charname.py FRAME [FRAME...]     fingerprint + OCR guess (dev check)
+  python -m engine.charname FRAME [FRAME...]     fingerprint + OCR guess (dev check)
 """
 import hashlib
 import sys

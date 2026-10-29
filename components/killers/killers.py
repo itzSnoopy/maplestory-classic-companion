@@ -12,8 +12,8 @@ Otherwise no killer, only `suspects` (strongest first), so the diary never blame
 Mob lists come from map_mobs.json (dev/fetch_map_mobs.py, NiaMeowDB spawn lists). Several maps
 share a name; their mob lists are merged, since the tracker only reads the name.
 
-  python killers.py "<map name>" [level]      show what a death there would say
-  python killers.py audit                      maps where a death would get no killer
+  python -m components.killers.killers "<map name>" [level]      show what a death there would say
+  python -m components.killers.killers audit                      maps where a death would get no killer
 """
 import json
 import sys

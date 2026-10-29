@@ -99,7 +99,7 @@ class DiaryComponent(Component):
             self.render_at = 0.0
             diary.render()
 
-    # -- the helper's requests: `python diary.py note "..."`, the camera button
+    # -- the helper's requests: `python -m components.diary.diary note "..."`, the camera button
     def on_poll(self, **_):
         if diary.has_requests():                 # answer now
             self.hub.wake()

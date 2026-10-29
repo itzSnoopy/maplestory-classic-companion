@@ -1,7 +1,8 @@
 """capture.py - how many frames a second the tracker looks at the game (Settings > General slider).
 
-helper_settings.json "capture": {"fps": 1..60}. Default 2 (since 0.4.0). MapleStory doesn't draw more than 60
-frames a second, so more would only re-read the same picture.
+helper_settings.json "capture": {"fps": 1..5}. Default 2 (since 0.4.0); cap 5 (player, 2026-10-24).
+Bursts (boost) may go up to HARD_MAX_FPS = 60: MapleStory doesn't draw more than 60 frames a second,
+so more would only re-read the same picture.
 
 What the rate drives, while playing:
   - Windows Graphics Capture delivers at most `fps` frames a second (sources/wgc.py)
@@ -16,7 +17,7 @@ import json
 import os
 
 MIN_FPS, MAX_FPS, DEFAULT_FPS = 1, 5, 2
-HARD_MAX_FPS = 60        # the game draws <= 60 fps; MAX_FPS is the player-facing cap (decide by 0.3)
+HARD_MAX_FPS = 60        # the game draws <= 60 fps; MAX_FPS is the player-facing cap (decided 2026-10-24)
 
 # measured 2026-10-23 (dev/bench.py + a poll loop, 1920x1080, death box + center grab per frame):
 # 1 fps 1.1%, 5 1.7%, 10 3.0%, 20 7.2%, 30 8.4%, 60 20.6% of one core (Windows delivered ~48/s)
@@ -32,7 +33,7 @@ def clamp(v):
 
 
 def fps(path=None):
-    """Frames a second from helper_settings.json (1-60)."""
+    """Frames a second from helper_settings.json (MIN_FPS..MAX_FPS)."""
     if path is None:
         from base.paths import DATA
         path = DATA / "helper_settings.json"
@@ -54,7 +55,7 @@ _boost = {"fps": 0, "until": 0.0}
 
 def boost(f, seconds):
     """Let Windows deliver up to `f` frames a second for the next `seconds` (the regen clock's
-    bursts of HP/MP looks, vitals.Meter). Ends by itself; the slider's rate applies again."""
+    bursts of HP/MP looks, the skill bar's regen clock). Ends by itself; the slider's rate applies again."""
     import time
     _boost.update(fps=min(HARD_MAX_FPS, max(1, int(f))), until=time.time() + seconds)
 

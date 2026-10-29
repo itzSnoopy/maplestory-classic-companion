@@ -11,7 +11,7 @@ Detection checks those shapes and colors only (numbers, no game art is stored or
 works for every player without calibration. The box doesn't scale with the window size; it's
 searched for within a few pixels of the center to allow for an odd window size.
 
-  python deathbox.py FRAME [FRAME...]     score saved frames (dev check)
+  python -m engine.deathbox FRAME [FRAME...]     score saved frames (dev check)
 """
 import sys
 

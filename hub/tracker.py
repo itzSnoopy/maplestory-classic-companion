@@ -876,7 +876,7 @@ def run(cfg, args, source, sinks=None, hub=None):
             perf.tick(last_state, source.checks_per_s())
             sleep_for = idle_poll
             hub.state.playing = last_state == "playing"
-            hub.emit("loop")                           # diary: `python diary.py note "..."`, camera button
+            hub.emit("loop")                           # diary: `python -m components.diary.diary note "..."`, camera button
             try:
                 try:
                     with perf.timed("read"):

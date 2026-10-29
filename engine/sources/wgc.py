@@ -58,7 +58,7 @@ class WgcFrames:
         self.max_age = c.get("max_age_s", 5)      # a frame older than this is "no picture"
         # how often Windows may hand us a frame. Each delivered frame costs ~4 ms CPU even if
         # nobody asked for it; skipped ones cost nothing. Follows Settings > General "Screen
-        # checks per second" (capture.py, default 1/s = 1000 ms); config "wgc.min_update_ms"
+        # checks per second" (capture.py, default 2/s = 500 ms); config "wgc.min_update_ms"
         # pins it instead (dev tools, bursts). A grab waits for the next frame, so up to this long.
         self.fixed_ms = c.get("min_update_ms")
         self.min_update_ms = self._wanted_ms()

@@ -1,6 +1,6 @@
 """training.py - what training on a map costs you: MP, potions, mesos, per kill and to level up.
 
-Core side (no pixels), fed by live.py with the same facts the skill bar gets:
+Core side (no pixels), fed by component.py (bus facts) with the same facts the skill bar gets:
   'map'  {name}            a new map visit starts (the last one is added to history/training.json)
   'exp'  {cur, pct}        the EXP bar on every quick look: each rise is kills. A rise is split
                            into the map's mobs by their EXP (map_mobs.json, MeowDB), fewest kills
@@ -92,7 +92,7 @@ class Visit:
         self.exp = 0                 # EXP from kills
         self.other_exp = 0           # rises no mix of the map's mobs explains (party shares:
                                      # the user was partied for most of the 2026-10-25 recording)
-        self.party = False           # in a party at some point of this visit (live.py)
+        self.party = False           # in a party at some point of this visit (component.py, 'party' fact)
         self.quest_exp = 0           # lumps: quest turn-ins, EXP in town (not in the rates)
         self.rate = exprate.ExpRate()   # EXP/hr: active clock, party share apart
         self.last_t = t
@@ -117,7 +117,7 @@ class Training:
         self.progress = {}                       # level, exp_cur, exp_needed (tracker readings)
         self.last_save = 0.0
         self._sums_cache = {}
-        self.on_rise = None          # callback(t, map, d, party) for every EXP rise (album.py)
+        self.on_rise = None          # callback(t, map, d, party) for every EXP rise (component.py emits exp_rise; the album listens)
         self.exp_prev_t = None       # time of the last quick look with an EXP reading
         self.exp_gap = None          # seconds between the last two such looks
 

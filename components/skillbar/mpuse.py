@@ -23,12 +23,12 @@ before event items. A change with no exact explanation is "other" (kept with its
 cases can be studied). The tick found is handed back to the Meter (feed(tick=...)), so a cast in
 the same look no longer hides it (-17 + 10 = -7).
 
-Skill levels come from the Skill window (character.py) and can be stale: a level-up spends SP
+Skill levels come from the Skill window (hub/character.py) and can be stale: a level-up spends SP
 long before the window is opened again. So a cast may cost any level's cost from the known level
 up; once the same higher cost is seen MIN_LEVEL_SEEN times, that level is believed
 (`levels_seen`, used for casts left).
 
-  python mpuse.py LOG.csv [skill_id=level ...]   replay a dev/vitals_log.py recording
+  python -m components.skillbar.mpuse LOG.csv [skill_id=level ...]   replay a dev/vitals_log.py recording
 """
 import json
 import re

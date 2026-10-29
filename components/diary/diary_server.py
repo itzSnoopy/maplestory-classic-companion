@@ -1,7 +1,7 @@
 """diary_server.py - serve the diary on this PC only, so the Story view's Edit / Generate buttons
 can save. A page opened straight from disk (diary.html) can't write files; this can.
 
-  python diary.py serve            opens http://127.0.0.1:8737/ in the browser (Ctrl+C to stop)
+  python -m components.diary.diary serve            opens http://127.0.0.1:8737/ in the browser (Ctrl+C to stop)
 
 Listens on 127.0.0.1 only. Requests must carry the right Host and an X-Diary header, which a
 web page on another site can't send without a CORS preflight this server never answers.

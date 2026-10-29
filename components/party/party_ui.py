@@ -14,7 +14,7 @@ party.json (partners, partylink.py). Hidden when none of them shows a party. Liv
 process like the skill bar (helper_ui.App, Settings > General "Party panel"); drag to move,
 right-click to lock (click-through) or hide. Position: helper_settings.json "partypanel".
 
-  python party_ui.py --demo [--at=X,Y]      fake data, for trying it out
+  python -m components.party.party_ui --demo [--at=X,Y]      fake data, for trying it out
 """
 import json
 import sys
