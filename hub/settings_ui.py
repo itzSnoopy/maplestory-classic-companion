@@ -70,8 +70,18 @@ class SettingsWindow:
         self.msg.pack(side="left", fill="x", expand=True)
         tk.Frame(right, bg=LINE, height=1).pack(side="bottom", fill="x")
 
-        self.page_host = tk.Frame(right, bg=BG)
-        self.page_host.pack(fill="both", expand=True, padx=px(20), pady=(px(16), px(8)))
+        # the page scrolls when it is taller than the window (Internet grows with every online feature)
+        body = tk.Frame(right, bg=BG)
+        body.pack(fill="both", expand=True, padx=(px(20), 0), pady=(px(16), px(8)))
+        self.canvas = cv = tk.Canvas(body, bg=BG, highlightthickness=0, bd=0)
+        self.vbar = tk.Scrollbar(body, orient="vertical", command=cv.yview)
+        cv.configure(yscrollcommand=self.vbar.set)
+        cv.pack(side="left", fill="both", expand=True)
+        self.page_host = tk.Frame(cv, bg=BG)
+        self.page_win = cv.create_window(0, 0, window=self.page_host, anchor="nw")
+        self.page_host.bind("<Configure>", lambda e: self.fit_page())
+        cv.bind("<Configure>", lambda e: self.fit_page())
+        w.bind("<MouseWheel>", self.wheel)       # the Toplevel tag: every widget in this window
         self.pages = {}
         for n in self.categories:
             try:
@@ -87,6 +97,26 @@ class SettingsWindow:
             f.pack_forget()
             self.nav[n].configure(bg=SEL if n == name else PANEL, fg=TEXT if n == name else MUTED)
         self.pages[name].pack(fill="both", expand=True)
+        self.canvas.yview_moveto(0)
+        self.w.after_idle(self.fit_page)
+
+    def fit_page(self):
+        """Page as wide as the canvas, at least as tall; scrollbar only when the page doesn't fit."""
+        cv, px = self.canvas, self.px
+        cw, ch = cv.winfo_width(), cv.winfo_height()
+        need = self.page_host.winfo_reqheight()
+        cv.itemconfigure(self.page_win, width=max(1, cw - px(20)), height=max(need, ch))
+        cv.configure(scrollregion=(0, 0, cw, max(need, ch)))
+        fits = need <= ch
+        if fits and self.vbar.winfo_ismapped():
+            self.vbar.pack_forget()
+            cv.yview_moveto(0)
+        elif not fits and not self.vbar.winfo_ismapped():
+            self.vbar.pack(side="right", fill="y", before=cv)
+
+    def wheel(self, e):
+        if self.page_host.winfo_reqheight() > self.canvas.winfo_height():
+            self.canvas.yview_scroll(int(-e.delta / 120) or (-1 if e.delta > 0 else 1), "units")
 
     # ---------------------------------------------------------------- widgets
     def button(self, parent, text, cmd, primary=False):

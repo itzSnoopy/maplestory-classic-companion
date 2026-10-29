@@ -1,4 +1,7 @@
 {
+ "0.8.1": [
+  "Settings now scroll when a page is taller than the window (the Skill feedback code on the Internet page was hidden). Use the mouse wheel or the scrollbar."
+ ],
  "0.8.0": [
   "Skill review: Menu > Review skills (send feedback) opens a page with every class's skills. Mark what's right or wrong, add notes, and press Send to share your answers with the person who runs your group's server (Settings > Internet > Skill feedback). A dot shows whether that server is online.",
   "Behind the scenes: every skill now has a kind (attack, buff, passive, other) and max HP/MP is remembered per character, for the skill bar's next steps."
