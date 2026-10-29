@@ -26,4 +26,5 @@ Each part has a **map** (`<folder>/CLAUDE.md`, tracked) and a **memory** (local)
 | `album/` | Monster album: every mob as ? / grey (seen, boss, or <= 3 levels above you) / caught; a first kill (an EXP rise only one mob explains) takes a photo + emits `first_kill` (the diary writes the beat); page `/album.html`; mob facts `dev/fetch_mobs.py` | - | `album/CLAUDE.md` / `.claude/handoff/components/album.md` |
 | `party/` | Party box names, party link to the relay, party panel | party | `party/CLAUDE.md` / `.claude/handoff/components/party.md` |
 | `training/` | EXP/hr per visit, cost per kill / per 1,000 EXP, potions; emits `exp_rise` | training | `training/CLAUDE.md` / `.claude/handoff/components/training.md` |
+| `feedback/` | Skill review page `/skill-review.html` (class picker, answers kept in the browser) + Send to the owner's relay feedback inbox; helper only | - | `feedback/CLAUDE.md` / `.claude/handoff/components/feedback.md` |
 | `discord/` | Discord Rich Presence (helper only) | - | `discord/CLAUDE.md` / `.claude/handoff/components/discord.md` |

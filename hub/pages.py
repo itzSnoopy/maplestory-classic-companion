@@ -6,6 +6,9 @@ the other component:
 
     register_page("/album.html", lambda root, live: html_text)
 
+register_api("/api/x/send", handler) adds a local POST endpoint the same server dispatches to
+(handler(req_dict) -> (status, obj); the server checks Host and the X-Diary header first).
+
 open_page(path) opens a registered page in the browser through the host (the diary server, which
 registers itself with set_host). serve(...) runs the server in this process. In a process that has no
 host yet (a command line like `python -m components.album.album open`) the launcher composes one
@@ -14,11 +17,22 @@ host yet (a command line like `python -m components.album.album open`) the launc
 import importlib
 
 _pages = {}          # path -> render(root, live) -> html text
+_apis = {}           # path -> handler(req dict) -> (status, obj)
 _host = None
 
 
 def register_page(path, render):
     _pages[path] = render
+
+
+def register_api(path, handler):
+    """A local POST endpoint, e.g. "/api/feedback/send": handler(req_dict) -> (http status, json-able obj)."""
+    _apis[path] = handler
+
+
+def api(path):
+    """The handler registered for path, or None."""
+    return _apis.get(path)
 
 
 def page(path):

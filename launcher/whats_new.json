@@ -1,4 +1,8 @@
 {
+ "0.8.0": [
+  "Skill review: Menu > Review skills (send feedback) opens a page with every class's skills. Mark what's right or wrong, add notes, and press Send to share your answers with the person who runs your group's server (Settings > Internet > Skill feedback). A dot shows whether that server is online.",
+  "Behind the scenes: every skill now has a kind (attack, buff, passive, other) and max HP/MP is remembered per character, for the skill bar's next steps."
+ ],
  "0.7.1": [
   "New app and tray icon, drawn by an artist friend.",
   "Updating is clearer and quicker: \"Updating to x.y.z\" or \"Update failed\" right away, a notice in the tray, and the switch takes seconds. The \"Update to\" label in the helper now works when clicked.",

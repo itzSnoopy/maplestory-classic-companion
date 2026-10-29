@@ -5,6 +5,9 @@ under a shared party code, and gets back everyone else's under that code. A code
 in-game party, or a hangout of friends spread over any maps, with no player limit. Nothing is written to
 disk: members drop out 90 s after their last update, and a restart forgets everything.
 
+It also has a small "skill feedback" inbox (off unless FEEDBACK_KEY is set): friends send a skill
+review export, the owner fetches it with a key. Also memory only; a restart forgets it.
+
 Python 3.8+, standard library only.
 
   PORT=8787 python3 party_relay.py
@@ -15,22 +18,38 @@ Environment:
   PARTY_CODES   optional comma list of allowed party codes; empty = any code of 6-64 chars
                 (set it on a public server so strangers can't use yours)
   MAX_MEMBERS   players per code; 0 (default) = no limit
+  FEEDBACK_KEY  owner key for the feedback inbox; EMPTY (default) = feedback endpoints disabled (404)
+  FEEDBACK_CODES  optional comma list of allowed feedback codes; empty = any code of 6-64 chars
+  FEEDBACK_TTL_DAYS  days an item is kept (default 30)
+  FEEDBACK_MAX  items kept in total across codes (default 300; when full the oldest is dropped)
 
 API (JSON):
   POST /v1/party/<code>   body {"name": ..., <fields>}  -> {"members": [...], "server_t": ...}
   GET  /v1/party/<code>                                  -> the same, without posting
-  GET  /health                                           -> {"ok": true}
+  GET  /health   -> {"ok": true, "source": <repo url>, "feedback": <enabled>}
 Each member comes back as its fields + "name" + "age_s" (seconds since its last post).
+
+Feedback (needs FEEDBACK_KEY; body max 64 KB; one POST per 30 s per address):
+  POST   /v1/feedback/<code>  body = a "classic-skill-review/1" export -> {"ok": true, "id": ...}
+  GET    /v1/feedback/<code>  header X-Feedback-Key -> {"items": [...], "server_t": ...} oldest first
+  DELETE /v1/feedback/<code>  header X-Feedback-Key, optional body {"ids": [...]} -> {"deleted": n}
+Only the cleaned review (reviewer nickname + answers) is kept; no addresses are stored or logged.
+Source (AGPLv3): https://github.com/itzSnoopy/maplestory-classic-companion
 """
+import hmac
 import json
 import os
 import re
+import secrets
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 TTL_S = 90
 MAX_BODY = 4096
+FEEDBACK_MAX_BODY = 65536
+FEEDBACK_GAP_S = 30     # min seconds between feedback posts from one address
+SOURCE_URL = "https://github.com/itzSnoopy/maplestory-classic-companion"
 MAX_REPLY = 2000        # members returned per answer (keeps big hangouts' replies sane)
 MAX_MEMBERS = int(os.environ.get("MAX_MEMBERS", "0"))     # 0 = no limit
 MAX_CODES = 500
@@ -59,6 +78,20 @@ def _pair(v):
     return (isinstance(v, list) and len(v) == 2 and all(isinstance(x, int) and 0 <= x < 10 ** 6
                                                          for x in v))
 
+
+FEEDBACK_KEY = os.environ.get("FEEDBACK_KEY", "")       # empty = feedback disabled
+FEEDBACK_CODES = {c.strip() for c in os.environ.get("FEEDBACK_CODES", "").split(",") if c.strip()}
+FEEDBACK_TTL_DAYS = float(os.environ.get("FEEDBACK_TTL_DAYS", "30") or 30)
+FEEDBACK_MAX = int(os.environ.get("FEEDBACK_MAX", "300") or 300)
+FEEDBACK_FORMAT = "classic-skill-review/1"
+feedback = []           # [(code, item)] oldest first
+fb_last = {}            # address -> time of last feedback post
+BRANCH_RE = re.compile(r"^[A-Za-z0-9 ]{1,32}$")
+SKILL_ID_RE = re.compile(r"^\d{1,9}$")
+CTRL_RE = re.compile(r"[\x00-\x1f\x7f]")
+STATUSES = ("ok", "wrong", "unsure", "")
+KINDS = ("", "attack", "buff", "passive", "other")
+MODES = ("", "timed", "toggle", "until death")
 
 ALLOWED = {c.strip() for c in os.environ.get("PARTY_CODES", "").split(",") if c.strip()}
 parties = {}            # code -> {name: (t, fields)}
@@ -89,6 +122,71 @@ def _members(code, now):
     return [{**f, "name": n, "age_s": round(now - t, 1)} for n, (t, f) in out]
 
 
+class Invalid(Exception):
+    pass
+
+
+def _clean_submission(d):
+    """Validate a review export; return the cleaned copy (unknown fields dropped) or raise Invalid."""
+    if not isinstance(d, dict):
+        raise Invalid("body must be an object")
+    if d.get("format") != FEEDBACK_FORMAT:
+        raise Invalid("unknown format")
+    branch = d.get("branch")
+    if not isinstance(branch, str) or not BRANCH_RE.match(branch):
+        raise Invalid("bad branch")
+    reviewer = d.get("reviewer", "")
+    if not isinstance(reviewer, str):
+        raise Invalid("bad reviewer")
+    reviewer = reviewer.strip()
+    if len(reviewer) > 24 or CTRL_RE.search(reviewer):
+        raise Invalid("bad reviewer")
+    exported = d.get("exported", "")
+    if not isinstance(exported, str) or len(exported) > 40:
+        raise Invalid("bad exported")
+    out = {"format": FEEDBACK_FORMAT, "branch": branch, "reviewer": reviewer, "exported": exported}
+    fetched = d.get("data_fetched")
+    if fetched is not None:
+        if not isinstance(fetched, str) or len(fetched) > 40:
+            raise Invalid("bad data_fetched")
+        out["data_fetched"] = fetched
+    cnt = d.get("count", 0)
+    if isinstance(cnt, bool) or not isinstance(cnt, int) or not 0 <= cnt <= 1000:
+        raise Invalid("bad count")
+    rv = d.get("reviews")
+    if not isinstance(rv, dict) or not 1 <= len(rv) <= 400:
+        raise Invalid("reviews must have 1-400 entries")
+    reviews = {}
+    for k, v in rv.items():
+        if not isinstance(k, str) or not SKILL_ID_RE.match(k) or not isinstance(v, dict):
+            raise Invalid("bad review entry")
+        name = v.get("name", "")
+        if not isinstance(name, str) or len(name) > 64:
+            raise Invalid("bad skill name")
+        e = {"name": name}
+        for field, allowed in (("status", STATUSES), ("kind", KINDS), ("mode", MODES)):
+            val = v.get(field, "")
+            if not isinstance(val, str) or val not in allowed:
+                raise Invalid("bad " + field)
+            e[field] = val
+        note = v.get("note", "")
+        if not isinstance(note, str):
+            raise Invalid("bad note")
+        e["note"] = re.sub(r"[\x00-\x09\x0b-\x1f\x7f]", "", note)[:500]
+        if e["status"] or e["kind"] or e["mode"] or e["note"]:
+            reviews[k] = e
+    if not reviews:
+        raise Invalid("nothing to store")
+    out["count"] = len(reviews)
+    out["reviews"] = reviews
+    return out
+
+
+def _fb_prune(now):
+    cutoff = now - FEEDBACK_TTL_DAYS * 86400
+    feedback[:] = [(c, i) for c, i in feedback if i["received_t"] >= cutoff]
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "party-relay/1"
 
@@ -114,9 +212,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/health":
-            return self._send(200, {"ok": True})
+            return self._send(200, {"ok": True, "source": SOURCE_URL, "feedback": bool(FEEDBACK_KEY)})
         if not _rate_ok(self.client_address[0]):
             return self._send(429, {"error": "slow down"})
+        if self.path.startswith("/v1/feedback"):
+            return self._feedback("GET")
         code = self._code()
         if code is None:
             return self._send(404, {"error": "not found"})
@@ -129,6 +229,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not _rate_ok(self.client_address[0]):
             return self._send(429, {"error": "slow down"})
+        if self.path.startswith("/v1/feedback"):
+            return self._feedback("POST")
         code = self._code()
         if code is None:
             return self._send(404, {"error": "not found"})
@@ -155,6 +257,87 @@ class Handler(BaseHTTPRequestHandler):
                 del p[oldest]
             p[name] = (now, fields)
             return self._send(200, {"members": _members(code, now), "server_t": now})
+
+
+    def do_DELETE(self):
+        if not _rate_ok(self.client_address[0]):
+            return self._send(429, {"error": "slow down"})
+        if self.path.startswith("/v1/feedback"):
+            return self._feedback("DELETE")
+        return self._send(404, {"error": "not found"})
+
+    def _body(self, limit):
+        """Read the body: bytes, or None when empty/too big (the caller answers 413)."""
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            return None
+        if n <= 0 or n > limit:
+            return None
+        return self.rfile.read(n)
+
+    def _feedback(self, method):
+        if not FEEDBACK_KEY:
+            return self._send(404, {"error": "not found"})
+        m = re.match(r"^/v1/feedback/([^/?]+)$", self.path)
+        if not m:
+            return self._send(404, {"error": "not found"})
+        code = m.group(1)
+        if not CODE_RE.match(code) or (FEEDBACK_CODES and code not in FEEDBACK_CODES):
+            return self._send(403, {"error": "unknown feedback code"})
+        addr = self.client_address[0]
+        if method != "POST":
+            key = self.headers.get("X-Feedback-Key") or ""
+            if not hmac.compare_digest(key.encode(), FEEDBACK_KEY.encode()):
+                return self._send(403, {"error": "bad key"})
+        if method == "POST":
+            now = time.time()
+            if now - fb_last.get(addr, -1e12) < FEEDBACK_GAP_S:
+                return self._send(429, {"error": "one send per 30 s"})
+            raw = self._body(FEEDBACK_MAX_BODY)
+            if raw is None:
+                return self._send(413, {"error": "body too large or empty"})
+            try:
+                item = _clean_submission(json.loads(raw))
+            except ValueError:
+                return self._send(400, {"error": "bad json"})
+            except Invalid as e:
+                return self._send(400, {"error": str(e)})
+            item["id"] = secrets.token_hex(6)
+            item["received_t"] = now
+            with lock:
+                _fb_prune(now)
+                feedback.append((code, item))
+                del feedback[:max(0, len(feedback) - FEEDBACK_MAX)]
+                if len(fb_last) > 5000:
+                    fb_last.clear()
+                fb_last[addr] = now
+            return self._send(200, {"ok": True, "id": item["id"]})
+        if method == "GET":
+            with lock:
+                now = time.time()
+                _fb_prune(now)
+                items = [i for c, i in feedback if c == code]
+            return self._send(200, {"items": items, "server_t": now})
+        # DELETE
+        ids = None
+        raw = self._body(FEEDBACK_MAX_BODY)
+        if raw is not None:
+            try:
+                d = json.loads(raw)
+            except ValueError:
+                return self._send(400, {"error": "bad json"})
+            if isinstance(d, dict) and d.get("ids") is not None:
+                if not isinstance(d["ids"], list) or not all(isinstance(x, str) for x in d["ids"]):
+                    return self._send(400, {"error": "ids must be a list of strings"})
+                ids = set(d["ids"])
+        with lock:
+            _fb_prune(time.time())
+            keep = [(c, i) for c, i in feedback
+                    if not (c == code and (ids is None or i["id"] in ids))]
+            deleted = len(feedback) - len(keep)
+            feedback[:] = keep
+        return self._send(200, {"deleted": deleted})
 
 
 def main():

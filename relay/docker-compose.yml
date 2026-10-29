@@ -9,3 +9,6 @@ services:
       PARTY_CODES: ""
       # players per code; 0 = no limit (a hangout of any size)
       MAX_MEMBERS: "0"
+      # skill feedback inbox: owner key (empty = feedback disabled), optional comma list of codes
+      FEEDBACK_KEY: ""
+      FEEDBACK_CODES: ""

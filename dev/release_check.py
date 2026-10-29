@@ -254,6 +254,14 @@ def check_killers():
     check("killers audit runs", r.returncode == 0 and "Traceback" not in r.stderr, r.stderr[-200:])
 
 
+def check_relay():
+    r = run([sys.executable, str(ROOT / "relay" / "test_relay.py")], env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=120)
+    check("relay tests pass (relay/test_relay.py)", r.returncode == 0, (r.stderr or r.stdout)[-300:])
+    r = run([sys.executable, str(ROOT / "dev" / "feedback_sim.py"), str(TMP / "feedback_sim")],
+            env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=180)
+    check("skill feedback sim (page -> relay -> dev tool)", r.returncode == 0, (r.stdout or r.stderr)[-300:])
+
+
 # ------------------------------------------------------------------ build checks
 def do_build():
     r = run([sys.executable, "packaging/build.py"], timeout=1200)
@@ -340,6 +348,7 @@ def main():
         check_sim_fresh()
         check_fresh_windows()
     check_killers()
+    check_relay()
     if "--build" in sys.argv and all(ok for _, ok in results):
         z = do_build()
         if z:

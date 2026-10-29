@@ -23,10 +23,10 @@ The hub sees the engine only through `base/contract.py` (`Observation`, `Source`
 | `helper_settings.py` | helper_settings.json `DEFAULTS` (keys: character, discord, diary, capture, internet, updates, skillbar, party, trainingpanel, partypanel, map_check, regen_check), `load/save/job`. Order of keys = JSON bytes: don't reorder |
 | `helper_ui.py` | The helper window + tray (`App`, `Tray`, `Snapshot`, `menu_items`), `QUIET_RESTART_S`, `main(argv, services)`; reads status/digest/live files |
 | `settings_ui.py` | `SettingsWindow` (General, Character, Discord, Diary, Internet, About pages; components add pages/extras) |
-| `ui/shell.py` | `Shell`: the only API a component's `ui()` sees (add_menu, add_command, add_settings_page, add_settings_extra, on_settings_save, on_refresh, on_exit, add_page, set_camera, settings/all_settings/set_setting/save_settings, post, notify, root, k, px, at, demo, visible, headless, log_error) |
+| `ui/shell.py` | `Shell`: the only API a component's `ui()` sees (add_menu, add_command, add_settings_page, add_settings_extra, on_settings_save, on_refresh, on_exit, add_page, add_api, set_camera, settings/all_settings/set_setting/save_settings, post, notify, root, k, px, at, demo, visible, headless, log_error) |
 | `ui/overlay.py` | `PanelHost` (create/remove/toggle/lock for panels over the game), `font`, `text` |
 | `ui/theme.py` | Colours and font |
-| `pages.py` | Local page registry (`register_page/page/paths/open_page/serve`, `set_host`); the diary server (127.0.0.1:8737) hosts the pages |
+| `pages.py` | Local page registry (`register_page/page/paths/open_page/serve`, `register_api/api` = local POST endpoints, `set_host`); the diary server (127.0.0.1:8737) hosts the pages |
 | `tools.py` | `portrait_maker()` hook, loaded by name from the launcher |
 
 ## Interfaces

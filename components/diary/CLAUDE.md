@@ -15,7 +15,7 @@ every other component's pages (`hub/pages.py`, e.g. `/album.html`).
 | `component.py` | `DiaryComponent` (events -> `diary.add`, requests loop, `ui(shell)`) + `PageHost` (the host `hub/pages.py` uses) |
 | `diary.py` | Core: `add`, `entries`, `delete_entry`, `render` (diary.md + html), text builders, captions (`caption_lines`, `set_caption`, `generate_caption`, `sources_off`, `nickname`), places (`mark_place`, `seed_places`, `with_context`), `moment_due`, requests (`request_note`, `request_moment`, `take_requests`), `open_diary`, `annotate_last_death`, `backfill`, CLI |
 | `diary_html.py` | Builds `diary.html` (one self-contained page; data embedded as JSON); `page(root, live)`, `build` |
-| `diary_server.py` | Localhost server `127.0.0.1:8737` (Host check, `X-Diary` header on POSTs): diary page, registered pages, pictures; `/api/caption`, `/api/generate`, `/api/sources`, `/api/delete`; `start_thread`, `running`, `open_page`, `serve` |
+| `diary_server.py` | Localhost server `127.0.0.1:8737` (Host check, `X-Diary` header on POSTs): diary page, registered pages, pictures; `/api/caption`, `/api/generate`, `/api/sources`, `/api/delete`; other POST paths go to APIs components registered with `hub.pages.register_api` (same Host + `X-Diary` checks, body up to 70000 bytes vs 10000 for its own; handler -> `(status, obj)`); `start_thread`, `running`, `open_page`, `serve` |
 | `diary_popup.py` | `DiaryPopup` (card on new entries, watches timeline.jsonl) + `page(win, f, popup)` = Settings > Diary |
 | `captions.json` | Story caption dictionary per kind (shipped; the player's copy in the data folder wins) |
 

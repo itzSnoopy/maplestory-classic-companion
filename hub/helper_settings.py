@@ -53,7 +53,8 @@ DEFAULTS = {
         "allowed": True,                # master switch: off = no internet connections at all
         "features": {"updates": True,   # automatic updates (updater.py, packaged app only)
                      "party": True,     # party link (partylink.py; needs server + code below)
-                     "icons": True},    # item pictures for the training panel (itemicons.py)
+                     "icons": True,     # item pictures for the training panel (itemicons.py)
+                     "feedback": True}, # skill review "Send" (components/feedback; needs server + code)
     },
     "updates": {                        # Settings > Internet > Automatic updates; updater.py
         "min_s": 30,                    # first check 30 s after start, then doubling while
@@ -69,6 +70,10 @@ DEFAULTS = {
     "party": {                          # Settings > Internet > Party link; partylink.py (tracker)
         "server": "",                   # your relay, e.g. http://203.0.113.5:8787 (relay/README.md)
         "code": "",                     # same code on every PC in the party
+    },
+    "feedback": {                       # Settings > Internet > Skill feedback; components/feedback
+        "server": "",                   # the owner's relay (relay/README.md); no fallback to the party server
+        "code": "",                     # feedback code the owner gives reviewers
     },
     "trainingpanel": {                  # Settings > General / tray; training_ui.py over the game
         "enabled": False,               # what training on this map costs (optional, user 2026-10-25)

@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Classic Skill Review</title>
+<style>
+/* Layout: one working column; branch tabs, then each job as a section of skill rows that expand into a per-level table. */
+:root{
+  --bg:#f3f5f8; --surface:#ffffff; --line:#d9dee7; --fg:#18202c; --muted:#5b6678;
+  --accent:#2a5bd7; --accent-soft:#e3eafb;
+  --attack:#c2452d; --attack-soft:#fbe7e2;
+  --buff:#1f8a6a; --buff-soft:#dff3ec;
+  --passive:#5d6b82; --passive-soft:#e7eaf0;
+  --other:#7a4cc2; --other-soft:#efe7fb;
+  --ok:#1f8a4c; --bad:#c23030; --unsure:#b07a12;
+  --f-display:"Segoe UI",system-ui,sans-serif;
+  --f-body:"Segoe UI",system-ui,sans-serif;
+  --f-mono:ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10141b; --surface:#171d27; --line:#2a3342; --fg:#e4e9f1; --muted:#97a3b6;
+  --accent:#7aa2ff; --accent-soft:#1d2a47;
+  --attack:#f08467; --attack-soft:#3a201a; --buff:#4cc79f; --buff-soft:#15302a;
+  --passive:#a3afc4; --passive-soft:#232b38; --other:#b791f2; --other-soft:#2a2140;
+  --ok:#4cc77e; --bad:#f07070; --unsure:#e0b04a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10141b; --surface:#171d27; --line:#2a3342; --fg:#e4e9f1; --muted:#97a3b6;
+  --accent:#7aa2ff; --accent-soft:#1d2a47;
+  --attack:#f08467; --attack-soft:#3a201a; --buff:#4cc79f; --buff-soft:#15302a;
+  --passive:#a3afc4; --passive-soft:#232b38; --other:#b791f2; --other-soft:#2a2140;
+  --ok:#4cc77e; --bad:#f07070; --unsure:#e0b04a; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:1080px;margin:0 auto;display:grid;gap:18px}
+h1{font:600 26px/1.15 var(--f-display);letter-spacing:.01em;margin:0;text-wrap:balance}
+.sub{color:var(--muted);margin:2px 0 0;max-width:68ch}
+.top{display:flex;flex-wrap:wrap;gap:16px;align-items:end;justify-content:space-between}
+.progress{display:grid;gap:6px;min-width:240px;flex:0 1 320px}
+.bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden;display:flex}
+.bar span{display:block;height:100%}
+.counts{font:500 13px var(--f-mono);color:var(--muted);display:flex;gap:12px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.counts b{color:var(--fg);font-weight:500}
+.srv{display:flex;align-items:center;gap:8px;font:600 13px var(--f-mono);color:var(--muted)}
+.srv .dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex:none}
+.srv[data-on="1"] .dot{background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 25%,transparent)}
+.srv[data-on="1"]{color:var(--ok)}
+.srv[data-on="0"] .dot{background:var(--bad)}
+.srv[data-on="0"]{color:var(--bad)}
+.notice{padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--muted);font-size:14px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.tab{font:600 15px var(--f-display);letter-spacing:.02em;background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);padding:8px 12px;cursor:pointer}
+.tab[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent)}
+.tab .n{font:400 12px var(--f-mono);color:var(--muted);margin-left:4px}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{font:500 13px var(--f-body);border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:4px 11px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.filters .sep{width:1px;height:20px;background:var(--line)}
+#q{font:14px var(--f-body);padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--fg);min-width:0;flex:1 1 180px;max-width:260px}
+section.job{display:grid;gap:6px}
+section.job h2{font:600 18px var(--f-display);margin:10px 0 2px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+section.job h2 small{font:400 13px var(--f-body);color:var(--muted)}
+.skill{background:var(--surface);border:1px solid var(--line);border-radius:8px;border-left:4px solid var(--line)}
+.skill[data-status="ok"]{border-left-color:var(--ok)}
+.skill[data-status="wrong"]{border-left-color:var(--bad)}
+.skill[data-status="unsure"]{border-left-color:var(--unsure)}
+.head{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1.1fr) minmax(0,1.4fr) auto;gap:12px;align-items:center;padding:10px 12px;cursor:pointer}
+.name{font-weight:600;min-width:0}
+.name .id{font:400 12px var(--f-mono);color:var(--muted);margin-left:6px}
+.kind{display:flex;gap:6px;align-items:center;flex-wrap:wrap;min-width:0}
+.pill{font:600 12px var(--f-body);text-transform:uppercase;letter-spacing:.06em;border-radius:4px;padding:2px 7px}
+.k-attack{background:var(--attack-soft);color:var(--attack)}
+.k-buff{background:var(--buff-soft);color:var(--buff)}
+.k-passive{background:var(--passive-soft);color:var(--passive)}
+.k-other{background:var(--other-soft);color:var(--other)}
+.tag{font:12px var(--f-body);color:var(--muted)}
+.fixed{font:12px var(--f-body);color:var(--bad)}
+.cost{font:13px/1.4 var(--f-mono);font-variant-numeric:tabular-nums;min-width:0}
+.cost .lbl{color:var(--muted)}
+.verdict{display:flex;gap:4px}
+.vb{font:600 12px var(--f-body);border:1px solid var(--line);background:var(--surface);color:var(--muted);border-radius:6px;padding:4px 8px;cursor:pointer;min-width:62px}
+.vb[data-v="ok"][aria-pressed="true"]{background:var(--ok);border-color:var(--ok);color:var(--surface)}
+.vb[data-v="wrong"][aria-pressed="true"]{background:var(--bad);border-color:var(--bad);color:var(--surface)}
+.vb[data-v="unsure"][aria-pressed="true"]{background:var(--unsure);border-color:var(--unsure);color:var(--surface)}
+button:focus-visible,select:focus-visible,textarea:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.body{border-top:1px solid var(--line);padding:12px;display:grid;gap:12px}
+.fixrow{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
+.fixrow label{display:grid;gap:3px;font-size:12px;color:var(--muted)}
+select,textarea{font:14px var(--f-body);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+textarea{width:100%;min-height:58px;resize:vertical}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:600 11px var(--f-body);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+td.n{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+td.t{min-width:260px;color:var(--muted)}
+.saved{font-size:12px;color:var(--muted)}
+.empty{color:var(--muted);padding:12px 0}
+.export{display:grid;gap:6px;padding:12px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent-soft)}
+.exrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+#who{font:14px var(--f-body);padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--fg);flex:1 1 220px;max-width:320px;min-width:0}
+@media (max-width:760px){
+  .head{grid-template-columns:minmax(0,1fr) auto;row-gap:6px}
+  .kind{grid-column:1/-1;grid-row:2}.cost{grid-column:1/-1;grid-row:3}
+  .verdict{grid-column:2;grid-row:1}
+  .vb{min-width:0}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head><body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>Classic Skill Review</h1>
+      <p class="sub">Help check the skills in MapleStory Classic World. Browse any class, answer only the skills you know (kind: attack, buff, passive, other; whether a buff is timed or a toggle; the cost), mark each correct, wrong or unsure and add a note when something is off. You do not have to finish anything. Click a skill to see every level. Press Send when you are done.</p>
+    </div>
+    <div class="progress" aria-live="polite">
+      <div class="bar" id="bar"></div>
+      <div class="counts" id="counts"></div>
+    </div>
+  </div>
+  <div class="notice" id="notice" hidden></div>
+  <div class="export" id="export">
+    <div class="srv" id="srv" aria-live="polite"><span class="dot"></span><span id="srvtxt">Review Server: checking...</span></div>
+    <label for="who" class="tag">Nickname (optional, up to 24 characters; leave blank to stay anonymous)</label>
+    <div class="exrow">
+      <input id="who" type="text" maxlength="24" placeholder="e.g. Kaz" autocomplete="off">
+      <span class="counts" id="answered"></span>
+      <button class="chip" id="send">Send</button>
+      <button class="chip" id="exp">Export JSON</button>
+      <button class="chip" id="copy">Copy as text</button>
+      <span class="saved" id="exmsg"></span>
+    </div>
+    <textarea id="extext" readonly hidden aria-label="Exported answers"></textarea>
+  </div>
+  <div class="tabs" role="tablist" id="tabs"></div>
+  <div class="filters">
+    <span class="tag">Kind</span><span id="kindf"></span>
+    <span class="sep"></span>
+    <span class="tag">Review</span><span id="statf"></span>
+    <input id="q" type="search" placeholder="Search skills" aria-label="Search skills">
+  </div>
+  <div id="list"></div>
+  <p class="saved" id="src"></p>
+</div>
+
+<script type="application/json" id="data">__DATA__</script>
+<script type="application/json" id="cfg">__CFG__</script>
+<script>
+(function(){
+const D = JSON.parse(document.getElementById("data").textContent);
+const CFG = JSON.parse(document.getElementById("cfg").textContent);
+const SK = D.skills, byId = {};
+SK.forEach(s => byId[s.id] = s);
+const BRANCHES = CFG.branches;   // class tabs: navigation only, answers are one store for all of them
+const KINDS = ["attack","buff","passive","other"];
+const ST = {ok:"Correct", wrong:"Wrong", unsure:"Unsure"};
+let tab = BRANCHES[0][0], kindF = null, statF = null, q = "";
+const open = new Set();
+const reviews = {};
+const canSave = true;
+const LS = "classic-skill-review:all";
+try { const h = location.hash.slice(1); if (BRANCHES.some(b => b[0] === h)) tab = h; } catch(e) {}
+
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmtS = s => s == null ? "" : (s >= 600 && s % 60 === 0 ? (s/60) + " min" : s + " s");
+const span = (a, b, f) => a === b ? f(a) : f(a) + " → " + f(b);
+
+function kindOf(s){ const r = reviews[s.id]; return (r && r.kind) || s.kind; }
+function modeOf(s){
+  const r = reviews[s.id];
+  if (r && r.mode) return r.mode;
+  if (s.until === "death") return "until death";
+  if (s.lv[0][4] != null) return "timed";
+  return "no duration in data";
+}
+function costText(s){
+  const L = s.lv, a = L[0], z = L[L.length-1], parts = [];
+  if (a[1] != null || z[1] != null) parts.push('<span class="lbl">MP</span> ' + span(a[1] ?? 0, z[1] ?? 0, x => x));
+  if (a[2] != null || z[2] != null) parts.push('<span class="lbl">HP</span> ' + span(a[2] ?? 0, z[2] ?? 0, x => x));
+  const it = a[3].join(", "), itz = z[3].join(", ");
+  if (it || itz) parts.push('<span class="lbl">+</span> ' + esc(it === itz ? it : (it || "none") + " → " + (itz || "none")));
+  if (a[5] != null) parts.push('<span class="lbl">CD</span> ' + span(a[5], z[5], fmtS));
+  return parts.length ? parts.join("<br>") : '<span class="lbl">no cost</span>';
+}
+function kindHtml(s){
+  const k = kindOf(s), r = reviews[s.id];
+  let h = '<span class="pill k-' + k + '">' + k + '</span>';
+  if (s.sub) h += '<span class="tag">' + esc(s.sub) + '</span>';
+  if (k === "buff") {
+    const m = modeOf(s), L = s.lv;
+    h += '<span class="tag">' + esc(m === "timed" && L[0][4] != null ? "timed " + span(L[0][4], L[L.length-1][4], fmtS) : m) + '</span>';
+  }
+  if (s.target === "party") h += '<span class="tag">party</span>';
+  if (r && r.kind && r.kind !== s.kind) h += '<span class="fixed">was ' + s.kind + '</span>';
+  return h;
+}
+function matches(s){
+  if (kindF && kindOf(s) !== kindF) return false;
+  const st = (reviews[s.id] || {}).status || "todo";
+  if (statF && st !== statF) return false;
+  if (q && !(s.name.toLowerCase().includes(q) || s.id.includes(q))) return false;
+  return true;
+}
+function rowHtml(s){
+  const r = reviews[s.id] || {}, st = r.status || "";
+  const vb = Object.keys(ST).map(v => '<button class="vb" data-v="' + v + '" aria-pressed="' + (st === v) + '"' + (canSave ? "" : " disabled") + '>' + ST[v] + '</button>').join("");
+  return '<article class="skill" data-id="' + s.id + '" data-status="' + st + '">' +
+    '<div class="head" role="button" tabindex="0" aria-expanded="' + open.has(s.id) + '">' +
+      '<div class="name">' + esc(s.name) + '<span class="id">' + s.id + ' · max ' + s.max + '</span></div>' +
+      '<div class="kind">' + kindHtml(s) + '</div>' +
+      '<div class="cost">' + costText(s) + '</div>' +
+      '<div class="verdict">' + vb + '</div>' +
+    '</div>' + (open.has(s.id) ? bodyHtml(s) : "") + '</article>';
+}
+function bodyHtml(s){
+  const r = reviews[s.id] || {}, dis = canSave ? "" : " disabled";
+  const kopts = ['<option value="">as listed (' + s.kind + ')</option>'].concat(KINDS.map(k => '<option' + (r.kind === k ? " selected" : "") + '>' + k + '</option>')).join("");
+  const modes = ["", "timed", "toggle", "until death"];
+  const mopts = modes.map(m => '<option value="' + m + '"' + ((r.mode || "") === m ? " selected" : "") + '>' + (m || "as listed (" + (s.until === "death" ? "until death" : s.lv[0][4] != null ? "timed" : "none") + ")") + '</option>').join("");
+  const rows = s.lv.map(l => '<tr><td class="n">' + l[0] + '</td><td class="n">' + (l[1] ?? "") + '</td><td class="n">' + (l[2] ?? "") +
+    '</td><td>' + esc(l[3].join(", ")) + '</td><td class="n">' + fmtS(l[4]) + '</td><td class="n">' + fmtS(l[5]) + '</td><td class="t">' + esc(l[6]) + '</td></tr>').join("");
+  return '<div class="body">' +
+    '<div class="fixrow">' +
+      '<label for="k-' + s.id + '">Kind should be<select id="k-' + s.id + '" data-f="kind"' + dis + '>' + kopts + '</select></label>' +
+      '<label for="m-' + s.id + '">Buff works as<select id="m-' + s.id + '" data-f="mode"' + dis + '>' + mopts + '</select></label>' +
+      '<span class="tag">' + esc(s.cls) + ' · ' + esc(s.job) + (s.target ? ' · target ' + esc(s.target) : '') + '</span>' +
+    '</div>' +
+    '<label for="n-' + s.id + '" class="tag">Note (cost, timing, anything off)</label>' +
+    '<textarea id="n-' + s.id + '" data-f="note" placeholder="e.g. MP cost at Lv 5 is 11 in game"' + dis + '>' + esc(r.note || "") + '</textarea>' +
+    '<div class="tbl"><table><thead><tr><th>Lv</th><th>MP</th><th>HP</th><th>Items</th><th>Lasts</th><th>Cooldown</th><th>Skill text</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+    '</div>';
+}
+function render(){
+  const tabsEl = document.getElementById("tabs");
+  tabsEl.innerHTML = BRANCHES.map(b => {
+    const n = b[1].flat().reduce((a, c) => a + SK.filter(s => s.cls === c).length, 0);
+    return '<button class="tab" role="tab" aria-selected="' + (b[0] === tab) + '" data-tab="' + b[0] + '">' + b[0] + '<span class="n">' + n + '</span></button>';
+  }).join("");
+  document.getElementById("kindf").innerHTML = KINDS.map(k => '<button class="chip" data-kind="' + k + '" aria-pressed="' + (kindF === k) + '">' + k + '</button>').join(" ");
+  document.getElementById("statf").innerHTML = [["todo","To review"],["ok","Correct"],["wrong","Wrong"],["unsure","Unsure"]].map(([k, l]) => '<button class="chip" data-stat="' + k + '" aria-pressed="' + (statF === k) + '">' + l + '</button>').join(" ");
+  const br = BRANCHES.find(b => b[0] === tab);
+  let html = "";
+  for (const line of br[1]) {
+    for (const cls of line) {
+      const list = SK.filter(s => s.cls === cls && matches(s));
+      const all = SK.filter(s => s.cls === cls);
+      if (!all.length) continue;
+      const done = all.filter(s => (reviews[s.id] || {}).status).length;
+      html += '<section class="job"><h2>' + esc(cls) + ' <small>' + esc(all[0].job) + ' · ' + done + ' of ' + all.length + ' reviewed</small></h2>' +
+        (list.length ? list.map(rowHtml).join("") : '<div class="empty">No skills match the filters.</div>') + '</section>';
+    }
+  }
+  document.getElementById("list").innerHTML = html;
+  renderCounts();
+}
+function renderCounts(){
+  renderAnswered();
+  const c = {ok:0, wrong:0, unsure:0};
+  const shown = new Set(BRANCHES.flatMap(b => b[1].flat()));
+  const pool = SK.filter(s => shown.has(s.cls));
+  pool.forEach(s => { const st = (reviews[s.id] || {}).status; if (c[st] != null) c[st]++; });
+  const n = pool.length, todo = n - c.ok - c.wrong - c.unsure;
+  document.getElementById("bar").innerHTML = ["ok","wrong","unsure"].map(k => '<span style="width:' + (c[k]/n*100) + '%;background:var(--' + (k === "wrong" ? "bad" : k) + ')"></span>').join("");
+  document.getElementById("counts").innerHTML = '<span><b>' + (n - todo) + '</b> / ' + n + ' reviewed</span><span><b>' + c.ok + '</b> correct</span><span><b>' + c.wrong + '</b> wrong</span><span><b>' + c.unsure + '</b> unsure</span>';
+}
+function rerenderRow(id){
+  const el = document.querySelector('.skill[data-id="' + id + '"]');
+  if (!el) return;
+  const active = document.activeElement, keepNote = active && el.contains(active) && active.tagName === "TEXTAREA";
+  if (keepNote) {   // don't replace the note while it's being typed in
+    el.dataset.status = (reviews[id] || {}).status || "";
+    el.querySelectorAll(".vb").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === (reviews[id] || {}).status)));
+    el.querySelector(".kind").innerHTML = kindHtml(byId[id]);
+    return;
+  }
+  const tmp = document.createElement("div");
+  tmp.innerHTML = rowHtml(byId[id]);
+  el.replaceWith(tmp.firstChild);
+}
+
+// -- saving: everything in one localStorage store
+function save(id, patch){
+  const next = Object.assign({}, reviews[id] || {}, patch, {skill: id, name: byId[id].name, updated: new Date().toISOString()});
+  Object.keys(next).forEach(k => { if (next[k] === "" || next[k] == null) delete next[k]; });
+  reviews[id] = next;
+  rerenderRow(id); renderCounts();
+  try { localStorage.setItem(LS, JSON.stringify(reviews)); } catch(e) { showNotice("This browser won't keep your answers between visits. Send or export before you close the page."); }
+}
+function showNotice(t){ const n = document.getElementById("notice"); n.textContent = t; n.hidden = !t; }
+
+document.addEventListener("click", e => {
+  const t = e.target.closest("button,.head");
+  if (!t) return;
+  if (t.dataset.tab) { tab = t.dataset.tab; try { history.replaceState(null, "", "#" + tab); } catch(_) {} render(); return; }
+  if (t.dataset.kind) { kindF = kindF === t.dataset.kind ? null : t.dataset.kind; render(); return; }
+  if (t.dataset.stat) { statF = statF === t.dataset.stat ? null : t.dataset.stat; render(); return; }
+  const art = t.closest(".skill"); if (!art) return;
+  const id = art.dataset.id;
+  if (t.classList.contains("vb")) { const cur = (reviews[id] || {}).status; save(id, {status: cur === t.dataset.v ? "" : t.dataset.v}); return; }
+  if (t.classList.contains("head")) { open.has(id) ? open.delete(id) : open.add(id); rerenderRow(id); }
+});
+document.addEventListener("keydown", e => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.classList && e.target.classList.contains("head")) { e.preventDefault(); e.target.click(); }
+});
+document.addEventListener("change", e => {
+  const f = e.target.dataset && e.target.dataset.f, art = e.target.closest && e.target.closest(".skill");
+  if (art && (f === "kind" || f === "mode")) save(art.dataset.id, {[f]: e.target.value});
+});
+document.addEventListener("input", e => {
+  if (e.target.id === "q") { q = e.target.value.trim().toLowerCase(); render(); return; }
+  const art = e.target.closest && e.target.closest(".skill");
+  if (art && e.target.dataset.f === "note") {
+    const id = art.dataset.id, v = e.target.value;
+    clearTimeout(timers[id]); timers[id] = setTimeout(() => save(id, {note: v}), 700);
+  }
+});
+
+document.getElementById("src").textContent = "Skill data: MeowDB Classic, fetched " + (D.fetched || "?") + ". Kinds: classic-helper skill kinds file. Your answers are kept in this browser until you send or export them.";
+
+try { Object.assign(reviews, JSON.parse(localStorage.getItem(LS) || "{}")); } catch(e) {}
+let who = CFG.reviewer || "";
+try { who = localStorage.getItem(LS + ":who") ?? who; } catch(e) {}
+document.getElementById("who").value = who;
+const answered = () => Object.keys(reviews).filter(id => byId[id] && reviews[id].status).length;
+const payload = () => {
+  const w = document.getElementById("who").value.trim().slice(0, 24);
+  try { localStorage.setItem(LS + ":who", w); } catch(e) {}
+  const out = {};
+  Object.keys(reviews).forEach(id => { const r = reviews[id]; if (byId[id] && r.status) out[id] = {name: r.name, status: r.status, kind: r.kind, mode: r.mode, note: r.note}; });
+  return {format: "classic-skill-review/1", branch: "all", reviewer: w, exported: new Date().toISOString(),
+          data_fetched: D.fetched, count: Object.keys(out).length, reviews: out};
+};
+const msg = t => document.getElementById("exmsg").textContent = t;
+function renderAnswered(){ const n = answered(); document.getElementById("answered").innerHTML = "<b>" + n + "</b> skill" + (n === 1 ? "" : "s") + " answered"; }
+document.getElementById("exp").addEventListener("click", () => {
+  const p = payload();
+  if (!p.count) { msg("Answer at least one skill first."); return; }
+  const blob = new Blob([JSON.stringify(p, null, 1)], {type: "application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "skill-review-" + (p.reviewer || "anonymous").replace(/[^A-Za-z0-9_-]+/g, "_") + ".json";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  msg("Saved " + p.count + " answers as " + a.download + ".");
+});
+document.getElementById("copy").addEventListener("click", async () => {
+  const p = payload(), t = JSON.stringify(p);
+  if (!p.count) { msg("Answer at least one skill first."); return; }
+  const ta = document.getElementById("extext");
+  try { await navigator.clipboard.writeText(t); msg("Copied " + p.count + " answers."); }
+  catch(e) { ta.value = t; ta.hidden = false; ta.select(); msg("Select the text below and copy it."); }
+});
+document.getElementById("send").addEventListener("click", async () => {
+  const p = payload();
+  if (!p.count) { msg("Answer at least one skill first."); return; }
+  const b = document.getElementById("send");
+  b.disabled = true; msg("Sending...");
+  try {
+    const r = await fetch("/api/feedback/send", {method: "POST", headers: {"Content-Type": "application/json", "X-Diary": "1"}, body: JSON.stringify(p)});
+    let j = {}; try { j = await r.json(); } catch(e) {}
+    if (r.ok && j.ok) msg("Sent " + p.count + " answers. Thank you! You can keep answering and send again.");
+    else msg(j.error || ("Not sent (error " + r.status + ")."));
+  } catch(e) { msg("Not sent: this page can't reach the app. Open it from the helper's menu (Review skills)."); }
+  b.disabled = false;
+  checkServer();
+});
+async function checkServer(){
+  const el = document.getElementById("srv"), t = document.getElementById("srvtxt");
+  let on = false, why = "This page can't reach the app. Open it from the helper's menu (Review skills).";
+  try {
+    const r = await fetch("/api/feedback/status", {method: "POST", headers: {"Content-Type": "application/json", "X-Diary": "1"}, body: "{}"});
+    const j = await r.json(); on = !!j.online; why = j.reason || "";
+  } catch(e) {}
+  el.dataset.on = on ? "1" : "0";
+  t.textContent = "Review Server " + (on ? "ONLINE" : "OFFLINE");
+  el.title = on ? "Send will reach the review server." : why;
+}
+checkServer();
+setInterval(checkServer, 60000);
+render();
+})();
+</script>
+</body></html>

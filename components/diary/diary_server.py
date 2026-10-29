@@ -5,7 +5,8 @@ can save. A page opened straight from disk (diary.html) can't write files; this 
 
 Listens on 127.0.0.1 only. Requests must carry the right Host and an X-Diary header, which a
 web page on another site can't send without a CORS preflight this server never answers.
-Also serves the pages other components register (hub/pages.py: the monster album at /album.html), without
+Also serves the pages other components register (hub/pages.py: the monster album at /album.html) and
+dispatches their POST APIs (pages.register_api, bodies up to 70000 bytes; the same Host + X-Diary checks), without
 knowing them. Serves the pages, screenshots/diary/ and game_icons/ only. Screenshots are Nexon imagery: never expose this
 server beyond localhost.
 """
@@ -68,12 +69,24 @@ class Handler(BaseHTTPRequestHandler):
         self.server.last_hit = time.time()
         if not self._host_ok() or self.headers.get("X-Diary") != "1":
             return self._send(403, '{"error": "forbidden"}')
+        handler = pages.api(self.path.split("?", 1)[0])      # a component's API (skill feedback ...)
+        cap = 70000 if handler else 10000
         try:
             n = int(self.headers.get("Content-Length") or 0)
-            req = json.loads(self.rfile.read(min(n, 10000)) or b"{}")
-            eid = str(req.get("id") or "")
+            if handler and n > cap:
+                return self._send(413, '{"error": "too large"}')
+            req = json.loads(self.rfile.read(min(n, cap)) or b"{}")
+            eid = str(req.get("id") or "") if isinstance(req, dict) else ""
         except (ValueError, json.JSONDecodeError):
             return self._send(400, '{"error": "bad request"}')
+        if handler:
+            if not isinstance(req, dict):
+                return self._send(400, '{"error": "bad request"}')
+            try:
+                code, obj = handler(req)
+            except Exception:
+                code, obj = 500, {"error": "something went wrong in the app"}
+            return self._send(code, json.dumps(obj, ensure_ascii=False))
         if self.path == "/api/sources":
             off = req.get("off")
             if not isinstance(off, list):

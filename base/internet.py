@@ -41,6 +41,13 @@ FEATURES = {
                 "monster, once) from NiaMeowDB. Kept on this PC only. Nothing about you is sent.",
         "hosts": ["meowdb.com"],
     },
+    "feedback": {
+        "label": "Skill feedback",
+        "what": "When you press Send on the skill review page, sends your answers and the nickname "
+                "you typed to the feedback server set below. While that page is open it also checks "
+                "every minute whether the server is up (nothing about you is sent then).",
+        "hosts": ["the feedback server set below"],
+    },
 }
 DEFAULTS = {"allowed": True, "features": {name: True for name in FEATURES}}
 

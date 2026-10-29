@@ -19,6 +19,7 @@ COMPONENTS = [
     "components.party.component:PartyComponent",         # party box names, live.json "party", party link thread
     "components.training.component:TrainingComponent",  # EXP/hr per visit, exp_rise, live.json "training", cost panel
     "components.discord.component:DiscordComponent",    # Discord Rich Presence (helper only)
+    "components.feedback.component:FeedbackComponent",  # skill review page + Send to the relay (helper only)
 ]
 
 

@@ -16,7 +16,7 @@ Enforced by `dev/check_layers.py --strict` (part of `dev/release_check.py`). **N
 | `lean.py` | Import **first** in every entry point: 1 math thread (OPENBLAS/OMP/MKL), OpenCV stubbed (`MAPLE_COMPANION_REAL_CV2=1` loads the real one) |
 | `version.py` | `VERSION` (last real release, now 0.7.1), `TEST_BASE` (set only during a `/testbuild` build) |
 | `perf.py` | `start(path)`, `timed(name)`, `count`, `sample`, `tick`, `report`; history/perf.csv one row a minute, rotated at 2 MB. `python -m base.perf report [DAYS]` |
-| `internet.py` | `FEATURES` (updates, party, icons, mobs: label, what, hosts), `state()`, `allowed(name)`; reads helper_settings.json `internet` (cached by file time) |
+| `internet.py` | `FEATURES` (updates, party, icons, mobs, feedback: label, what, hosts), `state()`, `allowed(name)`; reads helper_settings.json `internet` (cached by file time) |
 
 ## Interfaces
 - **DATA vs APP:** a file the player writes (config, history, glyphs, templates, logs) = `DATA / ...`, never `Path(__file__).parent`. A file that ships (json, layouts, art, tesseract) = `asset("layer/file")` and must be in `packaging/build.py` DATA_FILES. From source both are the repo root; frozen: DATA = `%LOCALAPPDATA%\MapleClassicCompanion`; `MAPLE_COMPANION_DATA` overrides DATA (tests, portable).

@@ -32,7 +32,8 @@ DATA_FILES = ["config.example.json",
               "gamedata/important_maps.json", "gamedata/game_refs.json", "gamedata/skills_classic.json", "gamedata/skill_kinds_classic.json",
               "gamedata/potions_classic.json", "gamedata/mobs_classic.json",
               "engine/layouts.json", "launcher/whats_new.json",
-              "components/killers/killers.json", "components/diary/captions.json"]
+              "components/killers/killers.json", "components/diary/captions.json",
+              "components/feedback/review.html"]
 # imported lazily inside functions; listed so the bundle has them for sure
 HIDDEN = ["launcher.setup_ui", "hub.settings_ui", "engine.calibrate", "components.discord.discord_rpc",
           "components.diary.diary_html", "engine.jobread", "components.diary.diary_popup",
@@ -49,6 +50,7 @@ HIDDEN = ["launcher.setup_ui", "hub.settings_ui", "engine.calibrate", "component
           "components.killers.component", "components.diary.component", "components.skillbar.component",
           "components.album.component", "components.party.component", "components.training.component",
           "components.discord.component", "components.discord.settings_page", "components.discord.text",
+          "components.feedback.component", "components.feedback.review_page",
           "hub.pages", "hub.ui.shell", "hub.ui.overlay", "hub.ui.theme",
           "engine.hudtext", "engine.levelup_shot", "gamedata.translate", "gamedata.parse", "gamedata.maplist",
           "engine.sources.wgc", "engine.sources.screen", "engine.sources.csv_replay", "windows_capture",

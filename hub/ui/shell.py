@@ -127,6 +127,10 @@ class Shell:
     def add_page(self, path, render):
         pages.register_page(path, render)
 
+    def add_api(self, path, handler):
+        """A local POST endpoint on the page server: handler(req_dict) -> (status, obj)."""
+        pages.register_api(path, handler)
+
     def set_camera(self, fn):
         self.camera = fn
 

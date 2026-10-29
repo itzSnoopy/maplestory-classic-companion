@@ -75,7 +75,7 @@ listing its files; read the one for the folder you touch. Full picture: `.claude
 | `engine/` | Frames -> raw readings: `sources/` (`wgc` default, `screen` = ScreenSource, `csv_replay`), glyphs, OCR, layout, minimap, map watch, death box, HP/MP, game windows (panels), job, name, party box, close-up, level-up shot timing, capture rate | `base` only (Classic knowledge comes injected: `gamedata/translate.py`) |
 | `gamedata/` | Classic facts: `translate.py` (map/job/skill snapping, EXP table), `maplist.py`, `parse.py`, `game_refs.py`, every `*_classic.json`, `map_mobs.json`, `important_maps.json` | `base` |
 | `hub/` | `tracker.py` (Tracker, Session, loop: emits events), `bus.py` (Hub: events, services, live.json sections), `live.py`, `history.py`, `character.py`, `exprate.py`, `helper_settings.py`; helper shell `helper_ui.py`, `settings_ui.py`, `ui/` (Shell, PanelHost, theme), `pages.py` | `gamedata`, `base` |
-| `components/` | One folder per feature, each with `component.py` (`attach(hub)` tracker side, `ui(shell)` helper side), registry in `__init__.py`: killers, diary, skillbar, album, party, training, discord | `hub`, `gamedata`, `base`; **never another component** |
+| `components/` | One folder per feature, each with `component.py` (`attach(hub)` tracker side, `ui(shell)` helper side), registry in `__init__.py`: killers, diary, skillbar, album, party, training, discord, feedback | `hub`, `gamedata`, `base`; **never another component** |
 | `relay/` | Party relay server the player hosts (stdlib + Docker); first to get its own repo (Phase 7) | nothing |
 | `packaging/` | `build.py` (PyInstaller zip, bundled Tesseract; `HIDDEN` for lazily loaded modules, `DATA_FILES` for shipped json), START_HERE.txt, THIRD_PARTY.txt | - |
 | `dev/` | Offline checks and tools: `release_check.py`, `check_layers.py`, `svc_sim.py`, `album_sim.py`, `regen_sim.py`, `training_sim.py`, `update_sim.py`, `bench.py`, `engine_tools.py` (`record`, `panels`), `testbuild.py`, `fetch_*.py` | - |
@@ -105,6 +105,7 @@ unless the map sends you there. Template for both: `.claude/handoff/components/_
 | Killer guess | `components/killers/CLAUDE.md` | `killers.md` |
 | Discord presence | `components/discord/CLAUDE.md` | `discord.md` |
 | Party box, link, panel (+ relay server) | `components/party/CLAUDE.md` (+ `relay/CLAUDE.md`) | `party.md` |
+| Skill feedback page (review + Send to the relay) | `components/feedback/CLAUDE.md` | `feedback.md` |
 | Skill bar (regen, casts, HP/MP usage) | `components/skillbar/CLAUDE.md` | `skillbar.md` |
 | Training cost panel, EXP/hr | `components/training/CLAUDE.md` | `training.md` |
 
