@@ -23,8 +23,8 @@ the tracker side keeps the state and takes the photo; the helper side adds the m
 - **Provides:** none. **Asks:** `seen_places` (diary; seeds each character once), `visit_map` (training; map for `wants_photo`).
 - **Source hooks used:** `hub.album_shot(hub.shots_dir, stem, t)` (middle square from the look before the rise, then
   full screenshot + close-up), `hub.tell_source(album_watch=bool)` (the screen source keeps the middle square only
-  while an uncaught mob may be on the map), `hub.state`, `hub.log`, `hub.journal`. These two hooks are not declared
-  in `base/contract.py`'s `Source` (the hub reaches them with `getattr`).
+  while an uncaught mob may be on the map), `hub.state`, `hub.log`, `hub.journal`. Both are declared in
+  `base/contract.py`'s `Source` (`album_watch = False`; `album_shot` defaults to a snapshot).
 - **Settings:** none of its own; `internet.features.mobs` ("Monster pictures", `base/internet.py`).
 - **Writes (data folder):** `history/album.json` (per character: seen, killed, level, seeded), `album.html`,
   `assets/mob_icons/<id>.png` + `index.json`, photos `screenshots/diary/<stem>_kill.jpg` (+ the usual full/close-up).

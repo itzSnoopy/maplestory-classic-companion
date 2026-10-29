@@ -30,17 +30,6 @@ FIXTURE = next((p for p in (Path(os.environ["SVC_SIM_FIXTURE"]) if os.environ.ge
                CODE / "dev" / "fixtures" / "levelup_lv5")
 
 
-class CaptureSink:
-    def __init__(self):
-        self.texts = []
-
-    def show(self, text):
-        self.texts.append(text)
-
-    def close(self):
-        pass
-
-
 def main():
     out, mode = Path(sys.argv[1]), sys.argv[2] if len(sys.argv) > 2 else "frames"
     out.mkdir(parents=True, exist_ok=True)
@@ -50,7 +39,6 @@ def main():
     cfg["service"].update(close_after_absent_s=1, idle_poll_s=0.15, close_after_afk_s=999,
                           source_retry_s=0.1)
     args = types.SimpleNamespace(level=None, interval=None, service=False)
-    sink = CaptureSink()
 
     if mode == "frames":
         from engine import ocr
@@ -64,8 +52,7 @@ def main():
         cfg.update(interval=0, fast_interval=0)
         source = make_source(cfg, None)         # csv replay: nothing to translate
 
-    T.run(cfg, args, source=source, sinks=[sink], hub=hub)
-    print("\n===== live text:", sink.texts[:2], "...", sink.texts[-2:])
+    T.run(cfg, args, source=source, hub=hub)
     for name in ("journal.md", "history/sessions.csv", "history/levels.csv", "status.json"):
         p = out / name
         print(f"===== {name}\n" + (p.read_text(encoding="utf-8") if p.exists() else "(none)"))

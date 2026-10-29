@@ -47,6 +47,8 @@ class Source:
     """Interface every source implements. Only `read` is required."""
     name = "base"
     retry_s = 20          # how long to wait after UNAVAILABLE
+    album_watch = False   # set by the album (hub.tell_source): a first kill is possible on this map,
+                          # so keep what album_shot needs. Sources without pictures ignore it
 
     def read(self, hints: dict) -> Observation:
         """Take one reading. `hints` carries tracker context a source may use to read better
@@ -69,6 +71,11 @@ class Source:
         Sources without pictures return []."""
         return []
 
+    def album_shot(self, out_dir, stem, t=None):
+        """The monster album's first-kill photo, for an EXP rise at time t. Returns the file paths
+        that are or will be written. Default: a snapshot just after now."""
+        return self.snapshot(out_dir, stem, (0.05,))
+
     def poll(self, t):
         """Quick look between readings (about once a second while playing). Returns True while
         the "You have died." box is on screen, False when it isn't, None if this source can't
@@ -76,7 +83,7 @@ class Source:
         return None
 
     def quick_vitals(self, t):
-        """A burst look at just the HP/MP numbers (regen clock, vitals.Meter); adds a 'vitals'
+        """A burst look at just the HP/MP numbers (the skill bar's regen clock); adds a 'vitals'
         fact. False when this source can't (default)."""
         return False
 
@@ -160,6 +167,8 @@ EVENT_NAMES = tuple(n for n, _ in EVENTS)
 # Services: hub.provide(name, fn) / hub.ask(name, default): data one component offers another, no imports.
 # fn takes no arguments (a service that needs one returns a function). Provided in service_start, in
 # registry order, so a provider comes before the components that ask in the same event.
+# training provides nothing (and emits no exp_rise) when skillbar's "usage" is missing: it has no HP/MP
+# accounting to work from. Askers then get their default (no visit EXP/hr, no visit map, no prices).
 SERVICES = (
     ("exp_rate", "training. EXP/hr summary of this map visit, or None outside a visit (the tracker's ETA)"),
     ("visit_map", "training. Name of the map visit under way, else the tracker's map (album)"),

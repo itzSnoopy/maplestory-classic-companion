@@ -56,12 +56,12 @@ def portrait_maker():
     return NameTag().portrait
 
 
-def run_service(cfg, args, source=None, sinks=None, hub=None):
+def run_service(cfg, args, source=None, hub=None):
     from hub import tracker
     hub = hub or make_hub()
     # built inside tracker.run once its lock is held, so a second copy never opens the game window
     source = source or (lambda: build_source(cfg, tracker.log))
-    tracker.run(cfg, args, source=source, sinks=sinks, hub=hub)
+    tracker.run(cfg, args, source=source, hub=hub)
 
 
 def service_main(argv=None):

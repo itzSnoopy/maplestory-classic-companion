@@ -14,7 +14,7 @@ The hub sees the engine only through `base/contract.py` (`Observation`, `Source`
 ## Files
 | File | Role |
 |---|---|
-| `tracker.py` (987 lines) | `Tracker` (EXP needed, level-up/death classification, ETA, adaptive `next_interval`, `status()` -> status.json), `MapStats`, `Session` (CSV row, journal, events), `run(cfg, args, source, sinks, hub)` the service loop (lock, read, poll, AFK/absent closing, stop file). **Most contended file: small changes only** |
+| `tracker.py` (987 lines) | `Tracker` (EXP needed, level-up/death classification, ETA, adaptive `next_interval`, `status()` -> status.json), `MapStats`, `Session` (CSV row, journal, events), `run(cfg, args, source, hub)` the service loop (lock, read, poll, AFK/absent closing, stop file). **Most contended file: small changes only** |
 | `bus.py` | `Hub` + `State`. `on/emit`, `feed_facts`, `publish/published`, `provide/ask`, `settings`, `state`, `wake/take_wake`, `snapshot`, `album_shot`, `tell_source`, `journal`, `log`, `on_idle/idle`, `shots_dir`. Each subscriber timed as `bus.<event>`; failures logged `bus: <event> -> <handler> failed` |
 | `live.py` | `LiveFile`: live.json = `t`, `character`, then published sections in `KEYS` order (hp, mp, regen, skills, usage, training, party); written after a facts batch holding a `vitals` fact, at most every 0.9 s |
 | `history.py` | `write_json` (atomic, retries `os.replace` on PermissionError), `read_json`, csv helpers, `Journal`, `add_session`, `add_map_stint`, `build_digest()` (digest.json), `cleanup(retention_days=14)` |

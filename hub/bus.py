@@ -149,10 +149,9 @@ class Hub:
         return self._rel(paths)
 
     def album_shot(self, out_dir, stem, t=None):
-        """The first-kill photo: the source's album_shot (middle square from just before t), else a snapshot."""
+        """The first-kill photo: Source.album_shot (screen: the middle square from just before t)."""
         try:
-            take = getattr(self.source, "album_shot", None)
-            paths = take(out_dir, stem, t) if take else self.source.snapshot(out_dir, stem, (0.05,))
+            paths = self.source.album_shot(out_dir, stem, t)
         except Exception as ex:
             self.log(f"album photo failed: {ex}")
             paths = []

@@ -2,8 +2,7 @@
 tracker.py - MapleStory Classic World EXP tracker (reads the game window). No AI needed.
 
 Runs as a long-lived service. Data comes from a pluggable *source* (sources/: `wgc` reads the
-game window; see base/contract.py for the Observation model) and live text goes to *sinks*
-(none built in today). The tracker itself only sees Observations, so
+game window; see base/contract.py for the Observation model). The tracker itself only sees Observations, so
 sources can be swapped without touching anything below.
 
 A play session opens when the game is present and EXP moves, and closes when the game has been
@@ -784,7 +783,7 @@ def write_idle_status(state, reason):
     write_json(STATUS, st)
 
 
-def run(cfg, args, source, sinks=None, hub=None):
+def run(cfg, args, source, hub=None):
     """Service loop. `source`: a Source, or a function that builds one (called once the lock is held,
     so a second tracker never opens the game window). `hub` has the components attached
     (launcher/compose.py builds both); tests inject their own."""
@@ -802,7 +801,6 @@ def run(cfg, args, source, sinks=None, hub=None):
     if hub is None:
         hub = Hub(ROOT, log)
     hub.source = source
-    sinks = [] if sinks is None else sinks
 
     svc = cfg.get("service", {})
     absent_close = svc.get("close_after_absent_s", 600)
@@ -843,10 +841,6 @@ def run(cfg, args, source, sinks=None, hub=None):
     hub.emit("service_start", maps=list(read_json(MAPS, {})) + list(read_json(HISTORY / "map_stats.json", {})))
     box_since = None                          # when the death box was first seen
 
-    def show(text):
-        for s in sinks:
-            s.show(text)
-
     def close_session(reason):
         nonlocal session
         if session:
@@ -862,7 +856,6 @@ def run(cfg, args, source, sinks=None, hub=None):
             last_state = state
             log(f"{state}: {reason}")
             write_idle_status(state, reason)
-            show("")
         if session and t - absent_since > absent_close:
             close_session(reason)
 
@@ -903,14 +896,12 @@ def run(cfg, args, source, sinks=None, hub=None):
                         interval, event = session.process(obs)
                         hub.emit("progress", level=session.tr.level, cur=session.tr.cur,
                                  need=session.tr.need)
-                        show(session.tr.overlay_text())
                         sleep_for = interval
                         if session.tr.afk_for(obs.t) > afk_close:
                             afk_reading = key
                             close_session(f"AFK {fmt_secs(afk_close)}")
                             write_idle_status("idle", "AFK")
                             last_state = "idle"
-                            show("")
                         if event == "levelup" or t - last_digest > digest_every:
                             H.build_digest()
                             last_digest = t
@@ -969,9 +960,6 @@ def run(cfg, args, source, sinks=None, hub=None):
     finally:
         close_session("tracker stopped")
         write_idle_status("stopped", "tracker not running")
-        show("")
-        for s in sinks:
-            s.close()
         source.close()
         hub.emit("service_stop")
         perf.tick(last_state, source.checks_per_s(), force=True)
