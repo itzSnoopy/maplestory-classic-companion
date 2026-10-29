@@ -182,7 +182,7 @@ class Component:
     attach(hub)  tracker process, once, before the service runs: subscribe with hub.on(), offer
                  services with hub.provide(); don't start threads or touch files yet (do that on
                  service_start). Never import another component: talk through events and services.
-    ui(shell)    helper process (Phase 4; nothing calls it yet): register settings pages and windows.
+    ui(shell)    helper process: register menu items, settings pages, panels and pages (hub/ui/shell.py).
     """
     name = ""
     settings_defaults = {}          # this component's slice of helper_settings.json (same keys as today)

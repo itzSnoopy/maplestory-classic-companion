@@ -4,7 +4,7 @@ A passive leveling tracker for **Nexon's official MapleStory Classic World** (pr
 server). The player is a Magician heading for Cleric. This is **not** the v83 private-server
 project in the parent folder. Don't use its `reference/` data (EXP tables, mob stats); Classic values differ.
 
-`tracker.py` runs on its own (no AI) as a background service. Data comes from a pluggable
+The tracker (`hub/tracker.py`) runs on its own (no AI) as a background service. Data comes from a pluggable
 *source* (today: frames of the game window + OCR of the EXP bar / level badge / map title), normalized into
 `Observation`s, so sources can be swapped later (APIs etc.) without touching the rest. Claude is only needed
 for questions, recommendations, and changing the code.
@@ -38,7 +38,7 @@ Don't read the PNGs unless asked. They're big, and the numbers are already in th
 
 ## Game data (Classic values only)
 
-- EXP per level: `exp_table_classic.json` (from MeowDB, matches values measured from the bar).
+- EXP per level: `gamedata/exp_table_classic.json` (from MeowDB, matches values measured from the bar).
   Measured values: `history/exp_table.json`.
 - For mobs, maps, drops, quests use **MeowDB/NiaDB** (meowdb.com/msclassic),
   classic.maplestorywiki.net, OSMS Data Explorer, Henesys.GG, Metaroad.
@@ -51,7 +51,7 @@ Don't read the PNGs unless asked. They're big, and the numbers are already in th
 - **The player's tracker is the installed app** (`%LOCALAPPDATA%\Programs\MapleClassicCompanion`,
   desktop shortcut; its helper starts its tracker). New code reaches it through **/testbuild**
   (`dev/testbuild.py`: local versions M.m.90+, never on GitHub) and **/release** (GitHub).
-- The source tracker here (`start_tracker.cmd` / `stop_tracker.cmd`, `pythonw tracker.py --service`)
+- The source tracker here (`start_tracker.cmd` / `stop_tracker.cmd`, `pythonw companion.py --service`)
   is for development only and no longer starts at logon (its Startup shortcut was moved to
   `build/startup_backup/` on 2026-10-24). Don't run it while the installed app tracks: both would
   capture the game. Only one copy per data folder runs at a time (`history/tracker.lock`).
@@ -64,44 +64,26 @@ Don't read the PNGs unless asked. They're big, and the numbers are already in th
 
 ## Code map (for development sessions)
 
-| File | Role |
-|---|---|
-| `tracker.py` | Tracker (EXP/level/death logic, ETA, adaptive interval), Session, service loop. Consumes `Observation`s only |
-| `sources/` | Pluggable data sources: `base.py` (Observation, Source), `screen.py` (HUD reader: glyph/Tesseract), `wgc.py` (game window frames, type `wgc`, default), `csv_replay.py` |
-| `layout.py` / `layouts.json` | where HUD boxes sit at any window size (anchors + recorded per-size boxes; `python layout.py record`) |
-| `minimap.py` | map title from the full or collapsed minimap, found anywhere by its WORLD button |
-| `sinks.py` | Live outputs hook (none built in today) |
-| `diary.py` / `diary_html.py` / `portrait.py` | Diary timeline (`history/timeline.jsonl` → `diary.md` + `diary.html` viewer, screenshots in `screenshots/diary/`) / character close-up: finds the name tag using the status-bar name as template (no setup; both UI sizes; learns the exact tag and your colours while you play) |
-| `album.py` / `album_html.py` / `mobicons.py` / `mobs_classic.json` | monster album: every mob as ? / grey (seen, boss, or <= 3 levels above you) / caught; a first kill (one EXP rise only one mob explains, via training.py `on_rise`) takes a photo (middle square from the look before) + diary beat `first_kill`; page `album.html` (also /album.html on the diary server); mob facts `dev/fetch_mobs.py`, pictures downloaded once. Handoff: `.claude/handoff/components/album.md` |
-| `levelup_shot.py` | when to take the diary level-up picture: fixed 1.75 s after the EXP bar reset ("LEVEL UP" fully drawn), no screen reading |
-| `exprate.py` | EXP/hr on the map visit: active clock (2 min without EXP = break, left out), first number after 3 gains ("~" for 5 active min), quest / town lumps out, party share apart; training.py feeds it, the tracker's EXP/hr and ETA use it |
-| `history.py` | journal.md, sessions.csv, map_stats.json, digest.json, cleanup |
-| `glyphs.py` | exact pixel-font reader for EXP bar and level badge; learns new glyphs |
-| `ocr.py` / `parse.py` | Tesseract wrapper (map title) / text → numbers |
-| `helper_ui.py` | floating info window + tray icon (read-only on status/digest; `start_helper.cmd`) |
-| `settings_ui.py` / `helper_settings.py` / `discord_rpc.py` | helper settings window, `helper_settings.json`, Discord Rich Presence (off by default) |
-| `panels.py` / `character.py` | game windows with long-lived facts: Character Stat, Skill, Change Channel (spotted in a 1/4-scale overview each quick look, read at full size; digits exact via `glyphs_ui.json`, skill names snapped to `skills_classic.json`) / what to believe, **per character** -> `history/characters.json` (stats, skills, channel, change log), `digest.json` "character" |
-| `vitals.py` / `live.py` / `skillbar_ui.py` | exact HP/MP from the status bar + regen tick model / `live.json` feed (~1/s) / the movable skill bar over the game (regen wheels, casts left). Component handoff: `.claude/handoff/components/skillbar.md` |
-| `party.py` / `partylink.py` / `party_ui.py` / `relay/` | party box under the minimap (HP %, on your map, leader, names) / shares your numbers with your party through the relay the player hosts (`party.json`; Settings > Internet > Party link) / party panel over the game / the relay server (stdlib + Docker). Handoff: `.claude/handoff/components/party.md` |
-| `whats_new.py` / `whats_new.json` | "Updated to x.y.z" card in the helper after a self-update (information only, no diary); add lines for every release |
-| `charname.py` | who is playing: pixel fingerprint of the status-bar name (OCR garbles it); the real name comes from the Stat window |
-| `jobread.py` | job name from the status bar, read only at start / when an advancement is possible |
-| `hpbar.py` | HP % from the red HP bar fill (no OCR); logged as raw.hp, not used for decisions yet |
-| `deathbox.py` | spots the "You have died." box (shape/colour, no stored art); polled ~1/s between readings (`Source.poll`) |
-| `killers.py` / `killers.json` / `map_mobs.json` | who killed the player, guessed from the map's mob list (MeowDB, `dev/fetch_map_mobs.py`) + curated boss maps; `python killers.py audit` |
-| `internet.py` | the one gate for internet use: master switch + a toggle per feature (`FEATURES`), Settings > Internet. Every online feature calls `internet.allowed("name")` right before connecting |
-| `updater.py` | packaged app only: installs itself under %LOCALAPPDATA%\Programs (versions/<ver> + `latest` junction), polls GitHub releases (30 s -> 5 min), downloads + checks .sha256, swaps, restarts when not playing. Tests: `dev/update_sim.py` |
-| `perf.py` | the tracker measures itself: history/perf.csv one row a minute (CPU, RAM, checks/s, cost per step, death-box on-screen time). `python perf.py report`. **New per-frame features: wrap their work in `perf.timed("name")`** |
-| `capture.py` | "Screen checks per second" (Settings > General slider, 1-5 for now, default 1): WGC frame rate + the tracker's quick-look loop; followed live. Measured CPU table + `describe()` for the slider |
-| `mapwatch.py` | when to check the map name: every 1 s after a change, slowing to 15 s the longer you stay (Settings > General, `helper_settings.json` map_check) |
-| `maplist.py` / `maps_classic.json` | snaps map reads to the 453 real Classic map names (NiaMeowDB list) |
-| `dev/svc_sim.py` | offline end-to-end test of the service with saved frames |
-| `dev/minimized_check.py` | does window capture still give frames while the game is minimized (asks Windows directly) |
-| `lean.py` / `dev/bench.py` | import first in every entry point (1 math thread, no OpenCV: ~900 MB less RAM) / CPU, RAM and per-step cost (`tracker`, `where`, `stages`, `idle`) |
-| `paths.py` / `companion.py` | where shipped files vs player data live (packaged: %LOCALAPPDATA%) / single entry point (helper, `--service` = tracker) |
-| `calibrate.py` / `setup_ui.py` | first-run setup: cut minimap templates, learn digits from typed EXP (the name-tag step was removed 2026-10-24) |
-| `packaging/` | `build.py` (PyInstaller release zip, bundled Tesseract), START_HERE.txt, THIRD_PARTY.txt |
-| `NOTES.md` | **running log of formats, OCR findings, design decisions. Read before changing OCR/parsing, and add to it after.** |
+Since 2026-10-28 the code is split into layers, one top-level folder each, with enforced import rules
+(`dev/check_layers.py --strict`, part of `dev/release_check.py`). **Each folder has its own CLAUDE.md**
+listing its files; read the one for the folder you touch. Full picture: `.claude/handoff/02-architecture.md`.
+
+| Folder | What lives there | May import |
+|---|---|---|
+| `base/` | `contract.py` (Observation, Source, **EVENTS**, **SERVICES**, Component), `paths.py`, `lean.py` (import first in every entry point), `version.py`, `perf.py` (**wrap new per-frame work in `perf.timed("name")`**), `internet.py` (the one gate for internet use) | nothing internal |
+| `launcher/` | `companion.py` (entry: helper, `--service` = tracker), **`compose.py`** (the one place that wires hub + components + source, injects the translator), `updater.py`, `setup_ui.py`, `whats_new.py/.json` | everything |
+| `engine/` | Frames -> raw readings: `sources/` (`wgc` default, `screen` = ScreenSource, `csv_replay`), glyphs, OCR, layout, minimap, map watch, death box, HP/MP, game windows (panels), job, name, party box, close-up, level-up shot timing, capture rate | `base` only (Classic knowledge comes injected: `gamedata/translate.py`) |
+| `gamedata/` | Classic facts: `translate.py` (map/job/skill snapping, EXP table), `maplist.py`, `parse.py`, `game_refs.py`, every `*_classic.json`, `map_mobs.json`, `important_maps.json` | `base` |
+| `hub/` | `tracker.py` (Tracker, Session, loop: emits events), `bus.py` (Hub: events, services, live.json sections), `live.py`, `history.py`, `character.py`, `exprate.py`, `helper_settings.py`; helper shell `helper_ui.py`, `settings_ui.py`, `ui/` (Shell, PanelHost, theme), `pages.py` | `gamedata`, `base` |
+| `components/` | One folder per feature, each with `component.py` (`attach(hub)` tracker side, `ui(shell)` helper side), registry in `__init__.py`: killers, diary, skillbar, album, party, training, discord | `hub`, `gamedata`, `base`; **never another component** |
+| `relay/` | Party relay server the player hosts (stdlib + Docker); first to get its own repo (Phase 7) | nothing |
+| `packaging/` | `build.py` (PyInstaller zip, bundled Tesseract; `HIDDEN` for lazily loaded modules, `DATA_FILES` for shipped json), START_HERE.txt, THIRD_PARTY.txt | - |
+| `dev/` | Offline checks and tools: `release_check.py`, `check_layers.py`, `svc_sim.py`, `album_sim.py`, `regen_sim.py`, `training_sim.py`, `update_sim.py`, `bench.py`, `engine_tools.py` (`record`, `panels`), `testbuild.py`, `fetch_*.py` | - |
+| `NOTES.md` | **Running log of formats, OCR findings, design decisions. Read before changing OCR/parsing, and add to it after.** | - |
+
+Adding a feature = a new `components/<name>/` that subscribes to bus events; the tracker core doesn't change.
+Component handoffs (local only): `.claude/handoff/components/` (diary, skillbar, album, party, installer).
+Sims set `MAPLE_COMPANION_OFFLINE=1` so they never go online.
 
 Test changes offline before restarting the live tracker. Save simulation output to the scratchpad,
 not the real `history/`, `journal.md` or `sessions/`.

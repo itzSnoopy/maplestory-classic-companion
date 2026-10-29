@@ -14,10 +14,10 @@ import importlib
 COMPONENTS = [
     "components.killers.component:KillersComponent",     # death_guess: who killed you
     "components.diary.component:DiaryComponent",         # the diary beats, camera button, notes
-    "components.skillbar.component:SkillbarComponent",   # live.json feed: HP/MP, regen, training costs
+    "components.skillbar.component:SkillbarComponent",   # live.json hp/mp/regen/skills/usage, "usage" service
     "components.album.component:AlbumComponent",         # monster album (after the live feed's exp_rise)
-    "components.party.component:PartyComponent",         # party link thread
-    "components.training.component:TrainingComponent",  # training cost panel (helper only)
+    "components.party.component:PartyComponent",         # party box names, live.json "party", party link thread
+    "components.training.component:TrainingComponent",  # EXP/hr per visit, exp_rise, live.json "training", cost panel
     "components.discord.component:DiscordComponent",    # Discord Rich Presence (helper only)
 ]
 
