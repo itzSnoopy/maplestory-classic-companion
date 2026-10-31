@@ -791,3 +791,26 @@ scratch copy in the browser pane (port 8799).
   were caught live, but not Octopus on Kerning City Construction Site: 23 = Blue Snail x2 + Orange
   Mushroom, a 3-kill mix. Album now allows mixes of at most 2 kills per rise and skips rises over
   > 2.5 s between looks (training.exp_gap). 730 of 914 spawn entries identifiable.
+
+## 2026-10-30: Boss kills in a party (KPQ King Slime, 2 recordings): ASSUMPTION, to correct next KPQ
+Recordings (local, gitignored): `dev/fixtures/burst/20261030_222236` (3 active) and `20261030_230602` (4 active): frames at
+2 fps + `vitals.csv` + README. The bar EXP jump = base + party bonus, and the bottom-right message corner gives both exactly
+(`You received EXP (+N)` white, then `Bonus EXP for PARTY (+M)` yellow; fades; mixes with `You have gained mesos (+N)` lines).
+King Slime (800003, Lv 32, boss) is listed at **2,400 EXP** (`mobs_classic.json`, MeowDB).
+
+| active | base | % of 2,400 | even share | base / even | party bonus | bonus / base |
+|---|---|---|---|---|---|---|
+| 3 | 755 | 31.5% | 800 | 94.4% | 227 | 30.1% |
+| 4 | 579 | 24.1% | 600 | 96.5% | 232 | 40.1% |
+
+Small summoned slimes: +3/+1 and +6/+1 (not in `map_mobs.json`; the boss table needs their summons).
+
+**Working rules (assumed, not confirmed):**
+1. Boss kill: on a boss map, a base gain above the most any regular mob on that map can give (full EXP + bonus; KPQ last stage:
+   Curse Eye 94) = the boss died, and the party killed it. Count it as a party kill either way.
+2. Not a leech: base >= 90% of (listed boss EXP / active party members). Lower bound only (more than an even share is never a leech).
+3. Party bonus = base x 10% x active members (30% with 3, 40% with 4).
+
+**Open:** both runs had the player fighting. If the split is by level (not damage), a leech also gets ~95% and rule 2 can't tell.
+Next KPQ: record a run where the player stays in the boss map and does **not** attack the boss, then correct rules 2-3 here.
+A lower-level member gets under an even share even when fighting (level-weighted split?), so 90% may need a level adjustment.
