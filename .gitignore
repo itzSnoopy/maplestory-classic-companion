@@ -30,6 +30,7 @@ glyphs.json
 glyphs_level.json
 glyphs_ui.json
 glyphs_hud.json
+glyphs_msg.json
 # the skill bar's live feed (player data)
 /live.json
 /party.json

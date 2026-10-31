@@ -27,6 +27,8 @@ from pathlib import Path
 from base import perf
 from hub import live
 
+GAIN_FACTS = ("exp_gain", "meso_gain", "item_gain")     # message-corner fact kinds (engine/msgcorner.py)
+
 
 class State:
     """What a component may read about the tracker, live (bound to the current session's Tracker)."""
@@ -95,6 +97,8 @@ class Hub:
         self.emit("facts_begin", facts=facts, prof=prof, now=now)
         for t, kind, value in facts:
             self.emit("fact", t=t, kind=kind, value=value, prof=prof)
+            if kind in GAIN_FACTS:                  # message corner: also under its own event name
+                self.emit(kind, t=t, **value)
         self.live.after_facts(facts, prof, now)
         self.emit("facts", facts=facts, prof=prof)
 

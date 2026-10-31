@@ -9,6 +9,7 @@ window, exact pixel match), so a different window size *moves* the UI instead of
   player can drag it, so it is *found* (minimap.py: WORLD button, then the "MINI MAP" header
   `templates/minimap_header.png`, cut at MINIMAP_REF from a 1920x1080 frame) and the box is
   shifted by where the header is.
+- "bottom-right": the message corner (gain lines). Shift by (W-1920, H-1080).
 - "top-left": no shift.
 - None / "scale": scale the box (for a capture that resizes the picture).
 
@@ -91,6 +92,9 @@ def place(img, box, ref=None, anchor=None, name=None):
     RW, RH = ref
     if anchor == "bottom-center":
         dx, dy = (W - RW) // 2, H - RH
+        return [box[0] + dx, box[1] + dy, box[2] + dx, box[3] + dy]
+    if anchor == "bottom-right":
+        dx, dy = W - RW, H - RH
         return [box[0] + dx, box[1] + dy, box[2] + dx, box[3] + dy]
     sx, sy = W / RW, H / RH                  # "scale" / None
     return [round(box[0] * sx), round(box[1] * sy), round(box[2] * sx), round(box[3] * sy)]

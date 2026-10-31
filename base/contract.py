@@ -94,7 +94,7 @@ class Source:
 
     def take_facts(self):
         """Long-lived character facts seen since the last call: [(t, kind, value)], kind 'stat' |
-        'skills' | 'channel' (dicts as panels.py returns them) or 'away' (the game left the
+        'skills' | 'channel' (dicts as panels.py returns them), 'exp_gain' | 'meso_gain' | 'item_gain' (msgcorner) or 'away' (the game left the
         screen: confirms a channel change). Consumed by character.Profile. Default: none."""
         return []
 
@@ -142,10 +142,14 @@ EVENTS = (
     ("facts_begin", "facts [(t, kind, value)], prof (character.Profile), now. A batch of facts is about to be dealt out "
                     "(prof already holds it): per-batch work (skillbar: another character starts over)"),
     ("fact", "t, kind, value, prof. Each fact of the batch in order: 'vitals' {hp, mp: [cur, max]}, 'away', 'map' "
-             "(name), 'exp' {cur, pct}, 'party' (box rows), 'buffs' {on: [skill ids whose buff icon shows; only ids asked for with Source.watch_buffs]}, plus the Profile's who / stat / skills / channel. "
+             "(name), 'exp' {cur, pct}, 'party' (box rows), 'buffs' {on: [skill ids whose buff icon shows; only ids asked for with Source.watch_buffs]}, 'exp_gain' {base, party_bonus, overflow} / 'meso_gain' {mesos, overflow} / "
+             "'item_gain' {name, count} (message corner, engine/msgcorner.py), plus the Profile's who / stat / skills / channel. "
              "Components that share state through the facts see them interleaved exactly as the source made them"),
     ("facts", "facts [(t, kind, value)], prof (character.Profile). The whole batch, after every fact event and the "
               "live.json write; prof is updated"),
+    ("exp_gain", "t, base, party_bonus, overflow. One EXP message line pair from the message corner (engine/msgcorner.py): exact, counted once. overflow=True: the whole 6-line corner was new in that look, so more kills may have been missed; trust the bar total, not the sum of gains"),
+    ("meso_gain", "t, mesos, overflow. One 'You have gained mesos (+N)' line from the message corner: exact, counted once; overflow as for exp_gain"),
+    ("item_gain", "t, name, count. One item pickup line from the message corner (format unconfirmed: not emitted yet)"),
     # -- session
     ("session_start", "dir (Path), source (name). A play session's files exist"),
     ("observation", "obs. A reading is about to be processed (start of Session.process)"),

@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 # part -> (what it is, map files, memory file in .claude/handoff/components/)
 PARTS = {
     "engine": ("screen reading: OCR, HUD layout, HP/MP, game windows, capture", ["engine/CLAUDE.md"], "engine.md"),
+    "msgcorner": ("message corner: exact EXP / party bonus / meso / item gains from the bottom-right lines", ["engine/CLAUDE.md"], "msgcorner.md"),
     "gamedata": ("Classic game data, name snapping, EXP table", ["gamedata/CLAUDE.md"], "gamedata.md"),
     "hub": ("tracker core, event bus, history, helper shell (+ base/)", ["hub/CLAUDE.md", "base/CLAUDE.md"], "hub.md"),
     "launcher": ("entry, wiring, updater, setup, packaging, releases", ["launcher/CLAUDE.md"], "installer.md"),

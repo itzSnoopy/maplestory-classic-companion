@@ -31,10 +31,12 @@ from engine import mapwatch
 from engine import ocr
 from engine import panels
 from base import perf
+from base.paths import DATA
 from engine import vitals
 from engine import party
 from engine.layout import anchor_for, crop, layouts, place
 from engine import minimap
+from engine import msgcorner
 from engine.sources.base import ABSENT, OK, UNAVAILABLE, Observation, Source
 
 
@@ -202,6 +204,7 @@ class ScreenSource(Source):
         self.buffs_last = None              # the set last sent as a "buffs" fact
         self.buff_try = None                # (t first seen, set) of a change waiting for its second look
         self.hud_lum = 1.0                  # brightest HP/MP strip lately (fade guard in _buffs)
+        self.msgcorner = msgcorner.MsgCorner(DATA / "glyphs_msg.json")  # gain lines, bottom-right corner (msgcorner.py); templates kept locally
 
     def read(self, hints):
         t, now = time.time(), datetime.now()
@@ -328,7 +331,7 @@ class ScreenSource(Source):
             # check is due (then the whole frame, read once for all of them)
             # a game window (stat/skills/channel) seen in the last overview: read it whole now
             full = due or map_due or self.panels_due
-            small, spot_imgs, strip, exp_img, buff_img = None, {}, None, None, None
+            small, spot_imgs, strip, exp_img, buff_img, corner_img = None, {}, None, None, None, None
             with perf.timed("grab_full" if full else "grab_center"):
                 if full:
                     frame = self.frames.grab()
@@ -350,10 +353,13 @@ class ScreenSource(Source):
                     # + the buff strip at the top right (buffs.py) when skills are watched
                     bbox = buffs.strip_box(self.size) if self.buff_ids else None
                     nb = 1 if bbox else 0
+                    # + the message corner (msgcorner.py: EXP / mesos gain lines), always the last part
+                    extra.append({"box": tuple(msgcorner.box_for(self.size))})
                     imgs = self.frames.grab_parts(
                         [{"center": deathbox.PAD}, {"step": panels.SMALL}, {"box": sbox},
                          {"box": ebox}] + ([{"box": bbox}] if bbox else [])
                         + [{"box": b} for _, b in spots] + extra)
+                    corner_img = imgs.pop()
                     frame, small, strip, exp_img = imgs[0], imgs[1], imgs[2], imgs[3]
                     if bbox:
                         buff_img = imgs[4]
@@ -374,6 +380,10 @@ class ScreenSource(Source):
         # so a look once a second lands in it (character.py: dark right after the channel window)
         if sum(frame.resize((16, 16), Image.NEAREST).convert("L").getdata()) < 30 * 256:
             self._away(t)
+        if corner_img is not None:
+            self._corner(t, corner_img, True)
+        elif full:
+            self._corner(t, frame, False)
         if lu_due:
             self._levelup_shot(frame)
         if due:
@@ -406,6 +416,10 @@ class ScreenSource(Source):
         self._panels(t, frame if full else None, small, spot_imgs=spot_imgs, hud_img=hud_img)
         with perf.timed("deathbox"):
             return deathbox.is_dead(frame)
+
+    def _corner(self, t, img, cropped):
+        """Gain messages (EXP / mesos) in the bottom-right corner -> facts exp_gain / meso_gain / item_gain."""
+        self.facts.extend(self.msgcorner.feed(t, img, cropped))
 
     def _exp_box(self, size):
         rc = self.regions["exp"]

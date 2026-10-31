@@ -32,6 +32,7 @@ Passive only: frames of the game window. Never game memory, network traffic or i
 | `vitals.py` | Exact HP/MP numbers from the status bar (own digit table `glyphs_hud.json`); the regen model is NOT here (`components/skillbar/meter.py`) |
 | `panels.py` | Character Stat, Skill, Change Channel windows: `scan` on the overview, `read`/`read_at` at full size; digits `glyphs_ui.json` |
 | `jobread.py`, `charname.py` | Job from the status bar (`JobWatcher`, reads only when due) / who is playing (pixel fingerprint of the status-bar name) |
+| `msgcorner.py` | `MsgCorner.feed(t, img)`: the gain lines in the bottom-right corner (`You received EXP (+N)`, `Bonus EXP for PARTY (+N)`, `You have gained mesos (+N)`) -> facts `exp_gain`/`meso_gain`, each line exactly once (tracked stack, run-time learned digit/label templates, Tesseract only to bootstrap); `python -m engine.msgcorner test DIR` |
 | `party.py` | Party box under the minimap: `Finder` (remembers the spot), `read`, `Names` (Tesseract once per row) |
 | `portrait.py` | Character close-up: `NameTag` finds the tag by correlation with the status-bar name |
 | `levelup_shot.py` | `Timer`: level-up picture at EXP reset + 1.75 s |
@@ -53,6 +54,7 @@ Passive only: frames of the game window. Never game memory, network traffic or i
 | Party box | `party.search_box` top-left, found by the bar outline | fact `party` rows | `party` | `Names` caches Tesseract per row mask | NOTES 23:50; 05 |
 | Name tag | whole frame, template = status-bar name | `snapshot()` close-up | `nametag` | `templates/nametag.png` (exact tag learned from matches >= 0.80) | NOTES 23:40, 23:59, 00:05 |
 | Level-up shot | EXP % drop >= 40 points | picture 1.75 s after the reset | - | - | NOTES 22:55 |
+| Message corner | [1600,790,1920,932] anchored bottom-right (`layout.place` anchor `bottom-right`), 10 slots x 14 px | facts `exp_gain` {base, party_bonus, overflow}, `meso_gain` {mesos, overflow} (overflow = whole 6-line corner new: kills may be missed); `item_gain` hook (format unconfirmed, empty) | `msgcorner` | digit/label templates learned at run time (Tesseract bootstraps, 2 agreeing reads), kept in DATA `glyphs_msg.json` (never shipped) | NOTES 2026-10-31 |
 | Album keeper | middle 720x720 of the last looks | `album_shot()` | `album` | - | NOTES 03:40 |
 
 Cost rules: new readers go on the frame the tracker already grabs, never a second capture session;
@@ -60,9 +62,9 @@ Tesseract only behind a crop-hash cache (a glyph read is ~1000x cheaper). Cost t
 
 ## Interfaces
 - **Implements:** `base.contract.Source` (`read, poll, quick_vitals, take_facts, snapshot, album_shot, after_step, checks_per_s, boost, party_name, party_reset, wake_at, watch_buffs`).
-- **Facts emitted** (via `take_facts`, dealt by `hub.feed_facts`): `vitals`, `away`, `map`, `exp`, `party`, `who`, `stat`, `skills`, `channel`, `buffs`.
+- **Facts emitted** (via `take_facts`, dealt by `hub.feed_facts`): `vitals`, `away`, `map`, `exp`, `party`, `who`, `stat`, `skills`, `channel`, `buffs`, `exp_gain`, `meso_gain` (`item_gain` reserved; hub emits each gain also as an event of that name).
 - **Settings read** (helper_settings.json, re-read by file time): `capture.fps`, `map_check.{min_s,max_s,step_s,every_s}`; config.json `regions`, `source_resolution`, `job_read`, `death_box`.
-- **Writes (DATA):** `glyphs*.json`, `glyphs/unknown/`, `templates/*`, `history/panel_spots.json`, `layouts.json` additions via `record`.
+- **Writes (DATA):** `glyphs*.json` (incl. `glyphs_msg.json`: msgcorner's learned templates), `glyphs/unknown/`, `templates/*`, `history/panel_spots.json`, `layouts.json` additions via `record`.
 - **Reads (shipped):** `engine/layouts.json` only.
 
 ## Test it
@@ -71,6 +73,7 @@ Offline first (set `MAPLE_COMPANION_OFFLINE=1`; outputs go to a scratch folder, 
 - `python dev/buffs_check.py` (buff reader on the local burst frames + the skill bar's decision logic; skips without frames/icons).
 - `python dev/svc_sim.py OUT frames` (play, level-up, source down, game gone/back) or `csv PATH` (replay `sessions/<ts>/exp_log.csv`).
 - `python dev/engine_tools.py record [FRAME]` (measure a window size into layouts.json), `... panels FRAME...` / `panels learn FRAME field=text`.
+- `python -m engine.msgcorner test DIR [DIR...] [--cold]` (temp template store; replays a burst fixture folder with `vitals.csv`: every EXP rise matched / overflow group (read X of Y) / missed, extras, mesos, ms/frame, Tesseract calls),
 - `python -m engine.deathbox|hpbar|vitals|charname|party FRAME...`, `python -m engine.portrait test FRAME...`, `python -m engine.calibrate check FRAME`, `python -m engine.minimap learn-world FRAME x1 y1 x2 y2`, `python -m engine.layout learn-minimap FRAME`, `python -m engine.sources.wgc out.png` (live grab). Some module docstrings still say `python deathbox.py ...`: use `-m`.
 - Cost: `python dev/bench.py stages [N]` / `where` / `tracker [S]` / `idle` (live game), `python -m base.perf report [DAYS]`, `dev/minimized_check.py` (does minimized capture give frames: no), `dev/burst.py [s] [fps]` (records frames for a study), `dev/vitals_log.py` + `dev/regen_sim.py` (HP/MP recordings).
 - Fixtures (`dev/fixtures/*`: burst, levelup, levelup_lv5, party, review, settings_runs, windows) are **Nexon imagery: local only, git-ignored**.

@@ -97,6 +97,7 @@ unless the map sends you there. Template for both: `.claude/handoff/components/_
 | Part | Map | Memory |
 |---|---|---|
 | Screen reading (OCR, layout, HP/MP, windows) | `engine/CLAUDE.md` | `engine.md` |
+| Message corner (exact EXP, party bonus, meso, item gains) | `engine/CLAUDE.md` (`msgcorner.py`) | `msgcorner.md` |
 | Classic game data, name snapping, EXP table | `gamedata/CLAUDE.md` | `gamedata.md` |
 | Tracker core, bus, history, helper shell | `hub/CLAUDE.md` (+ `base/CLAUDE.md`) | `hub.md` |
 | Entry, wiring, updater, setup, packaging, releases | `launcher/CLAUDE.md` | `installer.md` |

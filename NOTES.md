@@ -892,3 +892,64 @@ of several icons (the whole band is searched), other UI sizes (boxes/icon scale 
 above max regular-mob EXP x 1.6 and at most boss EXP x 1.6 = that boss (how "party_boss"). Open-world bosses (Mano: ceiling
 24, Stumpy 110) are left out: a few mixed kills pass their ceilings, and crowds hit them. Live 2026-10-31 14:51 run:
 stage clears are **318 at Lv 27** (274 at Lv 26), so they scale with level.
+## 2026-10-31: Message corner reader (engine/msgcorner.py): exact EXP / meso gains from the gain lines
+Fixtures (local): `dev/fixtures/burst/20261030_222236` (137 frames) and `20261030_230602` (43 frames), 2 fps, 1920x1080, JPEG.
+Check: `python -m engine.msgcorner test DIR [DIR...]`.
+
+**What is on screen (measured):**
+- Pixel font with 1 px strokes and a dark outline, tabular digits (5 px wide, pitch 7). Right-aligned: the `)` ends at x=1912 (crop col
+  312 of the box 1600,790..1920,932). Slot k from the bottom: text rows y=918-14k .. 928-14k. Digit cells (crop cols): last digit 304..308,
+  then 297, 290, ...; `+` is the next cell; `(` is a 3 px glyph 4 px left of it; the parentheses are the only glyphs with ink in text rows
+  10-11 (digits are 9 rows tall), which gives the digit count. `1` is 3 px wide inside its cell.
+- Colours: EXP and meso lines start WHITE (g 255), the bonus line pale yellow (228,225,138); every line turns yellowish as it fades.
+  A mask `r>=100, .88r<=g<=1.18r, b<=1.15g` (white or yellow, not tan roots/green) holds the line through the whole fade; a blue term in the
+  mask loses the lines while white turns yellow.
+- Fade: mean G of the mask pixels 250 -> ~110 over ~3.5 s, roughly -18 per 0.5 s in the 755/227 run but plateaus and -55 steps in
+  others (frame times are not even), so brightness only orders things, it never counts. A line is readable down to ~150. New lines were
+  first seen at mean G 178-250 (peak G p98 191-254), never below.
+- At most **6 lines** are shown (3 pairs); older ones are pushed out at once.
+- Other lines in the corner: `Squishy Liquid x1 earned. (Etc)` (item pickup, no `(+N)` tail: NOT read, dropped as unknown; the hook
+  `ITEM_PATTERNS` is empty), `Snail's Closeness has increased (+1)` (pet closeness: has a `(+1)` tail but is another label, dropped).
+
+**Dedupe (the stack is tracked, text is never the key):** per frame each of 10 slots gets present/left edge/mean G/peak G/colour mask/
+brightness-free shape. `_best_shift` picks n = new lines at the bottom with the least cost: new lines must be present and mean G >= 165;
+a continuing slot must keep its left edge (3 px), its shape (bright looks: exact pixel compare, number part <= 5 px apart, else
+containment of the colour mask), and its **peak may not rise by more than 3** (the identical-pair rule: a repeat of `+6/+1` at the same
+slot is a rise); a bright line (>= 200) can't vanish, a line that should still be inside the 6-line cap but is gone is charged;
+each extra new line costs 0.7 (an old, dimmed line also looks "bright enough"); lines pushed past 6 are free. Ties -> fewer new lines.
+No look for 5 s -> everything on screen is new. The pairing: an EXP line waits for the line below (bonus) or one more look.
+
+**Reading:** exact, by cell: digits from the right edge against templates **learned at run time** (not shipped: Nexon glyphs), label
+by pixel pattern against learned label templates. Bootstrap: Tesseract (psm 7, digits whitelist, a clean upscaled binary of just `(+N)`;
+label fuzzy-matched to the 3 known labels) needs 2 agreeing reads on one line before anything is learned; a pattern that clashes with
+another digit within 1 px is not learned. Plain Tesseract on the raw line was unusable (`+6` -> `+h`/`+8`, `received` -> `recewed`).
+Cold start costs ~25 Tesseract calls (8 digit patterns), the second folder only 2, a warm replay 0.
+
+**First-pass match numbers (superseded by "review fixes" below: the 14.02 pair was a false read) (vitals.csv rises, -2.5..+1.5 s around the rise as the message shows up ~0.5-0.75 s AFTER the bar moves):**
+- 20261030_222236: 16 rises, **16 matched, 0 missed, 0 extra** (19 exp_gain: +3/1 x2, 755/227, +6/1 and +4/1 several, 22/4 x3, ...), 8 meso lines read,
+  4 lines dropped as unknown (item x2, closeness, one more item).
+- 20261030_230602: 5 rises, **4 matched, 1 not explainable, 0 extra**: 579/232 ok, the two early +2/1 pairs ok. The bar rises +15 (13.04 s)
+  and +12 (13.54 s) = 9 pairs of +2/+1, but the corner never shows more than 3 pairs (6 lines): at 13.52 and 14.02 all six lines are
+  fresh-looking, i.e. 5 and 4 kills landed in one tick and the older pairs were pushed off before any frame. Even a perfect reader
+  can't get them (33 EXP over 11.5-13.5 s vs 24 EXP of visible pairs; hidden = 3 pairs = 9 EXP). The reader emits 3 pairs at 13.52 and
+  1 at 14.02 (the 14.02 frame has no tell that its six lines are new: peaks 213,212,215,215,218,213 vs 221,222,214,214,224,223
+  a frame earlier, the same level as a plateaued line). **Rule: the corner is exact for what it shows, but a burst of > 3 kills in
+  one tick is under-reported; use the bar rise for the total and `exp_gain` for the split.**
+- Cost: median 0.7-0.9 ms/frame (idle corner: one 8-column strip test, ~0.1 ms; frames with lines 1.0-1.2 ms), warm p95 1.7 ms, max
+  2 ms; cold start up to 0.7 s on the frames that call Tesseract (first call ~0.5 s). 0 Tesseract calls when warm.
+
+### 2026-10-31 (later): review fixes to the message corner
+- **False new pair at 14.02 (230602) fixed.** The old rule "lines pushed past the 6-line cap are free" let the tracker explain any frame as
+  "all new". Now: a continuing line's peak may rise by up to 7 (JPEG), but a bright line (peak >= 170) that did not fade at all costs 1.0 (a repeat is
+  likelier new); a bright unfaded line can only be pushed off the top if the new bottom lines' peak is >= its peak - 6 (14.02: new max 212 vs 220
+  pushed: refused; 13.52: 220 vs 217: allowed). 14.02 is now a continuing frame. Per-slot peaks (p98 G): 13.02 217,216,205,203,147,139; 13.52
+  220,218,209,209,220,219; 14.02 211,209,212,211,212,209; 14.52 all ~145 (the six lines fade together, none is new at 14.02).
+- **Overflow flag.** A look whose six lines are all new (n >= 6) marks the facts born in it `overflow: True` (every gain carries the key, default False):
+  the corner holds only 6 lines, more kills may have been missed, so the hub must trust the bar total. 230602: 13.04 (+15) and 13.54 (+12) = 9 pairs,
+  3 read (13.52). The check reports such rises as one `OVERFLOW (read X of Y)` group, not matched/missed. The six `+3/+2` mesos at 20.53 are flagged too.
+- **Templates persist** in the player's data folder: `glyphs_msg.json` (digit cells + label shapes learned from the player's own screen; in
+  `FORBIDDEN` (packaging/build.py), `PRIVATE`/`ZIP_FORBIDDEN`/`LOCAL_JSON` (release_check), `.gitignore`). Loaded at start, written when something is learned.
+  The check uses `%TEMP%/msgcorner_test_templates.json` (`--cold` wipes it, `--store=FILE` overrides), never the data folder.
+- **Numbers:** 222236: 16 rises, 16 matched, 0 missed, 0 overflow, 0 extra. 230602: 5 rises, 3 matched, 1 overflow group (read 9 of 27), 0 missed, 0 extra.
+  Cold: median 0.8 ms, p95 190-270 ms, max 570-765 ms (first Tesseract), 25 / 15 Tesseract calls. Warm (store on disk): median 0.7-0.9, busy 1.0-1.1,
+  p95 1.8-1.9, max 6-8 ms, 0 calls.
