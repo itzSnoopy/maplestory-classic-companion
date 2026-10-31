@@ -24,8 +24,8 @@ import json
 import math
 import time
 from collections import Counter
-from itertools import combinations_with_replacement
 
+from gamedata import kills
 from hub import exprate
 from hub import history as H
 from base.paths import asset
@@ -105,12 +105,7 @@ class Training:
         maps = mobs if mobs is not None else _load("gamedata/map_mobs.json", "maps")
         # town maps (maps_classic.json): EXP there is a quest / NPC turn-in, not training
         self.towns = {m["name"] for m in _load("gamedata/maps_classic.json", "maps") or [] if m.get("town")}
-        self.mobs_by_map = {}
-        for m in maps.values():
-            ms = [(x["name"], x["exp"], x.get("count") or 1) for x in m.get("mobs") or []
-                  if x.get("exp")]
-            if ms:
-                self.mobs_by_map[m["name"]] = ms
+        self.mobs_by_map = kills.map_mobs(maps)
         self.path = path
         self.visit = None
         self.exp_prev = None                     # (cur, pct) of the last quick look
@@ -187,16 +182,7 @@ class Training:
             return None
         key = self.visit.name
         if key not in self._sums_cache:
-            best = {}
-            total_count = sum(c for _, _, c in mobs)
-            for n in range(1, MAX_KILLS + 1):
-                for combo in combinations_with_replacement(mobs, n):
-                    s = sum(e for _, e, _ in combo)
-                    # fewer kills first, then the mobs there are more of
-                    score = (n, -sum(c for _, _, c in combo) / total_count)
-                    if s not in best or score < best[s][0]:
-                        best[s] = (score, [m for m, _, _ in combo])
-            self._sums_cache[key] = {s: v[1] for s, v in best.items()}
+            self._sums_cache[key] = kills.best_split(mobs, MAX_KILLS)
         return self._sums_cache[key].get(d)
 
     # -- results ---------------------------------------------------------------------

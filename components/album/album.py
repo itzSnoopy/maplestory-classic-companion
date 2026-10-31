@@ -34,11 +34,11 @@ import json
 import sys
 from collections import Counter
 from datetime import datetime
-from itertools import combinations_with_replacement
 from pathlib import Path
 
 from base import paths
 from base.paths import DATA
+from gamedata import kills
 
 BOSS_GREY_LEVELS = 15    # bosses up to this many levels above you are grey before you see them
 MAX_KILLS = 2            # kills that may share one EXP rise between two looks ~1 s apart. 4 (as
@@ -160,27 +160,9 @@ def mobs_on(map_name):
 
 
 # ------------------------------------------------------------------ which kill is a first kill
-_sums = {}
-
-
 def _multi_sums(map_name):
-    """EXP totals that 2..MAX_KILLS kills on this map can add up to (any mobs of the map's spawn
-    list, album or not), using each mob at most as often as it spawns there (Stumpy's 276 EXP is
-    4 Jr. Boogies on paper, but only 2 Boogies spawn on Parched Land)."""
-    if map_name not in _sums:
-        cap = Counter()                           # exp -> how many such mobs can be on the map
-        for mp in _read_json(paths.asset("gamedata/map_mobs.json"), {}).get("maps", {}).values():
-            if mp["name"] == map_name:
-                for x in mp["mobs"]:
-                    if x.get("exp"):
-                        cap[x["exp"]] = max(cap[x["exp"]], 0) + (x.get("count") or 1)
-        s = set()
-        for n in range(2, MAX_KILLS + 1):
-            for combo in combinations_with_replacement(sorted(cap), n):
-                if all(combo.count(e) <= cap[e] for e in set(combo)):
-                    s.add(sum(combo))
-        _sums[map_name] = (set(cap), s)
-    return _sums[map_name]
+    """EXP totals that 2..MAX_KILLS kills on this map can add up to (gamedata/kills.py)."""
+    return kills.multi_sums(map_name, MAX_KILLS)
 
 
 def identify(map_name, d):
