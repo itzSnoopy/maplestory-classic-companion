@@ -12,6 +12,11 @@ Your own state comes from files the tracker already writes: status.json (EXP, le
 live.json (exact HP/MP from the status bar) and history/characters.json (name from the Stat
 window, channel).
 
+Components can ride on the same post (one thread, one connection) through the hooks the component
+gives it: `before(me)` returns extra fields for the post (a challenge adds "ch"; "_fast" = post again in
+1 s), `after(reply, server_off)` gets the relay's whole answer. `request()` is for the occasional other call
+(create / accept a challenge) on the same server and code.
+
 party.json:
   t, ok (last exchange worked), error (why not), server, members [{name, level, job, map, channel,
   state, exp_cur, exp_need, exp_pct, exp_hr, eta, hp [cur, max], mp [cur, max], age_s}]
@@ -31,6 +36,8 @@ SEND_PLAYING_S = 3.0        # while you play
 SEND_IDLE_S = 10.0          # not playing: still tell the others (also catches "playing" soon after a start)
 TIMEOUT_S = 5.0
 MAX_BACKOFF_S = 60.0
+FAST_S = 1.0               # a hook asked for a quick next post (a challenge under way)
+CAPS = "ch"                 # what this version can do besides the party panel: ch = challenges
 
 
 def settings():
@@ -42,11 +49,11 @@ def settings():
     return {"server": str(s.get("server") or "").strip(), "code": str(s.get("code") or "").strip()}
 
 
-def endpoint(server, code):
+def endpoint(server, code, kind="party", suffix=""):
     server = server.rstrip("/")
     if "://" not in server:
         server = "http://" + server
-    return f"{server}/v1/party/{code}"
+    return f"{server}/v1/{kind}/{code}{suffix}"
 
 
 def own_state(root=None):
@@ -75,6 +82,7 @@ def own_state(root=None):
         out["channel"] = ch
     from base.version import VERSION
     out["v"] = VERSION
+    out["caps"] = CAPS
     return out
 
 
@@ -88,12 +96,40 @@ def exchange(url, state):
 
 
 class PartyLink(threading.Thread):
-    def __init__(self, log=print, root=None):
+    def __init__(self, log=print, root=None, before=None, after=None):
         super().__init__(daemon=True, name="partylink")
         self.log = log
         self.root = root or H.ROOT
+        self.before, self.after = before, after
         self.stop_ev = threading.Event()
         self.last_error = None
+        self.ok = False
+        self.server_off = 0.0       # relay clock minus ours (seconds), from the last exchange
+
+    def info(self):
+        """What other components may know of the link (the relay_link service)."""
+        s = settings()
+        return {"server": s["server"], "code": s["code"], "ok": self.ok, "server_off": self.server_off,
+                "request": self.request}
+
+    def request(self, kind, suffix="", body=None, method="POST"):
+        """One call to <server>/v1/<kind>/<code><suffix> -> (http status, json). Raises when the link is off
+        or the server can't be reached. Not the link thread: call it from your own worker."""
+        s = settings()
+        if not (s["server"] and s["code"]) or not internet.allowed("party"):
+            raise RuntimeError("party link off")
+        data = None if body is None else json.dumps(body).encode()
+        req = urllib.request.Request(endpoint(s["server"], s["code"], kind, suffix), data=data, method=method,
+                                     headers={"Content-Type": "application/json",
+                                              "User-Agent": "MapleClassicCompanion"})
+        try:
+            with urllib.request.urlopen(req, timeout=TIMEOUT_S) as r:
+                return r.status, json.loads(r.read(1024 * 1024))
+        except urllib.error.HTTPError as e:
+            try:
+                return e.code, json.loads(e.read())
+            except ValueError:
+                return e.code, {}
 
     def _write(self, **kw):
         H.write_json(self.root / "party.json", {"t": round(time.time(), 2), **kw}, indent=None)
@@ -117,7 +153,16 @@ class PartyLink(threading.Thread):
                     else:
                         wait = SEND_PLAYING_S if me["state"] == "playing" else SEND_IDLE_S
                         try:
-                            res = exchange(endpoint(s["server"], s["code"]), me)
+                            extra = self._extra(me)
+                            t0 = time.time()
+                            res = exchange(endpoint(s["server"], s["code"]), {**me, **{
+                                k: v for k, v in extra.items() if not k.startswith("_")}})
+                            if extra.get("_fast"):
+                                wait = FAST_S
+                            if isinstance(res.get("server_t"), (int, float)):
+                                self.server_off = res["server_t"] - (t0 + time.time()) / 2
+                            self.ok = True
+                            self._after(res)
                             others = [m for m in res.get("members") or []
                                       if m.get("name") != me["name"]]
                             self._write(ok=True, error=None, server=s["server"], me=me["name"],
@@ -127,6 +172,7 @@ class PartyLink(threading.Thread):
                             self.last_error, backoff = None, 0.0
                         except Exception as e:
                             err = _why(e)
+                            self.ok = False
                             if err != self.last_error:
                                 self.log(f"party link failed: {err}")
                             self.last_error = err
@@ -136,6 +182,20 @@ class PartyLink(threading.Thread):
             except Exception as e:
                 self.log(f"party link error: {type(e).__name__}: {e}")
             self.stop_ev.wait(wait)
+
+    def _extra(self, me):
+        try:
+            return (self.before(me) if self.before else None) or {}
+        except Exception as e:
+            self.log(f"party link hook failed: {type(e).__name__}: {e}")
+            return {}
+
+    def _after(self, res):
+        try:
+            if self.after:
+                self.after(res, self.server_off)
+        except Exception as e:
+            self.log(f"party link hook failed: {type(e).__name__}: {e}")
 
     def stop(self):
         self.stop_ev.set()

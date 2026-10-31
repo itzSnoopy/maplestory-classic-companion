@@ -164,6 +164,13 @@ EVENTS = (
     # -- from components, for other components
     ("exp_rise", "t, map, d (EXP gained since the last look), party (another member on your map), gap "
                  "(s since the last look). Every EXP rise on a quick look (the training component)"),
+    ("relay_post", "extra (dict), me (your party state). The party link is about to post to the relay; subscribers add "
+                   "fields to `extra` (challenge: extra['ch']; extra['_fast']=True asks for another post in 1 s). "
+                   "Runs on the party link THREAD: keep it short, never touch the bus state without a lock"),
+    ("relay_reply", "reply (the relay's whole answer: members, server_t, challenges, ...), server_off (relay clock minus "
+                    "ours, s). The party link got an answer. Runs on the party link THREAD, keep it short"),
+    ("challenge_end", "result (dict: id, mode, minutes, me, won (True/False/None = tie), score [mine, theirs], opponent, "
+                      "names, t). A duel finished; the diary writes a line, the record is already saved"),
     ("first_kill", "mob (album record), map, level, job, shots [relative paths], caught (album count), text "
                    "(the diary line). The album caught a mob for the first time and already saved it"),
 )
@@ -183,6 +190,8 @@ SERVICES = (
     ("mp_price", "training. (potion name, mesos per MP point, MP per potion): what one MP costs you (skills list)"),
     ("price_of", "training. Returns fn(item name) -> mesos or None: the player's price, else the shop's"),
     ("party_on_map", "party. True while another party member is on your map (so EXP rises are shares)"),
+    ("relay_link", "party. {server, code, ok, server_off, request(kind, suffix, body, method) -> (status, json)} of the "
+                   "party link (None before it exists): lets a component make its own relay calls without importing party"),
 )
 
 # live.json (hub/live.py writes it about once a second while playing; the helper's overlays read it): t and

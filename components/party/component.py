@@ -3,8 +3,10 @@ leader, names) and the party link thread (partylink.py), which shares your numbe
 through the relay you host and writes party.json. The link is opt-in (Settings > Internet > Party link).
 
 Subscribes: service_start (starts the thread), service_stop (stops it), fact (party).
+Emits (on the link thread): relay_post (components add fields to the post), relay_reply (the relay's answer).
 Publishes: the party section of live.json ({t, rows [{name, me, on_map, hp, leader}]}; rows [] = no box).
-Offers: hub.ask("party_on_map") (another member is on your map, so EXP rises are shares).
+Offers: hub.ask("party_on_map") (another member is on your map, so EXP rises are shares), hub.ask("relay_link")
+(the link's server / code / state and a request() for other relay calls).
 Names come from the source (hub.source.party_name / party_reset, an optional Source hook).
 Helper side (ui): the party panel over the game (party_ui.py), its menu toggles, its line in Settings >
 General and the server / code fields under Settings > Internet > Party link.
@@ -89,11 +91,26 @@ class PartyComponent(Component):
         hub.on("service_stop", self.on_stop)
         hub.on("fact", self.on_fact)
         hub.provide("party_on_map", self.party_on_map)
+        hub.provide("relay_link", self.relay_link)
         hub.publish("party", lambda now, prof: self.box)
 
     def on_start(self, **_):
-        self.link = partylink.PartyLink(log=self.hub.log)    # party.json: partners' numbers (relay/, opt-in)
-        self.link.start()
+        self.link = partylink.PartyLink(log=self.hub.log, before=self.relay_post, after=self.relay_reply)
+        self.link.start()                       # party.json: partners' numbers (relay/, opt-in)
+
+    def relay_link(self):
+        """Service: {server, code, ok, server_off, request(kind, suffix, body, method) -> (status, json)} or None before the link exists."""
+        return self.link.info() if self.link is not None else None
+
+    def relay_post(self, me):
+        """Link thread, before each post: let components add fields to it (event relay_post)."""
+        extra = {}
+        self.hub.emit("relay_post", extra=extra, me=me)
+        return extra
+
+    def relay_reply(self, reply, server_off):
+        """Link thread, after each answer: hand the whole reply to the components (event relay_reply)."""
+        self.hub.emit("relay_reply", reply=reply, server_off=server_off)
 
     def on_stop(self, **_):
         if self.link is not None:
