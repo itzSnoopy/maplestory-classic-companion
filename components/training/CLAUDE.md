@@ -12,7 +12,7 @@ Tracker process computes; the helper draws the optional panel over the game (off
 | File | Role |
 |---|---|
 | `component.py` | `TrainingComponent`: owns `Training`, wires `on_rise` -> `exp_rise`, provides 4 services, publishes `training`; `ui(shell)` for the panel |
-| `training.py` | `Training` / `Visit`: map visits, EXP rise -> kills (`_split` by the map's mobs, `_lump` = quest/town), diff of `mpuse.Usage` totals per visit, prices, `summary()`, all-time save to `history/training.json` |
+| `training.py` | `Training` / `Visit`: map visits, EXP rise -> kills (`_split` by the map's mobs (`gamedata/kills.py best_split`), `_lump` = quest/town), diff of `mpuse.Usage` totals per visit, prices, `summary()`, all-time save to `history/training.json` |
 | `training_ui.py` | `TrainingPanel` (helper): rows from live.json `training`; right-click "Price MP/HP with", lock, hide; `--demo` |
 | `itemicons.py` | Potion pictures for the panel, downloaded once from NiaMeowDB (`internet.allowed("icons")`) into `<data>/assets/item_icons/` (+ `index.json`) |
 | `__init__.py` | docstring only |

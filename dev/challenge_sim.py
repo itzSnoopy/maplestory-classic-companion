@@ -34,6 +34,7 @@ os.environ["MAPLE_COMPANION_DATA"] = str(OUT)
 from base import lean  # noqa: F401,E402,I001
 from base import internet  # noqa: E402
 import party_relay as R  # noqa: E402
+from components.challenge import board  # noqa: E402
 from components.challenge.component import ChallengeComponent  # noqa: E402
 from components.diary import diary  # noqa: E402
 from components.diary.component import DiaryComponent  # noqa: E402
@@ -157,6 +158,10 @@ try:
     shift(cid, 6)                                           # now live
     check(wait(lambda: (snap().get("active") or {}).get("phase") == "live"), "phase goes live")
 
+    vs = board.view_state(snap(), time.time(), {}, lambda n: None)
+    check(vs and vs["phase"] == "live" and vs["right"]["name"] == "Snoopy" and vs["left"]["name"] == "Rival"
+          and vs["timer"] in ("1:59", "2:00"), f"board state: live, Rival left / me right, timer {vs and vs['timer']}")
+
     # 3 ------------------------------------------------------------------------------------------
     t0 = time.time()
     rise(148)                                               # Mano
@@ -201,6 +206,10 @@ try:
     check(snap().get("last", {}).get("won") is True and (snap().get("active") or {}).get("state") == "done",
           "the finished board stays in challenge.json for a moment")
     check(not snap().get("busy"), "free again")
+    seen = {}
+    vs = board.view_state(snap(), time.time(), seen, lambda n: None)
+    check(vs and vs["phase"] == "winner" and vs["winner"] == "right" and vs["right"]["score"] == 6, "board state: winner = me")
+    check(board.view_state(snap(), time.time() + 11, seen, lambda n: None) is None, "the board closes ~10 s after the result")
     time.sleep(0.8)
     check(len(ev) == 1, "the result is reported once")
 
@@ -221,6 +230,8 @@ try:
     shift(cid, 200)
     check(wait(lambda: len(ev) == 2) and ev[1]["won"] is None, "a tie is reported as a tie (won None)")
     check(H.read_json(OUT / "history" / "challenges.json", {})["vs"]["Snoopy"]["Rival"]["tied"] == 1, "record: 1 tie")
+    vs = board.view_state(snap(), time.time(), {}, lambda n: None)
+    check(vs and vs["phase"] == "tie", "board state: tie")
 
     # 5b ---------------------------------------------------------------------------------------------
     R.challenges.clear()
