@@ -87,6 +87,11 @@ class Source:
         fact. False when this source can't (default)."""
         return False
 
+    def watch_buffs(self, ids):
+        """Skill ids (strings) whose buff icon at the top right of the game window should be watched. The source
+        then adds a 'buffs' fact {"on": [ids showing]} once at start and whenever the set changes (ids it has no
+        icon for are never reported; calling again with the same ids is cheap). Default: no-op."""
+
     def take_facts(self):
         """Long-lived character facts seen since the last call: [(t, kind, value)], kind 'stat' |
         'skills' | 'channel' (dicts as panels.py returns them) or 'away' (the game left the
@@ -127,7 +132,7 @@ def describe(obs: Observation) -> Any:
 # added later doesn't break it. Handlers run in registration order (components/__init__.py) on the
 # tracker's thread, so keep them short; an exception is logged and never stops the tracker.
 # "state" = hub.state (read-only view of the tracker: level, cur, need, map, job, active_total,
-# in_session, playing).
+# exp_total, in_session, playing).
 EVENTS = (
     # -- service
     ("service_start", "maps: [names seen before]. The service loop is about to run (lock held, log set up)"),
@@ -137,7 +142,7 @@ EVENTS = (
     ("facts_begin", "facts [(t, kind, value)], prof (character.Profile), now. A batch of facts is about to be dealt out "
                     "(prof already holds it): per-batch work (skillbar: another character starts over)"),
     ("fact", "t, kind, value, prof. Each fact of the batch in order: 'vitals' {hp, mp: [cur, max]}, 'away', 'map' "
-             "(name), 'exp' {cur, pct}, 'party' (box rows), plus the Profile's who / stat / skills / channel. "
+             "(name), 'exp' {cur, pct}, 'party' (box rows), 'buffs' {on: [skill ids whose buff icon shows; only ids asked for with Source.watch_buffs]}, plus the Profile's who / stat / skills / channel. "
              "Components that share state through the facts see them interleaved exactly as the source made them"),
     ("facts", "facts [(t, kind, value)], prof (character.Profile). The whole batch, after every fact event and the "
               "live.json write; prof is updated"),

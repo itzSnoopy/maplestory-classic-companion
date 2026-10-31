@@ -159,10 +159,11 @@ check(alb.count() == len(caught), f"album has {alb.count()} caught")
 check(alb.state(album.find("Mano")) == "caught", "Mano tile is caught")
 lvl_near = next(m for m in album.catalog() if m["id"] not in alb.char()["seen"] and m["level"] <= 25
                 and not m["boss"])
-check(alb.state(lvl_near) == "grey", f"{lvl_near['name']} (Lv {lvl_near['level']}) grey: near Lv 22")
+check(alb.state(lvl_near) == "unknown", f"{lvl_near['name']} (Lv {lvl_near['level']}) is ?: near your level no longer greys")
 far = next(m for m in album.catalog() if m["level"] > 40 and not m["boss"] and m["id"] not in alb.char()["seen"])
 check(alb.state(far) == "unknown", f"{far['name']} (Lv {far['level']}) is ?")
-check(alb.state(album.find("Jr. Balrog")) == "grey", "Jr. Balrog (boss, Lv 80) grey")
+check(alb.state(album.find("Jr. Balrog")) == "unknown", "Jr. Balrog (boss, Lv 80) is ?: more than 15 above Lv 22")
+check(alb.state(album.find("Stumpy")) == "grey", "Stumpy (boss, Lv 35) grey: within 15 of Lv 22")
 
 ents = [e for e in diary.entries() if e["kind"] == "first_kill"]
 check(len(ents) == len(caught), f"{len(ents)} first_kill diary beats")
@@ -177,6 +178,30 @@ check(any(cap_boss == ln.format(mob="Mano", map=boss["map"], name=diary.nickname
 if len(ents) > 1:
     print("  normal caption:", diary.caption_info(ents[1]))
 check(sess.journal.lines and "First boss kill: Mano" in sess.journal.lines[0], "journal line")
+
+# party boss kills (King Slime) and the hidden tutorial mob
+KS_MAP = "1st Accompaniment <Last Stage>"
+ks = album.find("King Slime")
+for dd in (982, 811, 1161):
+    alb.unrecord(ks)
+    got = alb.first_kill(KS_MAP, dd, party=True, gap=1.0)
+    check(got is not None and got["name"] == "King Slime" and alb.last_how == "party_boss",
+          f"party rise {dd} on the King Slime map: King Slime, how={alb.last_how}")
+alb.unrecord(ks)
+check(alb.first_kill(KS_MAP, 100, party=True, gap=1.0) is None, "party 100 (small mob range): None")
+check(alb.first_kill(KS_MAP, 5000, party=True, gap=1.0) is None, "party 5000 (above boss x 1.6): None")
+check(alb.first_kill(KS_MAP, 982, party=True, gap=album.MAX_GAP_S + 1) is None, "party 982 after a long gap: None")
+check(alb.first_kill("Thicket Around the Beach III", 148, party=True, gap=1.0) is None,
+      "party on a normal map with a matching EXP: None")
+solo = alb.first_kill(KS_MAP, 2400, party=False, gap=1.0)
+check(solo is not None and solo["name"] == "King Slime" and alb.last_how == "exp",
+      "solo 2400 on the boss map: exact EXP as before")
+check(alb.first_kill(KS_MAP, 982, party=False, gap=1.0) is None, "solo 982 on the boss map: None")
+alb.record(ks, KS_MAP, 30, how="party_boss")
+check(alb.first_kill(KS_MAP, 982, party=True, gap=1.0) is None, "King Slime already caught: None")
+check(alb.char()["killed"][ks["id"]]["how"] == "party_boss", "record keeps how=party_boss")
+alb.unrecord(ks)
+check(all(m["name"] != "Tutorial Jr. Sentinel" for m in album.catalog()), "Tutorial Jr. Sentinel not in the album")
 
 # 3 ------------------------------------------------------------------------------------------
 fx = sorted((CODE / "dev" / "fixtures" / "levelup_lv5").glob("*.png"))

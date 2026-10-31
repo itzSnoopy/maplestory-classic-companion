@@ -1,6 +1,6 @@
 # album/: the monster album (first kills, seen mobs, /album.html)
 
-A collection book of every Classic mob: "?" (unknown), grey (seen, a boss, or at most 3 levels above you),
+A collection book of every Classic mob: "?" (unknown), grey (seen on its map, or a boss at most 15 levels above you),
 caught (first kill with a photo). Catches come from EXP rises only one mob can explain. **Both processes**:
 the tracker side keeps the state and takes the photo; the helper side adds the menu entry and the page.
 
@@ -11,8 +11,8 @@ the tracker side keeps the state and takes the photo; the helper side adds the m
 | File | Role |
 |---|---|
 | `component.py` | `AlbumComponent`: events, first-kill flow (photo, record, `first_kill`, journal), `ui(shell)` |
-| `album.py` | Core: catalog (`mobs_classic.json` + `map_mobs.json`), `identify` (which mob an EXP rise means; `MAX_KILLS`, `MAX_GAP_S`, `GREY_LEVELS`), `Album` state per character, `render`, `open_album`, CLI |
-| `album_html.py` | Builds `album.html` (`page(root, album, live)`, `build`); asks `mobicons.want` for missing pictures |
+| `album.py` | Core: catalog (`mobs_classic.json` + `map_mobs.json`), `identify` (which mob an EXP rise means), `party_boss`; `MAX_KILLS`, `MAX_GAP_S`, `BOSS_GREY_LEVELS`), `Album` state per character, `render`, `open_album`, CLI |
+| `album_html.py` | Builds `album.html` (`page(root, album, live)`, `build`): an open book (two pages of 3x3 slots, arrows, chapter ribbons, entry page per mob at `#mob=<id>`); `SHOWN_REGIONS` hides the other regions (data stays in the JSON); themes = one `[data-book="name"]` CSS variable block each (henesys, ellinia, plain) + the script's `THEMES` list; asks `mobicons.want` for missing pictures of shown mobs |
 | `mobicons.py` | Downloads monster pictures once into `assets/mob_icons/` (0.5 s apart, `index.json`), behind `internet.allowed("mobs")` |
 
 ## Interfaces
@@ -51,3 +51,9 @@ captions and server internals, `dev/fetch_mobs.py` (only when mob data must be r
 - Photos are Nexon imagery: local only. Pictures come from NiaMeowDB, only with the "mobs" toggle on, never shipped.
 - Per-frame work in `perf.timed("album")`. Classic data only (MeowDB), no private-server wikis.
 - Skip kills while another party member is on the map (EXP is shared); never auto-catch 0-EXP mobs (CLI only).
+  One exception: `party_boss` catches a boss that is only fought in a party (King Slime) when the party rise
+  is above any regular mob's max EXP x `PARTY_MAX_FACTOR` (1.6) and at most the boss EXP x 1.6; recorded with
+  `how="party_boss"` (`Album.last_how` after `first_kill`). Assumption from NOTES.md "Boss kills in a party".
+  **PQ bosses only** (`PQ_BOSS_IDS`, ids 800000-899999): open-world bosses (Mano, Stumpy, Mushmoms, crowds of
+  players) have low ceilings that mixed kills can pass; they need their own rule (player: later).
+- `HIDDEN_IDS` (tutorial-only mobs, e.g. Tutorial Jr. Sentinel) and `_hidden` keep mobs out of the album.

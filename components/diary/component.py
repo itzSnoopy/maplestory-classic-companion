@@ -74,6 +74,8 @@ class DiaryComponent(Component):
         return diary_popup.page(win, frame, self.popup)
 
     def check_popup(self, snap):
+        if getattr(self.shell, "panels_hidden", False):
+            return                        # minimized: pop-ups wait until the window is open again
         if self.popup:
             try:
                 self.popup.check()

@@ -38,7 +38,7 @@ class SkillbarComponent(Component):
     def on_save(self, win):
         # the bar may have been moved / locked while the window was open: keep that
         bar = win.shell.settings("skillbar")
-        win.s.setdefault("skillbar", {}).update({k: bar[k] for k in ("x", "y", "locked", "hidden", "show") if k in bar})
+        win.s.setdefault("skillbar", {}).update({k: bar[k] for k in ("x", "y", "locked", "hidden", "show", "guard_show") if k in bar})
 
     def attach(self, hub):
         self.hub = hub

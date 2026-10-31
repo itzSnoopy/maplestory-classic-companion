@@ -48,6 +48,7 @@ class State:
     map = property(lambda s: s._tr.map if s._tr else None)
     job = property(lambda s: s._tr.job if s._tr else None)
     active_total = property(lambda s: s._tr.active_total if s._tr else 0.0)
+    exp_total = property(lambda s: s._tr.exp_total if s._tr else 0)      # EXP gained this session, across level-ups
 
 
 class Hub:

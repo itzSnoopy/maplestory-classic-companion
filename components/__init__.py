@@ -18,6 +18,7 @@ COMPONENTS = [
     "components.album.component:AlbumComponent",         # monster album (after the live feed's exp_rise)
     "components.party.component:PartyComponent",         # party box names, live.json "party", party link thread
     "components.training.component:TrainingComponent",  # EXP/hr per visit, exp_rise, live.json "training", cost panel
+    "components.kpq.component:KpqComponent",           # KPQ run summaries: stages / bonus EXP per run, live PQ view in the helper
     "components.discord.component:DiscordComponent",    # Discord Rich Presence (helper only)
     "components.feedback.component:FeedbackComponent",  # skill review page + Send to the relay (helper only)
 ]

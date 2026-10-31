@@ -1,0 +1,19 @@
+{
+  "_note": "Party quests the KPQ-style run tracker (components/kpq) knows. Map names must exist in maps_classic.json (release_check). 'stages' in order; 'bonus' = the bonus map; 'other' = PQ maps that are neither (belong to the current phase).",
+  "pqs": [
+    {
+      "key": "kpq",
+      "name": "Kerning Party Quest",
+      "first": "1st Accompaniment <1st Stage>",
+      "stages": [
+        {"map": "1st Accompaniment <1st Stage>", "label": "Stage 1"},
+        {"map": "1st Accompaniment <2nd Stage>", "label": "Stage 2"},
+        {"map": "1st Accompaniment <3rd Stage>", "label": "Stage 3"},
+        {"map": "1st Accompaniment <4th stage>", "label": "Stage 4"},
+        {"map": "1st Accompaniment <Last Stage>", "label": "King Slime"}
+      ],
+      "bonus": "1st Accompaniment <Bonus>",
+      "other": ["1st Accompaniment <Exit>"]
+    }
+  ]
+}

@@ -37,7 +37,7 @@ _ov("2111000 2211000", "passive")
 _ov("1101002 1101003 1201002 1201003 1301002 1301003 2111005 2211005 3101001 3201001 4101000 4201000", "buff", "booster")
 _ov("1211001 1211002 1211003", "buff", "charge")
 
-UNTIL_DEATH = {"2001000"}                       # Magic Guard (player, 2026-10-29)
+TOGGLE = {"2001000"}     # Magic Guard: one cast, on until it ends (death); no timer (player, 2026-10-29/30)
 DURATION_FIXED = {"0001001": 30}                # Recovery: heals over 30 s
 
 ATTACK = re.compile(r"Basic Attack \d|Mastery|\bDamage \d|\d\s*% damage", re.I)
@@ -80,8 +80,8 @@ def build():
         if sid in DURATION_FIXED:
             dur = [DURATION_FIXED[sid]] * s["max"]
         until = None
-        if sid in UNTIL_DEATH:
-            until, dur = "death", None
+        if sid in TOGGLE:
+            until, dur = "toggle", None
         if kind == "attack" or (kind == "other" and sub == "debuff"):
             target = "mobs"
         elif kind == "buff":

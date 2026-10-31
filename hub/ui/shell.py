@@ -13,11 +13,20 @@ The helper (hub/helper_ui.py App) owns one Shell. Components call, from ui(shell
   shell.on_refresh(fn, early)       fn(snapshot) about once a second (early: before the window redraws)
   shell.on_exit(fn)                 fn() when the helper closes
   shell.add_page(path, render)      a page for the local diary server (hub/pages.py)
+  shell.add_main_view(fn)           fn(snapshot) -> None or {"title": str, "sub": str|None,
+                                    "rows": [(label, mark, time, value, style) | {"sep": True}],
+                                    "prev": fn|None, "next": fn|None, "toggle": (text, on, fn)|None}
+                                    (style: "", "muted", "gold", "bold"; prev/next None = dimmed arrow;
+                                    their fns are called on a click, then the view is asked again). The
+                                    first view that answers replaces the helper window's stat grid (the
+                                    header, EXP bar and EXP text stay); None from all = the normal grid
   shell.set_camera(fn)              what the helper window's camera button does (a diary moment)
   shell.settings(name) / all_settings() / save_settings(name, **kw) / set_setting(name, **kw)
                                     the component's slice of helper_settings.json (same keys as ever)
   shell.post(cmd), shell.notify(text), shell.root, shell.k, shell.px(n), shell.at, shell.demo,
-  shell.visible, shell.log_error(where)
+  shell.visible, shell.panels_hidden, shell.log_error(where)
+                                    (panels_hidden: the helper is an icon and the setting window.icon_hides_panels
+                                    is on; the panels over the game and the diary pop-ups wait)
 
 Nothing here draws; a component builds its own widgets with the root and the settings window's
 helpers. Without a window (the page server's own process) the Shell is "headless": root is None
@@ -36,6 +45,7 @@ class Shell:
         self.save_hooks = []
         self.early_hooks = []
         self.refresh_hooks = []
+        self.main_views = []
         self.exit_hooks = []
         self.camera = None              # fn() behind the camera button
 
@@ -63,6 +73,13 @@ class Shell:
     @property
     def visible(self):
         return self.app.visible if self.app else False
+
+    @property
+    def panels_hidden(self):
+        """True while the helper is the floating icon and "icon hides panels" is on."""
+        if not self.app:
+            return False
+        return bool(self.app.compact and self.app.settings.get("window", {}).get("icon_hides_panels"))
 
     def px(self, n):
         return int(round(n * self.k))
@@ -123,6 +140,9 @@ class Shell:
 
     def on_exit(self, fn):
         self.exit_hooks.append(fn)
+
+    def add_main_view(self, fn):
+        self.main_views.append(fn)
 
     def add_page(self, path, render):
         pages.register_page(path, render)

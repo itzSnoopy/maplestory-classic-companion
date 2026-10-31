@@ -18,6 +18,7 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from base import paths
 from components.diary import diary
 from components.diary import diary_html
 from hub import pages
@@ -52,6 +53,9 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?", 1)[0]
         if path in ("/", "/diary.html"):
             return self._send(200, diary_html.page(diary.ROOT, live=True), "text/html; charset=utf-8")
+        if path in ("/favicon.png", "/favicon.ico"):    # the app icon (art/icon.png) for every page's tab
+            icon = next((p for p in (diary.ROOT / "art" / "icon.png", paths.asset("art/icon.png")) if p.is_file()), None)
+            return self._send(200, icon.read_bytes(), "image/png") if icon else self._send(404, '{"error": "not found"}')
         render = pages.page(path)                      # a component's page (the monster album ...)
         if render is not None:
             return self._send(200, render(diary.ROOT, True), "text/html; charset=utf-8")

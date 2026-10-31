@@ -27,8 +27,11 @@ STATUS = {
     "buff_seconds": ("verified", "skill `time[level-1]` / text 'for N sec'"),
     "buff_max_rounding": ("guess", "shown max = floor(base x (1 + N/100)) +-1; no Hyper Body seen yet"),
     "buff_mp_part": ("guess", "Hyper Body's data text says HP only; a Max MP part is unconfirmed"),
-    "magic_guard_split": ("guess", "text says 'Replace N% of HP damage with MP'; mpuse allows up "
-                                   "to 4x the HP loss + 5, unmeasured"),
+    "recovery_tick": ("measured", "Recovery Lv 3 (72 HP in 30 sec): +12 HP every 5.0-5.2 s, 6 ticks, "
+                                  "first ~5.9 s after the cast, own beat apart from HP regen (2026-10-30)"),
+    "magic_guard_split": ("measured", "toggle (one cast, on until it ends); each hit: MP part = floor(damage "
+                                      "x N% from the text), HP takes the rest. Lv 2 (33%), 45 hits in KPQ "
+                                      "2026-10-30: 55 -> 18 MP + 37 HP, 133 -> 43 + 90"),
 }
 
 
@@ -107,6 +110,58 @@ def buff_seconds(record, level):
         return times[level - 1]
     m = re.search(r"for (\d+) sec", level_text(record, level))
     return int(m.group(1)) if m else 0
+
+
+RECOVERY_TICKS = 6          # Recovery heals in 6 equal parts...
+RECOVERY_EVERY_S = 5        # ...one every 5 s (measured 2026-10-30, see STATUS)
+
+
+def recovery_tick(text):
+    """Recovery's HP per tick from its level text: 'Recover HP 72 in 30 sec' -> 12; 0 if unknown."""
+    m = re.search(r"Recover HP (\d+) in (\d+) sec", text or "")
+    return int(m.group(1)) // RECOVERY_TICKS if m else 0
+
+
+def magic_guard_pct(text):
+    """'Replace 33% of HP damage with MP while active' -> 33; 0 if the text doesn't say."""
+    m = re.search(r"Replace (\d+)% of HP damage", text or "")
+    return int(m.group(1)) if m else 0
+
+
+def magic_guard_split(damage, pct):
+    """One hit under Magic Guard: (MP part, HP part); the MP part is rounded down (STATUS)."""
+    mp = math.floor(damage * pct / 100)
+    return mp, damage - mp
+
+
+def magic_guard_mp_for_hp(hp_part, pct):
+    """The MP part that goes with an HP loss of `hp_part` from one hit, or None if no whole damage
+    number gives exactly that HP part."""
+    if hp_part <= 0 or not 0 < pct < 100:
+        return None
+    for dmg in range(hp_part, int(hp_part * 100 / (100 - pct)) + 3):
+        mp, hp = magic_guard_split(dmg, pct)
+        if hp == hp_part:
+            return mp
+    return None
+
+
+def magic_guard_reach(hp, mp, pct):
+    """What the skill bar shows for Magic Guard: (absorb, ehp). The player's definition
+    (2026-10-31, revised): absorb = Magic Guard % x current MP (1,046 MP at 33% -> 345), effective
+    HP = HP + absorb. Each moves only with its own bars. (Strictly, you die after
+    magic_guard_limit damage.)"""
+    if not pct:
+        return 0, max(hp or 0, 0)
+    absorb = math.floor(max(mp or 0, 0) * pct / 100)
+    return absorb, max(hp or 0, 0) + absorb
+
+
+def magic_guard_limit(hp, mp, pct):
+    """Damage you can take before dying with Magic Guard on: min(HP + MP, HP / (1 - pct))."""
+    if not hp or hp <= 0 or not 0 < pct < 100:
+        return max(hp or 0, 0)
+    return min(hp + max(mp or 0, 0), math.floor(hp * 100 / (100 - pct)))
 
 
 def buffed_max(base, pct):

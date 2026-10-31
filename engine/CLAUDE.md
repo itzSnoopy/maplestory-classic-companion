@@ -28,6 +28,7 @@ Passive only: frames of the game window. Never game memory, network traffic or i
 | `ocr.py` | Tesseract wrapper: `prep` (white_min mask / threshold, scale), `read`, `trim_at_border`; falls back to the bundled copy |
 | `minimap.py` / `mapwatch.py` | Find the minimap by its WORLD button (full or collapsed) and read the title / when to check it (1 s after a change, slowing to 15 s) |
 | `deathbox.py`, `hpbar.py` | "You have died." box (shape + colour, no stored art) / HP % from the red bar fill |
+| `buffs.py` | Buff icons at the top right (`find(strip, icons)`, `strip_box`, `load_icons`): each owned buff's skill icon slid along the right ~320 px; `python -m engine.buffs FRAME... --icons DIR` |
 | `vitals.py` | Exact HP/MP numbers from the status bar (own digit table `glyphs_hud.json`); the regen model is NOT here (`components/skillbar/meter.py`) |
 | `panels.py` | Character Stat, Skill, Change Channel windows: `scan` on the overview, `read`/`read_at` at full size; digits `glyphs_ui.json` |
 | `jobread.py`, `charname.py` | Job from the status bar (`JobWatcher`, reads only when due) / who is playing (pixel fingerprint of the status-bar name) |
@@ -46,6 +47,7 @@ Passive only: frames of the game window. Never game memory, network traffic or i
 | Death box | centre square 276x276 (`deathbox.PAD`) every quick look | `poll()` True/False | `deathbox` | none (colour/shape numbers) | NOTES 17:27, 17:31, 17:40 |
 | HP bar % | interior x 780..884, y 1063..1076 | `Observation.hp_pct`, `raw.hp` (logged, unused for decisions) | `hp_bar` | none | NOTES 17:47 |
 | HP/MP numbers | `vitals.STRIP` (780,1046,998,1071) | fact `vitals` {hp, mp: [cur, max]} | `vitals`, `grab_strip` (bursts) | `glyphs_hud.json`: from HUD EXP digits + Stat window, bars as check | NOTES 22:00, 22:15, 2026-10-24 01:15 |
+| Buff icons | `buffs.strip_box`: right 320 px x top 48 rows (1920 scale), grabbed with the HP/MP strip on every quick look and `quick_vitals` burst | fact `buffs` {on: [skill ids]} (only when the set changes, plus once at start; a change needs 2 looks in a row; none while the HUD is faded) | `buffs` | `templates/skill_icons/<id>.png` (the Skill window's cut); ids from `Source.watch_buffs` | NOTES "2026-10-31: buff icons" |
 | Stat/Skill/Channel | 1/4-scale overview each look, full read when a window is spotted; remembered spots | facts `stat`, `skills`, `channel` | `panels_scan`, `panels_read` | `glyphs_ui.json` (taught from HUD EXP/level/HP/MP), `history/panel_spots.json`, `templates/skill_icons/` | NOTES 20:40, 20:55, 21:05, 21:15; 05 "Game windows" |
 | Who | status-bar name line below the job | fact `who` (10-hex fingerprint) | `charname` | pixel hash, no learning | NOTES 20:55 |
 | Party box | `party.search_box` top-left, found by the bar outline | fact `party` rows | `party` | `Names` caches Tesseract per row mask | NOTES 23:50; 05 |
@@ -57,8 +59,8 @@ Cost rules: new readers go on the frame the tracker already grabs, never a secon
 Tesseract only behind a crop-hash cache (a glyph read is ~1000x cheaper). Cost table: NOTES 18:45.
 
 ## Interfaces
-- **Implements:** `base.contract.Source` (`read, poll, quick_vitals, take_facts, snapshot, album_shot, after_step, checks_per_s, boost, party_name, party_reset, wake_at`).
-- **Facts emitted** (via `take_facts`, dealt by `hub.feed_facts`): `vitals`, `away`, `map`, `exp`, `party`, `who`, `stat`, `skills`, `channel`.
+- **Implements:** `base.contract.Source` (`read, poll, quick_vitals, take_facts, snapshot, album_shot, after_step, checks_per_s, boost, party_name, party_reset, wake_at, watch_buffs`).
+- **Facts emitted** (via `take_facts`, dealt by `hub.feed_facts`): `vitals`, `away`, `map`, `exp`, `party`, `who`, `stat`, `skills`, `channel`, `buffs`.
 - **Settings read** (helper_settings.json, re-read by file time): `capture.fps`, `map_check.{min_s,max_s,step_s,every_s}`; config.json `regions`, `source_resolution`, `job_read`, `death_box`.
 - **Writes (DATA):** `glyphs*.json`, `glyphs/unknown/`, `templates/*`, `history/panel_spots.json`, `layouts.json` additions via `record`.
 - **Reads (shipped):** `engine/layouts.json` only.
@@ -66,6 +68,7 @@ Tesseract only behind a crop-hash cache (a glyph read is ~1000x cheaper). Cost t
 ## Test it
 Offline first (set `MAPLE_COMPANION_OFFLINE=1`; outputs go to a scratch folder, never the real `history/`):
 - `python dev/release_check.py`: compile, layers, data files, privacy, `svc_sim` baseline, **fresh install** (cut templates + typed EXP on `dev/fixtures/levelup_lv5`, no wrong digits learned), **fresh windows** (HP/MP read from the first frame, one Stat window teaches every window digit; `dev/fixtures/windows`), killers audit.
+- `python dev/buffs_check.py` (buff reader on the local burst frames + the skill bar's decision logic; skips without frames/icons).
 - `python dev/svc_sim.py OUT frames` (play, level-up, source down, game gone/back) or `csv PATH` (replay `sessions/<ts>/exp_log.csv`).
 - `python dev/engine_tools.py record [FRAME]` (measure a window size into layouts.json), `... panels FRAME...` / `panels learn FRAME field=text`.
 - `python -m engine.deathbox|hpbar|vitals|charname|party FRAME...`, `python -m engine.portrait test FRAME...`, `python -m engine.calibrate check FRAME`, `python -m engine.minimap learn-world FRAME x1 y1 x2 y2`, `python -m engine.layout learn-minimap FRAME`, `python -m engine.sources.wgc out.png` (live grab). Some module docstrings still say `python deathbox.py ...`: use `-m`.

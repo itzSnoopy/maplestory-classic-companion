@@ -40,6 +40,11 @@ class PanelHost:
     def setting(self, key):
         return self.shell.settings(self.name).get(key)
 
+    def view(self):
+        """What the panel sees of its setting: switched off while the helper is an icon that hides panels."""
+        cfg = self.shell.settings(self.name)
+        return {**cfg, "enabled": False} if self.shell.panels_hidden else cfg
+
     def put(self, **kw):
         """Change the panel's settings (from the panel itself or the tray) and save them."""
         self.shell.save_settings(self.name, **kw)
@@ -52,7 +57,7 @@ class PanelHost:
         if on and self.panel is None:
             try:
                 at = (sh.at[0], sh.at[1] + self.dy) if sh.at else None
-                self.panel = self.factory(sh.root, lambda: sh.settings(self.name), self.put,
+                self.panel = self.factory(sh.root, self.view, self.put,
                                           k=sh.k, demo=sh.demo, at=at)
             except Exception as e:
                 print(f"{self.what} unavailable: {e}")

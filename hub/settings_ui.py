@@ -226,6 +226,12 @@ class SettingsWindow:
             tk.Checkbutton(f, text=text, variable=var, font=(F, 10), fg=TEXT, bg=BG,
                            activebackground=BG, activeforeground=TEXT, selectcolor=FIELD,
                            anchor="w", highlightthickness=0, bd=0).pack(anchor="w", pady=(0, self.px(6)))
+        for key, text in (("icon_hides_panels", "Minimize hides all panels and pop-ups"),
+                          ("icon_on_game_close", "Minimize when the game closes"),
+                          ("icon_on_game_minimize", "Minimize when the game is minimized")):
+            self.check(f, "window." + key, text).pack(anchor="w", pady=(0, self.px(6)))
+        self.icon_size_row(f)
+        self.icon_ring_row(f)
         for build in self.shell.extras_for("General"):      # skill bar, training and party panels
             try:
                 build(self, f)
@@ -236,6 +242,68 @@ class SettingsWindow:
         self.map_check_row(f)
         self.regen_check_row(f)
         return f
+
+    def icon_size_row(self, f):
+        """Slider: size of the floating icon the - button minimizes to (shown live, kept on Save)."""
+        win = self.s.setdefault("window", {})
+        win.setdefault("icon_size", HS.DEFAULTS["window"]["icon_size"])
+        self.label(f, "Minimized icon size", muted=True).pack(anchor="w", pady=(self.px(4), 0))
+        v = tk.IntVar(value=int(win["icon_size"]))
+
+        def changed(*a):
+            win["icon_size"] = int(v.get())
+            self.app.icon_resize(win["icon_size"])
+        tk.Scale(f, from_=self.app.ICON_MIN, to=self.app.ICON_MAX, orient="horizontal", variable=v,
+                 length=self.px(300), bg=SEL, fg=TEXT, troughcolor=FIELD, highlightthickness=0,
+                 bd=0, width=self.px(10), sliderlength=self.px(22), activebackground=GOLD,
+                 sliderrelief="flat").pack(anchor="w", pady=(0, self.px(8)))
+        v.trace_add("write", changed)
+        self.vars["window.icon_size"] = v
+
+    RINGS = (("state", "Tracker state"), (BG, "Dark (default)"), ("#ffffff", "White"),
+             (GOLD, "Gold"), ("#4a90d9", "Blue"), (RED, "Red"))
+
+    def icon_ring_row(self, f):
+        """Ring colour of the minimized icon: swatches + Custom… (shown live, kept on Save)."""
+        win = self.s.setdefault("window", {})
+        win.setdefault("icon_ring", HS.DEFAULTS["window"]["icon_ring"])
+        self.label(f, "Minimized icon ring colour", muted=True).pack(anchor="w")
+        row = tk.Frame(f, bg=BG)
+        row.pack(anchor="w", pady=(self.px(2), self.px(10)))
+        sz, marks = self.px(22), {}
+
+        def pick(ring):
+            win["icon_ring"] = ring
+            self.app.icon_set_ring(ring)
+            for key, (cv, oval) in marks.items():
+                cv.itemconfigure(oval, outline=TEXT if key == ring else LINE,
+                                 width=2 if key == ring else 1)
+            custom_sw.configure(bg=ring if ring.startswith("#") and ring not in marks else FIELD)
+
+        for ring, name in self.RINGS:
+            cv = tk.Canvas(row, width=sz, height=sz, bg=BG, highlightthickness=0, cursor="hand2")
+            cv.pack(side="left", padx=(0, self.px(6)))
+            fill = GREEN if ring == "state" else ring
+            oval = cv.create_oval(2, 2, sz - 2, sz - 2, fill=fill, outline=LINE)
+            if ring == "state":         # green/amber split: it follows the tracker's state
+                cv.create_arc(2, 2, sz - 2, sz - 2, start=-45, extent=180, fill="#e0a43a", outline="")
+            cv.bind("<Button-1>", lambda e, r=ring: pick(r))
+            marks[ring] = (cv, oval)
+            cv.bind("<Enter>", lambda e, n=name: hint.configure(text=n))
+            cv.bind("<Leave>", lambda e: hint.configure(text=""))
+
+        def custom():
+            from tkinter import colorchooser
+            cur = win["icon_ring"] if win["icon_ring"].startswith("#") else BG
+            got = colorchooser.askcolor(color=cur, parent=self.w, title="Ring colour")
+            if got and got[1]:
+                pick(got[1].lower())
+        custom_sw = tk.Label(row, text="", bg=FIELD, width=2)
+        custom_sw.pack(side="left", padx=(self.px(4), self.px(4)))
+        self.button(row, "Custom…", custom).pack(side="left")
+        hint = tk.Label(row, text="", font=(F, 8), fg=MUTED, bg=BG)
+        hint.pack(side="left", padx=(self.px(8), 0))
+        pick(win["icon_ring"])
 
     def capture_row(self, f):
         """Slider: screen checks per second (capture.py), with the CPU it costs on this PC."""
@@ -443,6 +511,7 @@ class SettingsWindow:
             self.msg.configure(text=f"Couldn't save: {e}", fg=RED)
             return
         self.app.settings = copy.deepcopy(self.s)
+        self.app.icon_set_ring(None)            # the saved ring colour, no preview any more
         self.app.root.attributes("-alpha", self.alpha.get() / 100)
         if self.topmost.get() != self.app.topmost:
             self.app.toggle_topmost()
@@ -453,6 +522,8 @@ class SettingsWindow:
 
     def cancel(self):
         self.app.root.attributes("-alpha", self.orig_alpha)
+        self.app.icon_resize()                  # back to the saved icon size
+        self.app.icon_set_ring(None)            # and ring colour
         self.close()
 
     def close(self):

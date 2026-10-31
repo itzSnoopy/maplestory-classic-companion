@@ -30,7 +30,7 @@ TESSERACT_DIR = Path(os.environ.get("TESSERACT_DIR", r"C:\Program Files\Tesserac
 DATA_FILES = ["config.example.json",
               "gamedata/maps_classic.json", "gamedata/exp_table_classic.json", "gamedata/map_mobs.json",
               "gamedata/important_maps.json", "gamedata/game_refs.json", "gamedata/skills_classic.json", "gamedata/skill_kinds_classic.json",
-              "gamedata/potions_classic.json", "gamedata/mobs_classic.json",
+              "gamedata/potions_classic.json", "gamedata/mobs_classic.json", "gamedata/pq_classic.json",
               "engine/layouts.json", "launcher/whats_new.json",
               "components/killers/killers.json", "components/diary/captions.json",
               "components/feedback/review.html"]
@@ -48,10 +48,10 @@ HIDDEN = ["launcher.setup_ui", "hub.settings_ui", "engine.calibrate", "component
           "components.diary.diary_server",
           "launcher.compose", "hub.bus", "base.contract", "components",       # composition: the registry loads components by name
           "components.killers.component", "components.diary.component", "components.skillbar.component",
-          "components.album.component", "components.party.component", "components.training.component",
+          "components.album.component", "components.party.component", "components.training.component", "components.kpq.kpq", "components.kpq.component",
           "components.discord.component", "components.discord.settings_page", "components.discord.text",
           "components.feedback.component", "components.feedback.review_page",
-          "hub.pages", "hub.ui.shell", "hub.ui.overlay", "hub.ui.theme",
+          "hub.pages", "hub.ui.shell", "hub.ui.overlay", "hub.ui.theme", "hub.ui.layered",
           "engine.hudtext", "engine.levelup_shot", "gamedata.translate", "gamedata.parse", "gamedata.maplist",
           "engine.sources.wgc", "engine.sources.screen", "engine.sources.csv_replay", "windows_capture",
           "win32gui", "pystray._win32"]

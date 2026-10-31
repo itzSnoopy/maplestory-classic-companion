@@ -88,17 +88,17 @@ class AlbumComponent(Component):
                 return
             mob = self.album.first_kill(map, d, party, gap)
             if mob is not None:
-                self.first_kill(mob, map, t)
+                self.first_kill(mob, map, t, how=self.album.last_how)
         except Exception:
             self.hub.log("album: " + traceback.format_exc())
 
-    def first_kill(self, mob, map_name, t=None):
+    def first_kill(self, mob, map_name, t=None, how="exp"):
         """The first kill of this mob: photo (the middle square from just before, then a full
         screenshot + close-up), album record, diary beat (event), journal line."""
         hub, alb, st = self.hub, self.album, self.hub.state
         stem = f"{datetime.now():%Y-%m-%d_%H%M%S}_firstkill"
         shots = hub.album_shot(hub.shots_dir, stem, t)
-        alb.record(mob, map_name, st.level, shots)
+        alb.record(mob, map_name, st.level, shots, how=how)
         hub.emit("first_kill", mob=mob, map=map_name, level=st.level, job=st.job, shots=shots,
                  caught=alb.count(), text=album.first_kill_text(mob, map_name))
         hub.journal(f"First {'boss kill' if mob.get('boss') else 'kill'}: {mob['name']}"

@@ -24,13 +24,20 @@ import csv
 import json
 import re
 import time
+from collections import deque
 from datetime import datetime
 
 from base import perf
 from base.paths import DATA, asset
 from components.skillbar import maxwatch, meter, mpuse, regen
+from gamedata import formulas, translate
 from hub import history as H
 
+COMBAT_S = 5            # after a cast, look at HP/MP COMBAT_FPS times a second for this long (the bar's
+COMBAT_FPS = 5          # pulse comes ~0.2 s after the cast instead of up to ~2.4 s; player, 2026-10-31)
+HOLD_S = 1.0            # an ambiguous cast (attack vs buff of the same MP cost) waits this long for the buff icon to flip
+SETTLE_S = 0.4          # ... plus this for a flip the source confirms on a second look (it keeps the first look's time)
+FLIP_BEFORE_S = 0.3     # ... a flip seen this much before the MP drop counts too (the two reads come from separate looks)
 CLOCK_SAVE_S = 10       # the regen clock's position goes into the character's record this often
 CLOCK_KEEP_S = 90       # ... and is picked up again after a restart / update within this long
 # passive recovery skills that tick every 10 s; the bar shows a meter's regen slot only when the
@@ -78,16 +85,27 @@ class Feed:
     def _new_meters(self, t=None):
         self.meters = {"hp": meter.Meter(), "mp": meter.Meter()}
         self.watch = {k: maxwatch.MaxWatch(k, self.data) for k in ("hp", "mp")}
+        self.last_cast_t = -1e9                 # when the last cast was booked (combat looks)
         self.hud_seen = False               # a vitals look since the character was set
         self.usage = mpuse.Usage(self.meters)
         self.usage.reset_totals(t)
+        self.buff_on = {}                       # {buff skill id: bool} from 'buffs' facts (absent: unknown)
+        self.flips = deque(maxlen=20)           # [t, skill id, now on, used] icon changes
+        self.pending = []                       # casts booked as an attack that a buff may have made: {ev, t, alts}
+        self.watch_sent = None                  # the ids last handed to source.watch_buffs
 
     def wants_fast(self, now):
         """The regen clock wants looks at burst rate now (meter.Meter.wants_fast)."""
         return any(m.wants_fast(now) for m in self.meters.values())
 
+    def in_combat(self, now):
+        """A cast was booked in the last COMBAT_S seconds: keep looking fast for the bar's pulse."""
+        return now - self.last_cast_t < COMBAT_S
+
     def burst_in(self, now):
         """Seconds until the next burst of looks (0 = now, None = none planned)."""
+        if self.in_combat(now):
+            return 0
         due = [d for d in (m.burst_in(now) for m in self.meters.values()) if d is not None]
         return min(due) if due else None
 
@@ -100,8 +118,11 @@ class Feed:
         rs = meter.regen_settings()
         step = 1.0 / rs["burst_fps"]
         while (n := time.time()) < until - 0.02:
-            if self.wants_fast(n):
-                source.boost(rs["burst_fps"], 1.5)
+            regen_fast = self.wants_fast(n)
+            if regen_fast or self.in_combat(n):
+                fps = rs["burst_fps"] if regen_fast else COMBAT_FPS
+                step = 1.0 / fps
+                source.boost(fps, 1.5)
                 try:
                     with perf.timed("burst_look"):
                         ok = source.quick_vitals(n)
@@ -121,6 +142,101 @@ class Feed:
                     time.sleep(max(0.01, min(d, until - n)))
                 else:                         # wake at the boost point
                     time.sleep(max(0.01, min(d - 0.8, until - n)))
+
+    def shown_counts(self):
+        """Casts per skill without the ones still waiting for their buff-icon decision."""
+        n = dict(self.usage.cast_count)
+        for p in self.pending:
+            sid = p["ev"]["skill"]
+            n[sid] = n.get(sid, 0) - 1
+        return {k: v for k, v in n.items() if v > 0}
+
+    # -- buff icons: what an ambiguous cast was (Energy Bolt and Magic Guard both cost 8 MP) ------
+    def _watch_ids(self, prof):
+        """Owned buff skills whose icon file exists (the source can only look for those)."""
+        c = (prof.char() if prof is not None else None) or {}
+        out = []
+        for sid, s in (c.get("skills") or {}).items():
+            if (s.get("value") or 0) > 0 and (translate.skill_kind(sid) or {}).get("kind") == "buff"                     and (DATA / "templates" / "skill_icons" / f"{sid}.png").exists():
+                out.append(sid)
+        return sorted(out)
+
+    def sync_watch(self, prof):
+        """Tell the source which buffs to look for (when the list changed; icons appear as the Skill window is read)."""
+        src = getattr(self.hub, "source", None)
+        if src is None or prof is None or not prof.who:
+            return
+        ids = self._watch_ids(prof)
+        if ids != self.watch_sent:
+            self.watch_sent = ids
+            self.buff_on = {k: v for k, v in self.buff_on.items() if k in ids}
+            try:
+                src.watch_buffs(ids)
+            except Exception:
+                pass
+
+    def _buffs(self, t, v):
+        """'buffs' fact {on: [ids]}: remember each watched icon's state; a change is a flip."""
+        on = set((v or {}).get("on") or [])
+        for sid in (self.watch_sent or []):
+            now_on = sid in on
+            old = self.buff_on.get(sid)
+            if old is not None and old != now_on:
+                self.flips.append([t, sid, now_on, False])
+            self.buff_on[sid] = now_on
+
+    def _hold(self, ev):
+        """Cast events that may be a buff: parked in `pending` (not logged, no pulse) until decided."""
+        out = []
+        for e in ev:
+            if e["kind"] == "cast" and (translate.skill_kind(e.get("skill")) or {}).get("kind") == "attack":
+                alts = [a for a in self.usage.rivals(e)
+                        if a in self.buff_on and (translate.skill_kind(a) or {}).get("kind") == "buff"]
+                if alts:
+                    self.pending.append({"ev": e, "t": e["t"], "alts": alts})
+                    continue
+            out.append(e)
+        return out
+
+    def _decide(self, now):
+        """Settle parked casts: the watched buff's icon flipped (either way) from FLIP_BEFORE_S before the MP
+        drop to HOLD_S after it -> that buff's cast; HOLD_S passed without -> the attack. Returns the events
+        that are final now."""
+        done, keep = [], []
+        for p in self.pending:
+            hit = next((f for f in self.flips if not f[3] and f[1] in p["alts"]
+                        and p["t"] - FLIP_BEFORE_S <= f[0] <= p["t"] + HOLD_S), None)
+            if hit:
+                hit[3] = True
+                self.usage.rebook(p["ev"], hit[1])
+                done.append(p["ev"])
+            elif now - p["t"] >= HOLD_S + SETTLE_S:
+                done.append(p["ev"])
+            else:
+                keep.append(p)
+        self.pending = keep
+        return done
+
+    def settle(self, now):
+        """Decide what can be decided at `now` and book it (also called from the live.json beat)."""
+        if not self.pending:
+            return
+        self._finish(self._decide(now))
+
+    def _finish(self, done):
+        if done:
+            self._log_events(done)
+            self._write_casts()
+
+    def _write_casts(self):
+        """live_casts.json: casts per skill, written the moment a cast is booked (live.json waits
+        for its ~1 s beat); the bar checks it 10 times a second to start a pulse."""
+        try:
+            (H.ROOT / "live_casts.json").write_text(
+                json.dumps({"t": round(time.time(), 2), "n": self.shown_counts()}),
+                encoding="utf-8")
+        except OSError:
+            pass
 
     def _log_events(self, ev):
         """history/usage/<date>.csv: one row per explained HP/MP change (not regen ticks)."""
@@ -157,12 +273,37 @@ class Feed:
             fresh = False
         if prof is not None:
             c = prof.char() or {}
+            skills = c.get("skills") or {}
             self.usage.set_context(
-                levels={sid: (s.get("value") or 0) for sid, s in (c.get("skills") or {}).items()},
-                party=self.party_n > 1)
+                levels={sid: (s.get("value") or 0) for sid, s in skills.items()},
+                party=self.party_n > 1, rise=self._may_rise(c, skills))
         if fresh:
             self._load_regen(prof, now)
             self._predict(prof)
+        self.sync_watch(prof)
+
+    @staticmethod
+    def _may_rise(c, skills):
+        """Skills whose level may be above the stored one: SP comes only with a level-up, so a skill
+        last seen in the Skill window after the latest level-up can't have gone up. Unknown times:
+        every skill may rise (None)."""
+        since = ((c.get("stats") or {}).get("level") or {}).get("since")
+        if not since:
+            return None
+        job = c.get("job")
+        job = job.get("value") if isinstance(job, dict) else job
+        tier = translate.TIER.get(job)
+        out = set()
+        for sid, s in skills.items():
+            if s.get("max") and (s.get("value") or 0) >= s["max"]:
+                continue                        # maxed: nothing to guess
+            st = translate.TIER.get(s.get("job"))
+            if tier is not None and st is not None and st < tier:
+                continue                        # an earlier job's skill (Beginner for a Magician):
+                                                # rarely changes, only the Skill window updates it
+            if not s.get("seen") or s["seen"] < since:
+                out.add(sid)
+        return out
 
     def fact(self, t, kind, v, prof=None):
         if kind == "vitals":
@@ -170,7 +311,13 @@ class Feed:
             self.hud_seen = True
             before = {k: len(m.rises) for k, m in self.meters.items()}
             ev = self.usage.look(t, v.get("hp"), v.get("mp"))
-            self._log_events(ev)
+            if any(e["kind"] == "cast" for e in ev):
+                self.last_cast_t = time.time()
+            booked = self._hold(ev) if self.buff_on else ev       # casts a buff may have made wait for the icon
+            if any(e["kind"] == "cast" for e in booked):
+                self._write_casts()
+            self._log_events(booked)
+            self._finish(self._decide(t))
             self._watch_max(t, v, ev, prof)
             self._reconcile(before, prof)
         elif kind == "away":                # portal / channel change: new regen clock
@@ -179,6 +326,9 @@ class Feed:
             self.clock_saved = 0.0           # save the cleared clock (no stale restore)
         elif kind == "party":
             self.party_n = len(v)
+        elif kind == "buffs":
+            self._buffs(t, v)
+            self._finish(self._decide(t))
 
     # -- the character's regen numbers (regen.py, stored in characters.json "regen") ---------
     def _texts(self):
@@ -286,10 +436,13 @@ class Feed:
         return self.usage.summary()
 
     def section_skills(self, now, prof):
+        self.sync_watch(prof)
+        self.settle(time.time())
         c = (prof.char() if prof is not None else None) or {}
         mp = self.meters["mp"].state(now)
         skills = []
         seen_lv = self.usage.levels_seen
+        counts = self.shown_counts()
         # what one MP point costs you, and what a cast's items cost (the training component)
         mp_item, mp_meso, _ = self.hub.ask("mp_price") or (None, None, None)
         price_of = self.hub.ask("price_of") or (lambda name: None)
@@ -310,7 +463,22 @@ class Feed:
                     price = price_of(name)
                     mesos = mesos + price * n if price is not None else mesos
                 mesos += extra["mesos"] or 0
-            skills.append({"id": sid, "name": s.get("name") or d.get("name"), "level": lv,
+            guard = None
+            if sid == mpuse.GUARD_ID:           # Magic Guard: casts don't matter, what it covers does
+                pct = formulas.magic_guard_pct(texts[lv - 1] if lv <= len(texts) else "")
+                hp = self.meters["hp"].state(now).get("cur")
+                if pct and hp is not None and mp.get("cur") is not None:
+                    absorb, ehp = formulas.magic_guard_reach(hp, mp["cur"], pct)
+                    last = self.usage.last_guard
+                    guard = {"pct": pct, "absorb": absorb, "ehp": ehp,
+                             "last": last[1] if last else None, "last_t": last[0] if last else None}
+            text = texts[lv - 1] if lv <= len(texts) else ""
+            hp_cost = re.search(r"HP -(\d+)", text)
+            skills.append({"id": sid, "name": s.get("name") or d.get("name"), "level": lv, "guard": guard,
+                           "kind": (translate.skill_kind(sid) or {}).get("kind"),
+                           "hp_cost": int(hp_cost.group(1)) if hp_cost else None,
+                           "cast_n": counts.get(sid, 0),
+                           "active": self.buff_on.get(sid),     # buff icon showing (None: not watched / not seen yet)
                            "max": d.get("max"), "mp": cost,
                            "casts": (mp["cur"] // cost) if mp.get("cur") is not None else None,
                            "mesos": round(mesos, 1) if mesos is not None else None,

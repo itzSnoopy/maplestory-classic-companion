@@ -108,6 +108,7 @@ unless the map sends you there. Template for both: `.claude/handoff/components/_
 | Skill feedback page (review + Send to the relay) | `components/feedback/CLAUDE.md` | `feedback.md` |
 | Skill bar (regen, casts, HP/MP usage) | `components/skillbar/CLAUDE.md` | `skillbar.md` |
 | Training cost panel, EXP/hr | `components/training/CLAUDE.md` | `training.md` |
+| Party quest runs, live PQ view | `components/kpq/CLAUDE.md` | `kpq.md` |
 
 **From another folder:** `python dev/workspace.py <part> <folder>` writes a `CLAUDE.md` there that
 imports just that part's map, memory and the rules (`python dev/workspace.py --list` shows the parts).

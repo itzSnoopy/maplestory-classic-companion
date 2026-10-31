@@ -6,8 +6,10 @@ Runs as its own process next to tracker.py and only *reads* its outputs
     pythonw companion.py          normal start (start_helper.cmd does this)
     python -m hub.helper_ui --demo   show fake data, for testing the layout
 
-Window: drag to move, double-click to show/hide details, right-click for the menu,
-the x hides it to the tray. Tray: left-click shows/hides the window.
+Window: drag to move, double-click to show/hide details, right-click for the menu.
+The - button minimizes the window into a floating icon exactly where the button was (size: Settings >
+General); click the icon to open the window again (the - lands on the icon), drag it to move, right-click for the menu.
+Clicks that toggle are ignored for 1 s (spam protection). Tray: left-click shows/hides everything.
 """
 from base import lean  # noqa: F401,I001  (first: caps math threads, stubs OpenCV; keeps RAM down)
 import argparse
@@ -23,6 +25,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from base.paths import APP, DATA as ROOT, self_command
+from hub.ui import layered
 from hub.ui.shell import Shell
 STATUS = ROOT / "status.json"
 DIGEST = ROOT / "digest.json"
@@ -239,7 +242,15 @@ ART_ICON = next((p for p in (ROOT / "art" / "icon.png", APP / "art" / "icon.png"
 
 def make_icon_image(color, s=64):
     """Tray/preview icon: art/icon.png (round artwork) filling the circle, with a state-colored
-    ring on its edge. Without the file: dark circle + arrow + gold EXP bar."""
+    ring on its edge. Without the file: dark circle + arrow + gold EXP bar. Drawn 4x larger and
+    scaled down, so the circle and ring edges are smooth (PIL draws ellipses without anti-aliasing)."""
+    from PIL import Image
+    if s >= 256:
+        return _icon_raw(color, s)
+    return _icon_raw(color, s * 4).resize((s, s), Image.LANCZOS)
+
+
+def _icon_raw(color, s):
     from PIL import Image, ImageDraw
     k = s / 64
     img = Image.new("RGBA", (s, s), (0, 0, 0, 0))
@@ -260,6 +271,20 @@ def make_icon_image(color, s=64):
     d.rounded_rectangle((14 * k, 36 * k, 36 * k, 46 * k), radius=4 * k, fill=GOLD)
     d.polygon([(32 * k, 14 * k), (42 * k, 28 * k), (22 * k, 28 * k)], fill=color)   # up arrow
     return img
+
+
+def game_window_state(cls="MapleStoryClass"):
+    """'absent' | 'minimized' | 'shown': only reads the game window's state (passive); 'absent'
+    on any error."""
+    try:
+        import ctypes
+        u = ctypes.windll.user32
+        hwnd = u.FindWindowW(cls, None)
+        if not hwnd:
+            return "absent"
+        return "minimized" if u.IsIconic(hwnd) else "shown"
+    except Exception:
+        return "absent"
 
 
 def menu_items(app):
@@ -363,6 +388,13 @@ class App:
         self.details = ui.get("details", False) if details is None else details
         self.topmost = ui.get("topmost", True)
         self.visible = ui.get("visible", True)
+        self.compact = bool(ui.get("compact", False))   # a floating icon instead of the window
+        self.auto_compacted = False    # the icon came from a game close / minimize (not the player)
+        self.last_toggle = -1e9        # monotonic time of the last manual toggle (1 s debounce)
+        self.game_state = None         # last game_window_state() reading
+        self.icon = None               # the icon's Toplevel (built on first use)
+        self.icon_color = None         # tracker state colour (used when the ring follows the state)
+        self.icon_ring_preview = None  # ring colour shown while Settings is open, before Save
         self.running = False
         self.last_lock_check = 0.0
         self.lock_quiet_until = 0.0
@@ -391,8 +423,10 @@ class App:
         self.build()
         self.place(ui)
         self.round_corners()
-        if not self.visible:
+        if not self.visible or self.compact:
             r.withdraw()
+        if self.visible and self.compact:
+            self.icon_show()
 
         # the components join the helper (Component.ui): menu entries, settings pages, panels.
         # One that fails is skipped; the helper still runs.
@@ -450,9 +484,9 @@ class App:
         self.lv.pack(side="left")
         self.job_lbl = tk.Label(head, text="", font=(F, 9), fg=MUTED, bg=BG)
         self.job_lbl.pack(side="left", padx=(px(6), 0), pady=(px(4), 0))
-        close = tk.Label(head, text="×", font=(F, 12), fg=MUTED, bg=BG, cursor="hand2")
-        close.pack(side="right", padx=(px(6), 0))
-        close.bind("<Button-1>", lambda e: self.hide())
+        self.minbtn = tk.Label(head, text="–", font=(F, 12), fg=MUTED, bg=BG, cursor="hand2")
+        self.minbtn.pack(side="right", padx=(px(6), 0))
+        self.minbtn.bind("<Button-1>", lambda e: self.toggle_compact())
         self.more = tk.Label(head, text="▴" if self.details else "▾", font=(F, 10), fg=MUTED, bg=BG, cursor="hand2")
         self.more.pack(side="right", padx=(px(6), 0))
         self.more.bind("<Button-1>", lambda e: self.toggle_details())
@@ -472,7 +506,7 @@ class App:
         self.exp.pack(fill="x")
 
         # stat grid
-        grid = tk.Frame(body, bg=BG)
+        grid = self.grid = tk.Frame(body, bg=BG)
         grid.pack(fill="x", pady=(px(8), 0))
         grid.columnconfigure(0, weight=1, uniform="c")
         grid.columnconfigure(1, weight=1, uniform="c")
@@ -488,6 +522,11 @@ class App:
 
         self.note_box = tk.Frame(body, bg=BG)
         self.note_box.pack(fill="x")
+        # a component's main view (shell.add_main_view) takes the grid's place; built on first use
+        self.view = tk.Frame(body, bg=BG)
+        self.view_w = None              # its widgets, built on first use
+        self.view_fns = None            # prev / next / toggle callbacks of the view now shown
+        self.view_shown = False
         self.note = tk.Label(self.note_box, text="", font=(F, 8), fg=MUTED, bg=BG, anchor="w", justify="left")
 
         # details (collapsible)
@@ -535,7 +574,7 @@ class App:
         def bind_all(w):
             # buttons keep their own click: <ButtonPress-1> here would replace their <Button-1>
             # (the same event; the update label never worked before 2026-10-28)
-            if w not in (close, self.more, self.cam, self.upd_lbl):
+            if w not in (self.minbtn, self.more, self.cam, self.upd_lbl):
                 w.bind("<ButtonPress-1>", self.drag_start)
                 w.bind("<B1-Motion>", self.drag_move)
                 w.bind("<ButtonRelease-1>", self.drag_end)
@@ -564,15 +603,19 @@ class App:
         x, y = self.dev_at or (ui.get("x"), ui.get("y"))
         if x is None or y is None:
             x, y = sw - w - self.px(24), self.px(80)
-        try:                                         # whole desktop, all monitors
-            import ctypes
-            gm = ctypes.windll.user32.GetSystemMetrics
-            vx, vy, vw, vh = gm(76), gm(77), gm(78), gm(79)
-        except Exception:
-            vx, vy, vw, vh = 0, 0, sw, sh
+        vx, vy, vw, vh = self.desktop()              # whole desktop, all monitors
         x = min(max(vx, x), vx + vw - w)             # keep it on screen if monitors changed
         y = min(max(vy, y), vy + vh - self.px(60))
         r.geometry(f"{w}x{r.winfo_reqheight()}+{x}+{y}")
+
+    def desktop(self):
+        """(x, y, w, h) of the virtual desktop (all monitors)."""
+        try:
+            import ctypes
+            gm = ctypes.windll.user32.GetSystemMetrics
+            return gm(76), gm(77), gm(78), gm(79)
+        except Exception:
+            return 0, 0, self.root.winfo_screenwidth(), self.root.winfo_screenheight()
 
     def resize(self):
         r = self.root
@@ -582,9 +625,14 @@ class App:
     def save_ui(self):
         if self.demo or self.dev_at:
             return
-        write_json(UI_STATE, {"x": self.root.winfo_x(), "y": self.root.winfo_y(),
+        x, y = self.root.winfo_x(), self.root.winfo_y()
+        if self.compact and self.icon is not None:     # where the window will open from the icon
+            cx, cy = self.icon_center()
+            ox, oy = self.btn_offset()
+            x, y = cx - ox, cy - oy
+        write_json(UI_STATE, {"x": x, "y": y,
                               "details": self.details, "topmost": self.topmost,
-                              "visible": self.visible,
+                              "visible": self.visible, "compact": self.compact,
                               "alpha": float(self.root.attributes("-alpha"))})
 
     # ---------------------------------------------------------------- interactions
@@ -662,19 +710,237 @@ class App:
     def toggle_topmost(self):
         self.topmost = not self.topmost
         self.root.attributes("-topmost", self.topmost)
+        if self.icon is not None:
+            self.icon.attributes("-topmost", self.topmost)
         self.save_ui()
 
     def hide(self):
+        """To the tray: the window and the icon both go."""
         self.visible = False
         self.root.withdraw()
+        if self.icon is not None:
+            self.icon.withdraw()
         self.save_ui()
 
     def show(self):
+        """Back from the tray, as the window or as the icon (whichever was active)."""
         self.visible = True
-        self.root.deiconify()
-        self.root.attributes("-topmost", self.topmost)
-        self.round_corners()
+        if self.compact:
+            self.icon_show()
+        else:
+            self.root.deiconify()
+            self.root.attributes("-topmost", self.topmost)
+            self.round_corners()
         self.save_ui()
+
+    # ---------------------------------------------------------------- minimized (floating icon)
+    ICON_MIN, ICON_MAX = 30, 180      # size slider range (px at 100% scaling); default in helper_settings
+
+    def btn_offset(self):
+        """Centre of the - button inside the window (from widget geometry, works while withdrawn)."""
+        self.root.update_idletasks()
+        b = self.minbtn
+        if b.winfo_width() <= 1:        # never drawn yet (started as the icon): work it out from the
+            head = b.master             # layout: rightmost in the header, inside the border + padding
+            return (self.px(self.W) - 1 - self.px(12) - b.winfo_reqwidth() // 2,
+                    1 + self.px(10) + head.winfo_reqheight() // 2)
+        w, x, y = b, 0, 0
+        while w is not self.root:
+            x, y, w = x + w.winfo_x(), y + w.winfo_y(), w.master
+        return x + self.minbtn.winfo_width() // 2, y + self.minbtn.winfo_height() // 2
+
+    def icon_size(self, n=None):
+        if n is None:
+            n = self.settings.get("window", {}).get("icon_size", 90)
+        try:
+            n = int(n)
+        except (TypeError, ValueError):
+            n = 90
+        return self.px(min(max(self.ICON_MIN, n), self.ICON_MAX))
+
+    def icon_center(self):
+        h = self.icon_px // 2           # the size it's drawn at now
+        return self.icon.winfo_x() + h, self.icon.winfo_y() + h
+
+    def icon_resize(self, n=None):
+        """Redraw the icon at a new size (n = slider value; None = the saved setting), same centre."""
+        if self.icon is None:
+            return
+        center = self.icon_center()
+        self.icon_draw(self.icon_size(n))
+        if self.compact and self.visible:
+            self.icon_show(center)
+
+    def icon_build(self):
+        """The icon's window. Normally a per-pixel-alpha window (hub/ui/layered.py: smooth round
+        edge); if that fails, a transparent-colour key (jagged edge) or a plain circle without PIL."""
+        from hub.ui.overlay import KEY
+        s = self.icon_size()
+        w = self.icon = tk.Toplevel(self.root)
+        w.overrideredirect(True)
+        w.attributes("-topmost", self.topmost)
+        w.configure(bg=KEY)
+        self.icon_layered = True        # until layered.set_image fails once
+        self.icon_lbl = tk.Label(w, bg=KEY, bd=0, cursor="hand2")
+        self.icon_cv = tk.Canvas(w, width=s, height=s, bg=KEY, highlightthickness=0, cursor="hand2")
+        self.icon_hit = tk.Frame(w, bg=KEY, cursor="hand2")     # takes the clicks in layered mode
+        self.icon_photo = None
+        for wd in (self.icon_lbl, self.icon_cv, self.icon_hit):
+            wd.bind("<ButtonPress-1>", self.icon_press)
+            wd.bind("<B1-Motion>", self.icon_move)
+            wd.bind("<ButtonRelease-1>", self.icon_release)
+            wd.bind("<Button-3>", self.popup)
+        self.icon_draw()
+        w.withdraw()
+
+    def icon_draw(self, s=None):
+        """Paint the icon in the current state colour (art/icon.png ring; a plain circle without PIL)."""
+        s = s or getattr(self, "icon_px", None) or self.icon_size()
+        self.icon_px, color = s, self.icon_ring()
+        self.icon_cv.configure(width=s, height=s)
+        try:
+            img = make_icon_image(color, s)
+        except Exception:
+            img = None
+        if img is not None and self.icon_layered:
+            self.icon_hit.configure(width=s, height=s)
+            self.icon_lbl.pack_forget()
+            self.icon_cv.pack_forget()
+            self.icon_hit.pack()
+            self.icon.geometry(f"{s}x{s}")
+            if layered.set_image(self.icon, img):
+                return
+            self.icon_layered = False       # can't: fall back to the colour key for good
+            self.icon_hit.pack_forget()
+        from hub.ui.overlay import KEY
+        try:
+            self.icon.attributes("-transparentcolor", KEY)
+        except tk.TclError:
+            pass
+        try:
+            from PIL import ImageTk
+            self.icon_photo = ImageTk.PhotoImage(img)
+            self.icon_lbl.configure(image=self.icon_photo)
+            self.icon_cv.pack_forget()
+            self.icon_lbl.pack()
+        except Exception:
+            self.icon_cv.delete("all")
+            self.icon_cv.create_oval(1, 1, s - 1, s - 1, fill=color, outline=LINE)
+            self.icon_lbl.pack_forget()
+            self.icon_cv.pack()
+
+    def icon_ring(self):
+        """The ring colour: the setting (or the Settings preview); "state" = the tracker state colour."""
+        from hub.ui.overlay import KEY
+        ring = self.icon_ring_preview or self.settings.get("window", {}).get("icon_ring") or "state"
+        if ring == "state":
+            return self.icon_color or GREY
+        return "#020304" if ring.lower() == KEY else ring     # the key colour would be see-through
+
+    def icon_set_color(self, color):
+        if color == self.icon_color:
+            return
+        self.icon_color = color
+        if self.icon is not None and self.icon_ring() == color:   # redraw only if the ring shows it
+            self.icon_draw()
+
+    def icon_set_ring(self, ring=None):
+        """Preview a ring colour from Settings (None = back to the saved one)."""
+        self.icon_ring_preview = ring
+        if self.icon is not None:
+            self.icon_draw()
+
+    def icon_show(self, center=None):
+        """Show the icon centred on `center`, or where the window's - button would be."""
+        if self.icon is None:
+            self.icon_build()
+        if center is None:
+            ox, oy = self.btn_offset()
+            center = (self.root.winfo_x() + ox, self.root.winfo_y() + oy)
+        s = self.icon_px
+        vx, vy, vw, vh = self.desktop()
+        x = min(max(vx, center[0] - s // 2), vx + vw - s)
+        y = min(max(vy, center[1] - s // 2), vy + vh - s)
+        self.icon.geometry(f"+{x}+{y}")
+        self.icon.deiconify()
+        self.icon.attributes("-topmost", self.topmost)
+        self.icon.update_idletasks()
+        if self.icon_layered:
+            self.icon_draw()             # re-send the picture once the window is mapped
+
+    def set_compact(self, on):
+        """Window <-> icon, no debounce. The - button and the icon's centre stay on the same spot."""
+        if on == self.compact and (self.icon is not None or not on):
+            return
+        r = self.root
+        if on:
+            ox, oy = self.btn_offset()
+            center = (r.winfo_x() + ox, r.winfo_y() + oy)
+            self.compact = True
+            r.withdraw()
+            self.icon_show(center)
+        else:
+            cx, cy = self.icon_center()
+            ox, oy = self.btn_offset()
+            vx, vy, vw, vh = self.desktop()
+            w = self.px(self.W)
+            x = min(max(vx, cx - ox), vx + vw - w)
+            y = min(max(vy, cy - oy), vy + vh - self.px(60))
+            self.compact = False
+            self.icon.withdraw()
+            r.geometry(f"{w}x{r.winfo_reqheight()}+{x}+{y}")
+            r.deiconify()
+            r.attributes("-topmost", self.topmost)
+            self.round_corners()
+            r.update_idletasks()
+        self.save_ui()
+
+    def toggle_compact(self):
+        """The - button / a click on the icon. Ignored within 1 s of the last one."""
+        now = time.monotonic()
+        if now - self.last_toggle < 1.0:
+            return
+        self.last_toggle = now
+        self.auto_compacted = False
+        self.set_compact(not self.compact)
+
+    def icon_press(self, e):
+        self._ic = (e.x_root, e.y_root, self.icon.winfo_x(), self.icon.winfo_y(), False)
+
+    def icon_move(self, e):
+        ic = getattr(self, "_ic", None)
+        if not ic:
+            return
+        x0, y0, wx, wy, moved = ic
+        if not moved and max(abs(e.x_root - x0), abs(e.y_root - y0)) < 4:
+            return
+        self._ic = (x0, y0, wx, wy, True)
+        self.icon.geometry(f"+{wx + e.x_root - x0}+{wy + e.y_root - y0}")
+
+    def icon_release(self, e):
+        ic, self._ic = getattr(self, "_ic", None), None
+        if not ic:
+            return
+        if ic[4]:
+            self.save_ui()               # a drag: remember the spot, not a click, no debounce
+        else:
+            self.toggle_compact()
+
+    def poll_game(self):
+        """Game closed / minimized -> icon, back when it returns (only on a change, never fights the player)."""
+        state, prev = game_window_state(), self.game_state
+        self.game_state = state
+        if prev is None or state == prev:
+            return
+        opts = self.settings.get("window", {})
+        if prev == "shown" and state != "shown":
+            on = opts.get("icon_on_game_close" if state == "absent" else "icon_on_game_minimize")
+            if on and self.visible and not self.compact:
+                self.set_compact(True)
+                self.auto_compacted = True
+        elif state == "shown" and self.auto_compacted and self.compact and self.visible:
+            self.auto_compacted = False
+            self.set_compact(False)
 
     def open_setup(self):
         """First-run setup / recalibration. The tracker (re)starts when it finishes, so it loads
@@ -764,6 +1030,7 @@ class App:
             while True:
                 cmd = self.q.get_nowait()
                 if cmd == "toggle":
+                    self.auto_compacted = False
                     self.hide() if self.visible else self.show()
                 elif cmd == "details":
                     self.toggle_details()
@@ -828,6 +1095,12 @@ class App:
             self.start_tracker()
         snap = Snapshot(status, digest, self.running)
         self.last_snap = snap
+        self.icon_set_color(STATE_COLOR.get(snap.state, GREY))
+        if not self.demo:
+            try:
+                self.poll_game()
+            except Exception:
+                self.log_error("game window poll")
         self.run_hooks(self.shell.early_hooks, snap)        # panels over the game
         self.sync_update_lbl()
         self.render(snap)
@@ -1097,9 +1370,121 @@ class App:
         else:
             self.note.pack_forget()
 
+        self.render_main_view(s)
         if self.details:
             self.det_text.configure(text=self.details_text(s))
         self.resize()
+
+    def bind_view(self, w, click=None):
+        """Bindings for the main view's widgets (built after build()): drag/right-click like the rest, or a click."""
+        if click:
+            w.bind("<Button-1>", lambda e: click())
+        else:
+            w.bind("<ButtonPress-1>", self.drag_start)
+            w.bind("<B1-Motion>", self.drag_move)
+            w.bind("<ButtonRelease-1>", self.drag_end)
+            w.bind("<Double-Button-1>", lambda e: self.toggle_details())
+        w.bind("<Button-3>", self.popup)
+
+    def view_click(self, key):
+        """A click on the main view's arrows / toggle: call the view's fn, then redraw at once."""
+        fn = (self.view_fns or {}).get(key)
+        if fn:
+            try:
+                fn()
+            except Exception:
+                self.log_error("component main view click")
+            self.render_main_view(self.last_snap)
+            self.resize()
+
+    def render_main_view(self, s):
+        """The first shell main view that answers replaces the stat grid; none = the grid is back.
+        View dict: see hub/ui/shell.py add_main_view."""
+        v = None
+        for fn in self.shell.main_views:
+            try:
+                v = fn(s)
+            except Exception:
+                self.log_error("component main view")
+                v = None
+            if v:
+                break
+        if not v:
+            if self.view_shown:
+                self.view.pack_forget()
+                self.grid.pack(fill="x", pady=(self.px(8), 0), before=self.note_box)
+                self.view_shown = False
+            return
+        px, F = self.px, "Segoe UI"
+        self.view_fns = {"prev": v.get("prev"), "next": v.get("next"),
+                         "toggle": (v.get("toggle") or (None, None, None))[2]}
+        if self.view_w is None:                       # the fixed part: title row, sub line; built once
+            top = tk.Frame(self.view, bg=BG)
+            top.pack(fill="x")
+            top.columnconfigure(1, weight=1)
+            mk = lambda parent, **kw: tk.Label(parent, bg=BG, **kw)          # noqa: E731
+            prev = mk(top, text="◀", font=(F, 11), cursor="hand2")
+            title = mk(top, text="", font=(F, 11, "bold"), fg=GOLD)
+            nxt = mk(top, text="▶", font=(F, 11), cursor="hand2")
+            prev.grid(row=0, column=0, padx=(0, px(6)))
+            title.grid(row=0, column=1)
+            nxt.grid(row=0, column=2, padx=(px(6), 0))
+            sub_row = tk.Frame(self.view, bg=BG)
+            sub_row.pack(fill="x")
+            sub_row.columnconfigure(0, weight=1)
+            sub = mk(sub_row, text="", font=(F, 8), fg=MUTED, anchor="w")
+            tog = mk(sub_row, text="", font=(F, 8), cursor="hand2")
+            sub.grid(row=0, column=0, sticky="w")
+            tog.grid(row=0, column=1, sticky="e")
+            body = tk.Frame(self.view, bg=BG)
+            body.pack(fill="x", pady=(px(4), 0))
+            for w in (prev, nxt, tog):
+                self.bind_view(w, click=lambda k={prev: "prev", nxt: "next", tog: "toggle"}[w]: self.view_click(k))
+            for w in (top, title, sub_row, sub, body, self.view):
+                self.bind_view(w)
+            self.view_w = {"prev": prev, "title": title, "next": nxt, "sub": sub, "toggle": tog, "body": body,
+                           "shape": None, "cells": []}
+        w = self.view_w
+        w["title"].configure(text=v.get("title") or "")
+        for key in ("prev", "next"):
+            w[key].configure(fg=TEXT if v.get(key) else LINE, cursor="hand2" if v.get(key) else "arrow")
+        w["sub"].configure(text=v.get("sub") or "")
+        tg = v.get("toggle")
+        w["toggle"].configure(text=tg[0] if tg else "", fg=GOLD if tg and tg[1] else MUTED,
+                              font=(F, 8, "bold" if tg and tg[1] else "normal"))
+        rows = list(v.get("rows") or [])
+        shape = tuple("sep" if isinstance(r, dict) else "row" for r in rows)
+        if shape != w["shape"]:                       # rebuild only when the row shape changes
+            for c in w["body"].winfo_children():
+                c.destroy()
+            w["shape"], w["cells"] = shape, []
+            w["body"].columnconfigure(0, weight=1)
+            for i, kind in enumerate(shape):
+                if kind == "sep":
+                    f = tk.Frame(w["body"], bg=LINE, height=1)
+                    f.grid(row=i, column=0, columnspan=4, sticky="ew", pady=(px(2), px(2)))
+                    w["cells"].append(None)
+                    continue
+                cells = [tk.Label(w["body"], text="", bg=BG, font=(F, 10), anchor=a)
+                         for a in ("w", "center", "e", "e")]
+                for j, c in enumerate(cells):
+                    c.grid(row=i, column=j, sticky="w" if j == 0 else "e", padx=(px(8), 0) if j else 0)
+                    self.bind_view(c)
+                w["cells"].append(cells)
+        for cells, r in zip(w["cells"], rows):
+            if cells is None:
+                continue
+            label, mark, tm, val, style = r
+            fg = MUTED if style == "muted" else GOLD if style == "gold" else TEXT
+            bold = style in ("bold", "gold")
+            cells[0].configure(text=label, fg=TEXT if style == "bold" else (MUTED if style == "muted" else TEXT))
+            cells[1].configure(text=mark, fg=GOLD)
+            cells[2].configure(text=tm, fg=fg if style != "bold" else TEXT)
+            cells[3].configure(text=val, fg=fg, font=(F, 10, "bold") if bold else (F, 10))
+        if not self.view_shown:
+            self.grid.pack_forget()
+            self.view.pack(fill="x", pady=(px(8), px(4)), before=self.note_box)
+            self.view_shown = True
 
     def details_text(self, s):
         out = []

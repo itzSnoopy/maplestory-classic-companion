@@ -326,6 +326,10 @@ class Profile:
                 continue
             if s.get("max") and lv > s["max"]:
                 continue                        # impossible: a misread
+            old = (c.get("skills") or {}).get(s["id"]) or {}
+            if (s.get("max") and (old.get("value") or 0) >= s["max"] and lv < old["value"]
+                    and old.get("how") != "from what its casts cost"):
+                continue                        # a maxed skill never goes down: a misread
             self._keep("skills", s["id"], lv, t, s["name"], trusted,
                        {"name": s["name"], "job": s.get("job"), "max": s.get("max")})
         if r.get("sp") is not None:

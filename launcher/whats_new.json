@@ -1,4 +1,9 @@
 {
+ "0.9.0": [
+  "The monster album is now a book: turn pages with the arrows (or ← →), click a monster for its own page with your kill photos, drops, EXP and where it lives. Pick a style at the top: Henesys parchment, Ellinia tome or plain.",
+  "Monsters stay hidden (\"?\") until you visit their map; bosses up to 15 levels above you show early. Kerning PQ: a live party-quest view with EXP per stage and your best runs.",
+  "Skill bar: attack slots flash when you cast, Magic Guard shows how much damage your MP absorbs, and buff icons are read from the screen. The helper's pages now have the app icon in the browser tab."
+ ],
  "0.8.1": [
   "Settings now scroll when a page is taller than the window (the Skill feedback code on the Internet page was hidden). Use the mouse wheel or the scrollbar."
  ],

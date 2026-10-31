@@ -109,6 +109,7 @@ PAGE = r"""<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__TITLE__</title>
+<link rel="icon" type="image/png" href="/favicon.png">
 <style>
 :root {
   --bg: #f6f3ee; --panel: #fffdf9; --ink: #2a2622; --muted: #7a7168; --line: #e6dfd5;

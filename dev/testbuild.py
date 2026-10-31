@@ -39,8 +39,9 @@ def base_release():
 
 
 def next_version(base):
-    used = [v[2] for v in U.installed() if v[:2] == base[:2] and v[2] >= FIRST
-            and U.test_base(v) == base]
+    # every test build of this M.m counts, whatever release it was built on: version folders are
+    # named M.m.p only, so 0.8.90 on 0.8.0 and 0.8.90 on 0.8.1 would collide (2026-10-30)
+    used = [v[2] for v in U.installed() if v[:2] == base[:2] and v[2] >= FIRST]
     try:
         last = json.loads(COUNTER.read_text(encoding="utf-8")).get(U.fmt(base))
     except (OSError, ValueError):

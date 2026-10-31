@@ -19,6 +19,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from engine import buffs
 from engine import charname
 from engine import deathbox
 from engine import glyphs
@@ -196,6 +197,11 @@ class ScreenSource(Source):
         self.stat_teach_t = 0.0             # last whole-frame grab to teach Stat window digits
         self.album_watch = False            # the tracker sets it: a first kill is possible here
         self.album_prev = deque(maxlen=2)   # [(t, middle square)] of the last looks (album.py)
+        self.buff_ids = []                  # skill ids to watch (watch_buffs); icons loaded per frame scale
+        self.buff_icons = {}                # {scale: {id: prepared icon}}
+        self.buffs_last = None              # the set last sent as a "buffs" fact
+        self.buff_try = None                # (t first seen, set) of a change waiting for its second look
+        self.hud_lum = 1.0                  # brightest HP/MP strip lately (fade guard in _buffs)
 
     def read(self, hints):
         t, now = time.time(), datetime.now()
@@ -322,7 +328,7 @@ class ScreenSource(Source):
             # check is due (then the whole frame, read once for all of them)
             # a game window (stat/skills/channel) seen in the last overview: read it whole now
             full = due or map_due or self.panels_due
-            small, spot_imgs, strip, exp_img = None, {}, None, None
+            small, spot_imgs, strip, exp_img, buff_img = None, {}, None, None, None
             with perf.timed("grab_full" if full else "grab_center"):
                 if full:
                     frame = self.frames.grab()
@@ -341,13 +347,18 @@ class ScreenSource(Source):
                     extra = [{"box": pbox}] if pbox else []
                     if self.album_watch:
                         extra.append({"center": ALBUM_PAD})
+                    # + the buff strip at the top right (buffs.py) when skills are watched
+                    bbox = buffs.strip_box(self.size) if self.buff_ids else None
+                    nb = 1 if bbox else 0
                     imgs = self.frames.grab_parts(
                         [{"center": deathbox.PAD}, {"step": panels.SMALL}, {"box": sbox},
-                         {"box": ebox}]
+                         {"box": ebox}] + ([{"box": bbox}] if bbox else [])
                         + [{"box": b} for _, b in spots] + extra)
                     frame, small, strip, exp_img = imgs[0], imgs[1], imgs[2], imgs[3]
-                    spot_imgs = {k: (img, b[:2]) for (k, b), img in zip(spots, imgs[4:])}
-                    rest = imgs[4 + len(spots):]
+                    if bbox:
+                        buff_img = imgs[4]
+                    spot_imgs = {k: (img, b[:2]) for (k, b), img in zip(spots, imgs[4 + nb:])}
+                    rest = imgs[4 + nb + len(spots):]
                     if pbox:
                         self._party(t, rest[0], pbox[:2])
                     if self.album_watch:
@@ -374,6 +385,11 @@ class ScreenSource(Source):
             self._album_keep(t, frame)
         if exp_img is not None:
             self._quick_exp(t, exp_img)
+        if full and self.buff_ids:
+            buff_img = frame.crop(buffs.strip_box(frame.size))
+        if buff_img is not None:
+            self._buffs(t, buff_img, strip if strip is not None else
+                        frame.crop(tuple(vitals.strip_box(frame.size, tuple(self.res or (1920, 1080))))))
         if self.maps.name and self.maps.name != self._map_fact:
             self._map_fact = self.maps.name
             self.facts.append((t, "map", self.maps.name))
@@ -464,8 +480,11 @@ class ScreenSource(Source):
             return False
         try:
             sbox = vitals.strip_box(self.size, tuple(self.res or (1920, 1080)))
+            bbox = buffs.strip_box(self.size) if self.buff_ids else None
             with perf.timed("grab_strip"):
-                strip = self.frames.grab_parts([{"box": sbox}], timeout=0.5)[0]
+                got = self.frames.grab_parts([{"box": sbox}] + ([{"box": bbox}] if bbox else []), timeout=0.5)
+            strip = got[0]
+            buff_img = got[1] if bbox else None
         except Exception:
             return False
         if strip.getbbox() is None:
@@ -476,7 +495,52 @@ class ScreenSource(Source):
             self._away(t)
             return True
         self._vitals(t, strip, origin=True)
+        if buff_img is not None:
+            self._buffs(t, buff_img, strip)
         return True
+
+    # ---- buff icons (buffs.py)
+    def watch_buffs(self, ids):
+        """Skill ids whose buff icon to watch (Source.watch_buffs). Icons come from templates/skill_icons/<id>.png;
+        a changed list or a newly cut icon starts over (the next look sends the set again)."""
+        ids = [str(i) for i in ids]
+        from base.paths import DATA
+        have = [i for i in ids if (DATA / "templates" / "skill_icons" / f"{i}.png").exists()]
+        if have != self.buff_ids:
+            self.buff_ids = have
+            self.buff_icons = {}
+            self.buffs_last = self.buff_try = None
+
+    def _buffs(self, t, img, hud):
+        """The buff strip (grabbed at buffs.strip_box) -> a 'buffs' fact when the set changed. Two guards
+        against map-change fades (the icon is still there but dimmed, measured 2026-10-31): no look while the
+        HP/MP strip `hud` is much darker than usual, and a change must show on two looks in a row (the fact
+        carries the time of the first)."""
+        try:
+            lum = float(sum(hud.resize((16, 4), Image.NEAREST).convert("L").getdata())) / 64
+            self.hud_lum = max(self.hud_lum * 0.999, lum)
+            if lum < 0.6 * self.hud_lum:
+                self.buff_try = None
+                return
+            s = self.size[0] / buffs.REF_W
+            key = round(s, 2)
+            if key not in self.buff_icons:
+                from base.paths import DATA
+                self.buff_icons[key] = buffs.load_icons(DATA / "templates" / "skill_icons", self.buff_ids, s)
+            on = sorted(buffs.find(img, self.buff_icons[key]))
+            if self.buffs_last is None or on == self.buffs_last:      # first look, or unchanged
+                self.buff_try = None
+                if self.buffs_last is None:
+                    self.buffs_last = on
+                    self.facts.append((t, "buffs", {"on": on}))
+            elif self.buff_try and self.buff_try[1] == on:             # the same change twice
+                self.buffs_last = on
+                self.facts.append((self.buff_try[0], "buffs", {"on": on}))
+                self.buff_try = None
+            else:
+                self.buff_try = (t, on)
+        except Exception as e:
+            log(f"buff read failed: {type(e).__name__}: {e}")
 
     # ---- game windows with long-lived facts (panels.py -> character.py)
     def _away(self, t):

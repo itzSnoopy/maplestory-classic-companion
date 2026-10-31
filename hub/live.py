@@ -11,6 +11,8 @@ component publishes (hub.publish(name, fn); fn(now, prof) is called at write tim
   skills      [{id, name, level, max, mp, casts, icon}]           skillbar
   usage       {since, hp/mp {kind: {name: {n, amount}}}, recent [events], levels_seen}   skillbar
   training    this map visit: kills, casts, potions, mesos, per kill / hour / to level   training
+  kpq         {pq, key, done, stages [{label, exp, minutes, state}], stage_exp, stage_minutes, bonus {exp, minutes, kills, rate}|None, total, minutes, since}|None   kpq
+              the Party quest run in progress (or just finished, until EXP outside the PQ)
   party       {t, rows [{name, me, on_map, hp (% from the box, None off your map), leader}]}   party
               the party box under the minimap, last look; rows [] = no party box
 
@@ -22,7 +24,7 @@ import time
 from hub import history as H
 
 WRITE_EVERY_S = 0.9
-KEYS = ("hp", "mp", "regen", "skills", "usage", "training", "party")
+KEYS = ("hp", "mp", "regen", "skills", "usage", "training", "party", "kpq")
 
 
 class LiveFile:

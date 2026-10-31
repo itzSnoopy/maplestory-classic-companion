@@ -792,6 +792,41 @@ scratch copy in the browser pane (port 8799).
   Mushroom, a 3-kill mix. Album now allows mixes of at most 2 kills per rise and skips rises over
   > 2.5 s between looks (training.exp_gap). 730 of 914 spawn entries identifiable.
 
+## 2026-10-30: Recovery and Nimble Feet measured (dev/vitals_log.py, 10 looks/s, standing still)
+- **Recovery Lv 3** (0001001, "Recover HP 72 in 30 sec"): MP -15 at the cast, then **+12 HP every 5.0-5.2 s, 6 ticks = 72**; first tick 5.9 s
+  after the cast, last 31.3 s after. Its own beat: the normal HP regen (+10 every 10 s standing, max HP 600) kept ticking alongside
+  (one look showed +10 then +12 0.2 s apart). mpuse now books an exact total/6 rise inside 33 s of the cast as Recovery
+  (`formulas.recovery_tick`), unless the regen clock expects a tick in that window.
+- **Nimble Feet Lv 3**: MP -10 (data says 10). Speed only, nothing on HP/MP.
+- MP regen +13 every 10 s at max MP 1,018 (Improved MP Recovery: floor(1018 x 1%) = 10, + 3 moving/standing extra as in mp_extra).
+- Player: buffs (Nimble Feet, Recovery...) show as icons at the top right of the game window most of the time: the strongest
+  signal for buff timers (engine work, not built; icons are Nexon art: cut locally like skill icons, never shipped).
+
+## 2026-10-30: skill level guessed from casts: three fixes (Magic Guard 2 -> 6, Energy Bolt 4 -> 16/20)
+Usage logs 10-27..10-30: 22 x "Magic Guard Lv 6 -10" (really Nimble Feet Lv 3 = 10 MP), 14 x "Energy Bolt Lv 16/20 -14/-16"
+(two 8-MP casts or Magic Guard drains), and the Skill window (Lv 2 / Lv 4) fighting the guess every few seconds.
+1. An unknown higher level now costs 1.5 events in `_combo_score` (was 0.5): two casts at known levels beat one at a guessed level.
+2. Levels only rise for skills not seen in the Skill window since the last level-up (`feed._may_rise`: skill `seen` < stats.level
+   `since`; SP only comes with a level-up). Unknown times: old behaviour.
+3. A Skill-window read below the cast guess clears that skill's `levels_seen` and cost counts (`Usage.set_context`).
+Same-cost skills (Magic Guard Lv 1-5 and Energy Bolt Lv 1-4 both 8 MP) still can't be told apart by MP alone: the cast is booked
+to one of them, the levels stay as stored.
+
+## 2026-10-30: KPQ run, 40 min HP/MP recording (4 looks/s, test build 0.8.91)
+~30 min inside, 0 unexplained HP/MP changes. Magic Claw Lv 20 x452 (-20), 8-MP casts x458, Magic Guard drains x45 (-1,677 MP),
+Blue Potion x49 = 234 each = 200 x 1.17 (Improved MP Recovery Lv 8 text "17%": item bonus confirmed at a 2nd level), Green Apple x3 = 35
+(30 x 1.17: the bonus applies to food too), Red Potion x32 (100 HP, some capped at max), 50 hits (-3,569 HP), MP regen +13 / 10 s locked.
+The 8-MP casts came in attack runs (up to 175 in a row, ~2 s apart, beside Magic Claw): **Energy Bolt Lv 4**, not Magic Guard Lv 2 (same
+cost). Fix: `_combo_score` breaks a same-cost tie for the attack (`translate.skill_kind`), so Magic Guard (a toggle) loses ties.
+Also: `dev/vitals_log.py` now writes rows as it goes (flush ~5 s) and keeps them on Ctrl+C (it used to write only at the end).
+
+## 2026-10-30: Magic Guard measured (KPQ recording, Lv 2 = "Replace 33% of HP damage with MP")
+Toggle (player): one cast (8 MP at Lv 1-5), then every hit sends a share to MP. 45 hits: **MP part = floor(hit x 33%)**, HP takes the
+rest (55 -> 18 + 37, 126 -> 41 + 85, 133 -> 43 + 90; 133 x 0.33 = 43.89 shows it is rounded down). Looks off the line held a cast or a
+second hit. `formulas.magic_guard_split / magic_guard_mp_for_hp` (STATUS measured); mpuse books a drain within 1 MP of that as Magic Guard
+(score 1.0), up to 0.6x..1.15x+3 as a weaker fit (1.6), the old "up to 4x the HP loss" only when the level text is missing. KPQ replay:
+still 0 unexplained. Kinds file: Magic Guard `until: "toggle"` (was "death").
+
 ## 2026-10-30: Boss kills in a party (KPQ King Slime, 2 recordings): ASSUMPTION, to correct next KPQ
 Recordings (local, gitignored): `dev/fixtures/burst/20261030_222236` (3 active) and `20261030_230602` (4 active): frames at
 2 fps + `vitals.csv` + README. The bar EXP jump = base + party bonus, and the bottom-right message corner gives both exactly
@@ -814,3 +849,46 @@ Small summoned slimes: +3/+1 and +6/+1 (not in `map_mobs.json`; the boss table n
 **Open:** both runs had the player fighting. If the split is by level (not damage), a leech also gets ~95% and rule 2 can't tell.
 Next KPQ: record a run where the player stays in the boss map and does **not** attack the boss, then correct rules 2-3 here.
 A lower-level member gets under an even share even when fighting (level-weighted split?), so 90% may need a level adjustment.
+
+## 2026-10-31: Magic Guard slot numbers redefined; skill levels frozen where they can't change (player)
+- Magic Guard slot: **absorb = current MP, effective HP = HP + MP** (player's choice: steady, each number moves only with its own
+  bar). The earlier exact form (min(MP, HP x p/(1-p))) moved with every HP regen tick / potion and read as "wrong" (616 HP, 1,046
+  MP showed 303 / 919); kept as `formulas.magic_guard_limit` for later.
+- Cast-level guessing (`feed._may_rise`) now skips maxed skills and skills of an earlier job than the character's (Beginner for a
+  Magician; Magician for a Cleric): only the Skill window updates those. Pre-BB SP can still go into earlier-job skills, so a
+  window read still counts.
+- `Profile._skills`: a read below a maxed skill's stored level is ignored (levels never go down in the game), unless the stored
+  value was only a cast guess.
+
+## 2026-10-31: attack pulse latency (player: "comes out too late")
+Chain was: quick look 0.5 s (capture 2/s) + live.json write every 0.9 s + bar read every 1 s = up to ~2.4 s. Now: `live_casts.json`
+written the moment a cast is booked, the bar polls its mtime every 100 ms; and for 5 s after a cast the skill bar's idle loop looks at the
+HP/MP strip 5 times a second (`COMBAT_FPS`, same path as the regen bursts, `perf` "burst_look"). Expected delay ~0.2-0.4 s.
+Cost: HP/MP strip reads at 5/s while fighting (watch perf.csv / CPU on the next play session).
+
+## 2026-10-31: buff icons (top right) tell Magic Guard from Energy Bolt (same 8 MP)
+Recording: frames `dev/fixtures/burst/20261031_142412/` (3/s, 60 s, local only) + HP/MP log (10/s). 1920x1080 window.
+- Magic Guard on = one buff icon at the far right, x ~1884-1916, y ~3-35 (32 px; more buffs presumably stack to the left: not seen yet).
+  It appears 0.3-0.6 s after the 8-MP drop. Turning Guard **off costs no MP** (icon just goes). Energy Bolt casts: no change.
+- The buff icon is the **same art as the skill icon** the app already cuts from the Skill window (`templates/skill_icons/<id>.png`,
+  34x35 with a 1 px frame: crop offset (3,3)). Compare rows 14-30 only: the player has an **FPS counter overlay** ("144 FPS", green,
+  not the game's) over the top ~12 rows of the rightmost icon. Mean grey diff: Guard on 13-24 (moving 12-15), Guard off 131, other
+  skills' icons at that spot 59-82 -> threshold ~40.
+
+**Built (2026-10-31, buff reader + deferred cast decision).** `engine/buffs.py` slides each owned buff's skill icon along the right 320 px
+(not 600: a 600 px search gave scenery hits at 38-39) at y offsets 0-10, grey mean abs diff on rows 14-30 of the crop from (3,3), 30 px wide;
+coarse pass every 3rd pixel, best 3 spots refined in full. **Threshold 32, not 40**: on 12-24 (one 33-35 stretch in a pulsing phase was not
+seen again), scenery best 38-39, nothing else seen. A map-change fade dims the icon (frames 49.8 / 50.1 s: 40 / 179): `ScreenSource._buffs`
+skips looks while the HP/MP strip is < 0.6 x its recent brightest and needs a change on two looks in a row (fact keeps the first look's time).
+On the burst fixture: Guard found 12.0-28.0 s and 35.0-59 s, nothing else, no false flips (ScreenSource replay: 3 facts). Cost ~0.7 ms per
+icon (7.6 ms for 11 icons, a normal look has 1-5). Feed: an attack-booked cast whose MP cost an owned buff shares waits for the buff icon to flip
+(from 0.3 s before to 1.0 s after the MP drop; decided as the attack at 1.4 s). Pulse and usage CSV only after the decision. Unmeasured: spacing
+of several icons (the whole band is searched), other UI sizes (boxes/icon scale with width/1920 only), icons of buffs the app has no icon file for.
+- 2026-10-31 (later, player): Magic Guard **absorb = floor(current MP x guard %)** (1,046 MP at 33% -> 345), **effective HP = HP + absorb**
+  (616 HP -> 961). Replaces "absorb = MP" (it showed the full MP bar).
+
+## 2026-10-31: party boss rule applied in the album (PQ bosses only)
+`components/album/album.py` `party_boss`: on a map with exactly one PQ boss (MeowDB id 800000-899999), a party rise
+above max regular-mob EXP x 1.6 and at most boss EXP x 1.6 = that boss (how "party_boss"). Open-world bosses (Mano: ceiling
+24, Stumpy 110) are left out: a few mixed kills pass their ceilings, and crowds hit them. Live 2026-10-31 14:51 run:
+stage clears are **318 at Lv 27** (274 at Lv 26), so they scale with level.

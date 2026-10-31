@@ -32,21 +32,35 @@ def main():
     box = vitals.strip_box(full.size)
     rc = load_config()["regions"]["exp"]
     ebox = place(full, list(rc["box"]), (1920, 1080), anchor_for("exp", rc), "exp")
-    while time.time() - t0 < secs:
-        tick = time.time()
-        img, eimg = src.grab_parts([{"box": box}, {"box": ebox}])
-        r = vitals.read(img, origin=True, learn=False)
-        hp, mp = r["hp"] or [None, None], r["mp"] or [None, None]
-        g = glyphs.read(eimg, rc.get("white_min", 230))
-        cur, _, pct = hudtext.parse_exp(g) if g and "?" not in g else (None, None, None)
-        rows.append([round(tick, 3), hp[0], hp[1], mp[0], mp[1], cur, pct])
-        time.sleep(max(0.0, 1 / fps - (time.time() - tick)))
-    src.close()
-    if out:
-        with open(out, "w", newline="") as f:
-            w = csv.writer(f)
-            w.writerow(["t", "hp", "hp_max", "mp", "mp_max", "exp", "exp_pct"])
-            w.writerows(rows)
+    # rows go to the file as they come (flushed every ~5 s), so a long recording can be read while it
+    # runs and stopping it early (Ctrl+C, closing the window) keeps what was recorded
+    f = open(out, "w", newline="") if out else None
+    w = csv.writer(f) if f else None
+    if w:
+        w.writerow(["t", "hp", "hp_max", "mp", "mp_max", "exp", "exp_pct"])
+    flushed = time.time()
+    try:
+        while time.time() - t0 < secs:
+            tick = time.time()
+            img, eimg = src.grab_parts([{"box": box}, {"box": ebox}])
+            r = vitals.read(img, origin=True, learn=False)
+            hp, mp = r["hp"] or [None, None], r["mp"] or [None, None]
+            g = glyphs.read(eimg, rc.get("white_min", 230))
+            cur, _, pct = hudtext.parse_exp(g) if g and "?" not in g else (None, None, None)
+            row = [round(tick, 3), hp[0], hp[1], mp[0], mp[1], cur, pct]
+            rows.append(row)
+            if w:
+                w.writerow(row)
+                if tick - flushed >= 5:
+                    f.flush()
+                    flushed = tick
+            time.sleep(max(0.0, 1 / fps - (time.time() - tick)))
+    except KeyboardInterrupt:
+        print("stopped early")
+    finally:
+        src.close()
+        if f:
+            f.close()
     print(f"{len(rows)} rows")
 
 

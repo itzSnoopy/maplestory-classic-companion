@@ -1,5 +1,7 @@
 """skillbar_ui.py - a movable hotbar-style strip over the game (FF14-like), fed by live.json.
 
+Magic Guard's slot shows what it covers instead (right-click, skillbar.guard_show): effective HP,
+damage MP can still absorb, or the MP the last hit took.
 Skill corner number (right-click, helper_settings skillbar.show): casts left (default), MP per
 cast, or mesos per cast (feed.py: the MP at what your MP potion costs per point, training's
 mp_price via hub.ask, plus items like Magic Rock at your own price, plus mesos like Shadow Meso).
@@ -32,8 +34,14 @@ from PIL import Image, ImageDraw, ImageTk
 from base.paths import DATA
 from hub.ui.overlay import KEY, font as _font, text as _text      # what the overlay windows share
 
+GUARD_ID = "2001000"        # Magic Guard: its slot shows what it covers (feed.py "guard"), not casts
+
 LIVE = DATA / "live.json"
+CASTS = DATA / "live_casts.json"     # casts per skill, written the moment a cast is booked (feed.py)
+CASTS_EVERY_MS = 100
 SLOT, GAP, PAD = 44, 4, 4       # px at 96 dpi
+PULSE_S = 0.9                   # an attack's slot flashes this long after a cast is seen (player, 2026-10-31)
+PULSE_MP, PULSE_HP = (80, 160, 255), (255, 80, 80)   # what the cast cost: MP blue, HP red, both = two rings
 STALE_S = 6.0
 FPS = 10
 
@@ -44,6 +52,7 @@ class SkillBar:
         self.k = k
         self.s = int(round(SLOT * k))
         self.live, self.live_t = {}, 0.0
+        self.pulses = {}                # skill id -> when its pulse started (a new cast seen)
         self.icons = {}                 # path -> PIL image (slot size)
         self.photo = None
         self.shown = None
@@ -71,21 +80,61 @@ class SkillBar:
         self.after_tick = None
         self._apply_lock(cfg.get("locked", False))
         self._read()
+        if not demo:
+            self._read_casts()
         self._tick()
 
     # ---------------------------------------------------------------- data
     def _read(self):
         if self.demo:
             self.live, self.live_t = demo_live(), time.time()
+            self._new_casts()
         else:
             try:
                 st = LIVE.stat()
                 if st.st_mtime != self.live_t:
                     self.live = json.loads(LIVE.read_text(encoding="utf-8"))
                     self.live_t = st.st_mtime
+                    self._new_casts()
             except (OSError, ValueError):
                 pass
         self.root.after(1000, self._read)
+
+    def _new_casts(self, counts=None):
+        """An attack whose cast count went up since the last read starts a pulse (the first read
+        only remembers the counts). counts: from live_casts.json (fast), else live.json's skills."""
+        now = time.time()
+        skills = {sk.get("id"): sk for sk in (self.live or {}).get("skills") or []}
+        if counts is None:
+            counts = {sid: sk.get("cast_n") or 0 for sid, sk in skills.items()}
+        seen = getattr(self, "cast_seen", None)
+        if seen is not None:
+            for sid, n in counts.items():
+                sk = skills.get(sid)
+                if sk and sk.get("kind") == "attack" and n > seen.get(sid, n):
+                    self.pulses[sid] = now
+        self.cast_seen = {**(seen or {}), **counts}
+
+    def _read_casts(self):
+        """Every CASTS_EVERY_MS: a newer live_casts.json starts pulses at once."""
+        try:
+            st = CASTS.stat()
+            if st.st_mtime != getattr(self, "casts_t", None):
+                self.casts_t = st.st_mtime
+                d = json.loads(CASTS.read_text(encoding="utf-8"))
+                if self.live:
+                    self._new_casts({k: int(v) for k, v in (d.get("n") or {}).items()})
+        except (OSError, ValueError, TypeError):
+            pass
+        self.root.after(CASTS_EVERY_MS, self._read_casts)
+
+    def _pulse(self, sk, now):
+        """(fraction done, [ring colours]) while the slot's pulse runs, else None."""
+        start = self.pulses.get(sk.get("id"))
+        if start is None or now - start >= PULSE_S:
+            return None
+        cols = ([PULSE_HP] if sk.get("hp_cost") else []) + ([PULSE_MP] if sk.get("mp") else [])
+        return (now - start) / PULSE_S, cols or [PULSE_MP]
 
     def _fresh(self):
         return self.live and time.time() - (self.live.get("t") or 0) < STALE_S
@@ -110,7 +159,7 @@ class SkillBar:
         return self.icons[key]
 
     def _slot(self, icon, frac_left=None, top=None, mid=None, corner=None, dim=False,
-              corner_color=(255, 255, 255, 255), label=None):
+              corner_color=(255, 255, 255, 255), label=None, pulse=None):
         s = self.s
         im = Image.new("RGBA", (s, s), (0, 0, 0, 0))
         d = ImageDraw.Draw(im)
@@ -141,6 +190,25 @@ class SkillBar:
         if corner is not None:
             _text(d, (s - int(3 * self.k), s - int(2 * self.k)), corner, self.f_small,
                   fill=corner_color, anchor="rb")
+        if pulse:
+            # a flash: the whole slot tinted in the cost colour, fading out (ease-out), plus thick
+            # rings that cool to the border colour (the window has no half-transparency, so the
+            # fade is in the colour); HP + MP cost: red outside, blue inside, tint in between
+            frac, cols = pulse
+            k = (1 - frac) ** 1.5
+            tint = tuple(sum(c[j] for c in cols) // len(cols) for j in range(3))
+            flash = Image.new("RGBA", (s, s), tint + (255,))
+            mask = Image.new("L", (s, s), 0)
+            ImageDraw.Draw(mask).rounded_rectangle((0, 0, s - 1, s - 1), radius=int(6 * self.k),
+                                                   fill=int(150 * k))
+            im.paste(Image.composite(flash, im, mask), (0, 0), im.getchannel("A"))
+            d = ImageDraw.Draw(im)
+            base, w = (90, 96, 110), max(4, int(4 * self.k))
+            for i, col in enumerate(cols):
+                c = tuple(int(base[j] + (min(255, col[j] + 60) - base[j]) * k) for j in range(3)) + (255,)
+                o = i * w
+                d.rounded_rectangle((o, o, s - 1 - o, s - 1 - o), radius=int(6 * self.k),
+                                    outline=c, width=w)
         return im
 
     def _regen_slot(self, m, icon, now, label):
@@ -194,12 +262,25 @@ class SkillBar:
             color = (255, 90, 90, 255) if casts is not None and casts < 5 else (255, 255, 255, 255)
             corner = str(casts) if casts is not None else "?"
             show = self.get().get("show", "casts")
+            gd = sk.get("guard")
+            if gd:                              # Magic Guard: what it covers, not casts
+                gs = self.get().get("guard_show", "ehp")
+                v = gd.get(gs if gs in ("ehp", "absorb", "last") else "ehp")
+                corner = str(v) if v is not None else "-"
+                if gs == "ehp":                 # HP numbers in red, MP numbers in blue (player)
+                    color = (255, 140, 140, 255)
+                else:
+                    color = (140, 140, 150, 255) if gd.get("absorb") == 0 else (140, 190, 255, 255)
+                # a toggle buff's number sits under the slot like the regen "+13" (player, 2026-10-31)
+                slots.append((self._slot(icon), self._caption(corner, color)))
+                ids.append(sk.get("id"))
+                continue
             if show == "mp" and sk.get("mp"):
                 corner, color = str(sk["mp"]), (140, 190, 255, 255)
             elif show == "mesos":
                 corner, color = self._meso_text(sk), (242, 182, 50, 255)
-            slots.append((self._slot(icon, corner=corner, dim=casts == 0, corner_color=color),
-                          None))
+            slots.append((self._slot(icon, corner=corner, dim=casts == 0, corner_color=color,
+                                     pulse=self._pulse(sk, now)), None))
             ids.append(sk.get("id"))
         self.slot_ids = ids
         if not slots:
@@ -288,6 +369,15 @@ class SkillBar:
         i = self._slot_at(e.x)
         sid = self.slot_ids[i] if i is not None else None
         names = self._names()
+        if sid == GUARD_ID:                       # Magic Guard's own number
+            gs = tk.StringVar(value=self.get().get("guard_show", "ehp"))
+            m._gs = gs
+            for val, label in (("ehp", "Magic Guard: effective HP (HP + guard % of MP)"),
+                               ("absorb", "Magic Guard: absorb (guard % of current MP)"),
+                               ("last", "Magic Guard: MP used by the last hit")):
+                m.add_radiobutton(label=label, value=val, variable=gs,
+                                  command=lambda v=val: self.put(guard_show=v))
+            m.add_separator()
         if sid:
             m.add_command(label=f"Remove {names.get(sid) or 'skill'} from the bar",
                           command=lambda: self.set_hidden(sid, True))
@@ -346,9 +436,15 @@ def demo_live():
             "mp": {"cur": 412, "max": 606, "tick": 6, "period": 10.0, "next": t - (t % 10) + 6.3},
             "hp": {"cur": 380, "max": 408, "tick": 9, "period": 10.0, "next": t - (t % 10) + 7},
             "regen": {"mp": {"skill": "Improved MP Recovery", "level": 5, "icon": None}},  # no HP skill
-            "skills": [{"id": "2001003", "name": "Magic Claw", "level": 6, "mp": 11, "casts": 37},
-                       {"id": "2001002", "name": "Energy Bolt", "level": 1, "mp": 8, "casts": 51},
-                       {"id": "0001001", "name": "Recovery", "level": 3, "mp": 15, "casts": 3}]}
+            "skills": [{"id": "2001003", "name": "Magic Claw", "level": 6, "mp": 11, "casts": 37,
+                        "kind": "attack", "cast_n": int(t / 2)},
+                       {"id": "2001002", "name": "Energy Bolt", "level": 1, "mp": 8, "casts": 51,
+                        "kind": "attack", "cast_n": int(t / 5)},
+                       {"id": "1001002", "name": "Slash Blast", "level": 1, "mp": 8, "hp_cost": 5,
+                        "casts": 51, "kind": "attack", "cast_n": int(t / 3)},
+                       {"id": "0001001", "name": "Recovery", "level": 3, "mp": 15, "casts": 3},
+                       {"id": "2001000", "name": "Magic Guard", "level": 2, "mp": 8, "casts": 52,
+                        "guard": {"pct": 33, "absorb": 270, "ehp": 818, "last": 43}}]}
 
 
 def main():

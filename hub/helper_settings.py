@@ -66,6 +66,7 @@ DEFAULTS = {
         "x": None, "y": None,           # screen position; None = top-center
         "hidden": [],                   # skill ids the player removed from the bar (right-click)
         "show": "casts",                # skill corner: casts (left) | mp (per cast) | mesos (per cast)
+        "guard_show": "ehp",            # Magic Guard slot: ehp (HP + what MP covers) | absorb | last (MP of the last hit)
     },
     "party": {                          # Settings > Internet > Party link; partylink.py (tracker)
         "server": "",                   # your relay, e.g. http://203.0.113.5:8787 (relay/README.md)
@@ -99,6 +100,16 @@ DEFAULTS = {
         "burst_fps": 10,                # change starts over. A check = HP/MP strip only, at
         "pad_s": 0.6,                   # burst_fps for +-pad_s around the predicted tick
     },
+    "kpq": {                            # Settings > General; components/kpq: the party quest view
+        "pq_view": True,                # in a PQ, show EXP per stage instead of the stat grid
+    },
+    "window": {                         # Settings > General; the helper's – button / floating icon
+        "icon_hides_panels": False,     # while it's an icon, hide every panel over the game and the diary pop-ups
+        "icon_on_game_close": False,    # turn into the icon when the game closes (back when it returns)
+        "icon_on_game_minimize": False, # turn into the icon when the game is minimized (back when it's restored)
+        "icon_size": 90,                # the icon's size in px (slider ICON_MIN..ICON_MAX in helper_ui)
+        "icon_ring": "#16181d",         # ring colour "#rrggbb" (theme BG, the Settings background: stands out from the art), or "state"
+    },
 }
 
 
@@ -118,6 +129,10 @@ def load():
     except Exception:
         data = {}
     s = _merge(DEFAULTS, data)
+    if s["window"].get("icon_size") == 60:                  # test builds 0.8.94-0.8.98 default -> 90
+        s["window"]["icon_size"] = DEFAULTS["window"]["icon_size"]
+    if s["window"].get("icon_ring") == "#0e0f12":            # test builds 0.8.97 default -> theme BG
+        s["window"]["icon_ring"] = DEFAULTS["window"]["icon_ring"]
     if s["discord"].get("pct_style") == "hidden":          # older setting -> toggle
         s["discord"]["pct_style"] = "whole"
         s["discord"]["show"]["pct"] = False

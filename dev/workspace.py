@@ -30,6 +30,7 @@ PARTS = {
               ["components/party/CLAUDE.md", "relay/CLAUDE.md"], "party.md"),
     "skillbar": ("skill bar: HP/MP regen, casts left, HP/MP usage", ["components/skillbar/CLAUDE.md"], "skillbar.md"),
     "training": ("training cost panel, EXP/hr per visit", ["components/training/CLAUDE.md"], "training.md"),
+    "kpq": ("party quest runs, live PQ view", ["components/kpq/CLAUDE.md"], "kpq.md"),
 }
 
 TEMPLATE = """# Workspace: {part} ({what})

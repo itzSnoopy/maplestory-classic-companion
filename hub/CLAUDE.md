@@ -20,11 +20,12 @@ The hub sees the engine only through `base/contract.py` (`Observation`, `Source`
 | `history.py` | `write_json` (atomic, retries `os.replace` on PermissionError), `read_json`, csv helpers, `Journal`, `add_session`, `add_map_stint`, `build_digest()` (digest.json), `cleanup(retention_days=14)` |
 | `character.py` | `Profile`: what to believe from the game windows, per character fingerprint -> history/characters.json (stats, skills, channel, regen, change log); `score_stat/skills/channel/who` (0-10 rule); `summary()` for the digest |
 | `exprate.py` | `ExpRate`: EXP/hr per map visit (active clock, 120 s break, first number after 3 gains, "~" until 5 active min, lumps/party apart) |
-| `helper_settings.py` | helper_settings.json `DEFAULTS` (keys: character, discord, diary, capture, internet, updates, skillbar, party, trainingpanel, partypanel, map_check, regen_check), `load/save/job`. Order of keys = JSON bytes: don't reorder |
-| `helper_ui.py` | The helper window + tray (`App`, `Tray`, `Snapshot`, `menu_items`), `QUIET_RESTART_S`, `main(argv, services)`; reads status/digest/live files |
+| `helper_settings.py` | helper_settings.json `DEFAULTS` (keys: character, discord, diary, capture, internet, updates, skillbar, party, trainingpanel, partypanel, map_check, regen_check, kpq, window), `load/save/job`. Order of keys = JSON bytes: don't reorder |
+| `helper_ui.py` | The helper window + tray (`App`, `Tray`, `Snapshot`, `menu_items`); `–` button <-> floating icon (`toggle_compact`, 1 s debounce; `poll_game` for the game close/minimize options), `QUIET_RESTART_S`, `main(argv, services)`; reads status/digest/live files |
 | `settings_ui.py` | `SettingsWindow` (General, Character, Discord, Diary, Internet, About pages; components add pages/extras) |
-| `ui/shell.py` | `Shell`: the only API a component's `ui()` sees (add_menu, add_command, add_settings_page, add_settings_extra, on_settings_save, on_refresh, on_exit, add_page, add_api, set_camera, settings/all_settings/set_setting/save_settings, post, notify, root, k, px, at, demo, visible, headless, log_error) |
+| `ui/shell.py` | `Shell`: the only API a component's `ui()` sees (add_menu, add_command, add_settings_page, add_settings_extra, on_settings_save, on_refresh, on_exit, add_page, add_api, add_main_view (title / sub / rows / prev / next / toggle), set_camera, settings/all_settings/set_setting/save_settings, post, notify, root, k, px, at, demo, visible, panels_hidden, headless, log_error) |
 | `ui/overlay.py` | `PanelHost` (create/remove/toggle/lock for panels over the game), `font`, `text` |
+| `ui/layered.py` | `set_image(toplevel, pil_rgba)`: per-pixel-alpha window (Win32 UpdateLayeredWindow, own WinDLL copies with 64-bit argtypes) for smooth round edges; the minimized icon uses it, colour key as fallback |
 | `ui/theme.py` | Colours and font |
 | `pages.py` | Local page registry (`register_page/page/paths/open_page/serve`, `register_api/api` = local POST endpoints, `set_host`); the diary server (127.0.0.1:8737) hosts the pages |
 | `tools.py` | `portrait_maker()` hook, loaded by name from the launcher |

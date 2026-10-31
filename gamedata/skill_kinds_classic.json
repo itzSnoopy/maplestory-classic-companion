@@ -1015,7 +1015,7 @@
    "sub": null,
    "target": "self",
    "duration_s": null,
-   "until": "death",
+   "until": "toggle",
    "name": "Magic Guard"
   },
   "2001001": {

@@ -36,13 +36,13 @@ from collections import Counter, deque
 from itertools import combinations_with_replacement
 
 from base.paths import asset
-from gamedata import formulas
+from gamedata import formulas, translate
 
 MAX_CASTS = 3           # casts that can fall in one window at most
 CAST_S = 0.6            # about the fastest one cast follows another (attack animation)
 MAX_GAP_S = 3.0         # a longer gap between looks: the change isn't explained
 MIN_LEVEL_SEEN = 3      # casts at a higher level's cost before that level is believed
-RECOVERY_S = 30         # Recovery (beginner skill): "Recover HP 24 in 30 sec"
+RECOVERY_S = 33         # Recovery (beginner skill): 6 ticks, the last ~31.3 s after the cast (2026-10-30)
 EATER_IDS = ("2100000", "2200000", "2300000")         # MP Eater (F/P, I/L, Cleric)
 GUARD_ID = "2001000"                                  # Magic Guard
 HEAL_ID = "2301001"                                   # Heal (Cleric)
@@ -70,7 +70,10 @@ class Usage:
         self.recent = deque(maxlen=12)          # last events, for live.json
         self.cost_seen = Counter()              # (skill id, cost) -> casts at that cost
         self.levels_seen = {}                   # {skill id: level} believed from casts
+        self.rise = None                        # skills whose level may have gone up (None: all)
         self.last_item = None                   # the last item used (rises capped at max)
+        self.last_guard = None                  # (t, MP) of the last hit Magic Guard took MP for
+        self.cast_count = Counter()             # skill id -> casts seen (the bar pulses on a new one)
         self.last_cast_t = -1e9
         self.recovery_until = -1e9
         self.reset_totals()
@@ -78,10 +81,20 @@ class Usage:
         self._sums = {}
 
     # -- context -------------------------------------------------------------------
-    def set_context(self, levels=None, party=None):
-        """levels: {skill id: level} of the character (character.Profile); party: in a party."""
+    def set_context(self, levels=None, party=None, rise=None):
+        """levels: {skill id: level} of the character (character.Profile); party: in a party;
+        rise: skill ids whose level may be higher than stored (no Skill-window read since the last
+        level-up, so SP may have gone into them); None = every skill (old behaviour)."""
         if levels is not None and levels != self.levels:
+            for sid, lv in levels.items():          # a Skill-window read below the cast guess wins
+                if (lv or 0) < (self.levels_seen.get(sid) or 0):
+                    self.levels_seen.pop(sid, None)
+                    for key in [k for k in self.cost_seen if k[0] == sid]:
+                        del self.cost_seen[key]
             self.levels = dict(levels)
+            self._costs = None
+        if rise is not None and set(rise) != self.rise:
+            self.rise = set(rise)
             self._costs = None
         if party is not None:
             self.party = bool(party)
@@ -107,7 +120,8 @@ class Usage:
                 mp = formulas.skill_mp_costs(self.data.get(sid))
                 if not lv or lv > len(mp):
                     continue
-                for L in range(lv, len(mp) + 1):        # the level can only have gone up
+                top = len(mp) if (self.rise is None or sid in self.rise) else lv
+                for L in range(lv, top + 1):            # the level can only have gone up
                     if mp[L - 1]:
                         out.append((mp[L - 1], sid, L, L == lv))
             self._costs = out
@@ -115,10 +129,19 @@ class Usage:
         return self._costs
 
     @staticmethod
-    def _combo_score(combo):
-        # unknown levels cost half an event each; one skill at one level beats a mix
-        return (len(combo) + 0.5 * sum(not c[3] for c in combo)
-                + 0.1 * (len({(c[1], c[2]) for c in combo}) - 1 if combo else 0))
+    def _not_attack(sid):
+        k = translate.skill_kind(sid)
+        return 0 if (k or {}).get("kind") == "attack" else 1
+
+    @classmethod
+    def _combo_score(cls, combo):
+        # an unknown (higher) level costs 1.5 events: two casts at known levels beat one cast at
+        # a guessed level (16 MP = 2 x Energy Bolt Lv 4, not 1 x Lv 20; 2026-10-30)
+        return (len(combo) + 1.5 * sum(not c[3] for c in combo)
+                + 0.1 * (len({(c[1], c[2]) for c in combo}) - 1 if combo else 0)
+                # same cost, both known: the attack wins (Energy Bolt Lv 4 over Magic Guard Lv 2,
+                # 8 MP each: KPQ 2026-10-30 had 456 8-MP casts in attack runs next to Magic Claw)
+                + 0.01 * sum(cls._not_attack(c[1]) for c in combo))
 
     def _cast_sums(self, costs):
         """{n: {total MP: (score, casts)}}: the best way to spend `total` in at most n casts."""
@@ -254,10 +277,25 @@ class Usage:
                             amt = r + total if capped else gain
                             best = (s, ("item", it, amt, capped, combo), tick)
             if r < 0 and dhp < 0 and guard:     # Magic Guard took part of a hit from MP
+                # measured 2026-10-30 (formulas.magic_guard_split): MP part = floor(hit x N%), so the
+                # HP lost says what the MP part should be; a look can hold two hits or a heal, so
+                # near that number is still Magic Guard, just less sure
+                pct = formulas.magic_guard_pct(self._skill_text(GUARD_ID))
+                want = formulas.magic_guard_mp_for_hp(-dhp, pct) if pct else None
                 for total, (sc, combo) in sums.items():
                     rest = -r - total
-                    if 0 < rest <= 4 * -dhp + 5 and pen + 1.2 + sc < best[0]:
-                        best = (pen + 1.2 + sc, ("guard", rest, combo), tick)
+                    if rest <= 0:
+                        continue
+                    if want is None:            # no level text: the old wide guess
+                        fit = 1.2 if rest <= 4 * -dhp + 5 else None
+                    elif abs(rest - want) <= 1:
+                        fit = 1.0
+                    elif 0.6 * want <= rest <= 1.15 * want + 3:
+                        fit = 1.6
+                    else:
+                        fit = None
+                    if fit is not None and pen + fit + sc < best[0]:
+                        best = (pen + fit + sc, ("guard", rest, combo), tick)
             if eater:                           # MP Eater (+ casts in the same look)
                 for total, (sc, combo) in sums.items():
                     if r + total > 0 and len(combo) <= 2 and pen + 1.5 + sc < best[0]:
@@ -273,6 +311,7 @@ class Usage:
             return ([self._ev(t, "mp", "potion", it["name"], amt, to_full=capped)]
                     + self._casts(t, combo)), tick
         if how[0] == "guard":
+            self.last_guard = (round(t, 1), how[1])
             return (self._casts(t, how[2])
                     + [self._ev(t, "mp", "magic_guard", "Magic Guard", -how[1])]), tick
         return (self._casts(t, how[2]) + [self._ev(t, "mp", "mp_eater", "MP Eater", how[1])],
@@ -283,6 +322,7 @@ class Usage:
         for cost, sid, L, known in combo:
             name = (self.data.get(sid) or {}).get("name") or sid
             self.cost_seen[(sid, cost)] += 1
+            self.cast_count[sid] += 1
             if not known and self.cost_seen[(sid, cost)] >= MIN_LEVEL_SEEN:
                 if L > (self.levels_seen.get(sid) or 0):
                     self.levels_seen[sid] = L
@@ -292,6 +332,38 @@ class Usage:
             self.last_cast_t = t
             out.append(self._ev(t, "mp", "cast", name, -cost, skill=sid, level=L))
         return out
+
+    def rivals(self, ev):
+        """Skill ids (other than the cast's own) that cost exactly what this booked cast cost, at a
+        known level: the cast could have been any of them (Energy Bolt / Magic Guard, 8 MP each)."""
+        cost = -ev["amount"]
+        return sorted({sid for c, sid, L, known in self.costs()
+                       if known and c == cost and sid != ev.get("skill")})
+
+    def rebook(self, ev, sid):
+        """The cast `ev` (an event this Usage returned) was `sid`'s after all (the buff icon showed it):
+        move it in the cast counts, the cost counts, the totals and the event itself."""
+        old, cost, oldname = ev["skill"], -ev["amount"], ev["name"]
+        name = (self.data.get(sid) or {}).get("name") or sid
+        self.cast_count[old] -= 1
+        if self.cast_count[old] <= 0:
+            del self.cast_count[old]
+        self.cast_count[sid] += 1
+        if self.cost_seen[(old, cost)] > 0:
+            self.cost_seen[(old, cost)] -= 1
+        self.cost_seen[(sid, cost)] += 1
+        rows = self.totals["mp"].get("cast", {})
+        row = rows.get(oldname)
+        if row:
+            row["n"] -= 1
+            row["amount"] -= ev["amount"]
+            if row["n"] <= 0:
+                del rows[oldname]
+        self._count("mp", "cast", name, ev["amount"])
+        lv = next((L for c, i, L, known in self.costs() if i == sid and c == cost and known), 0)
+        ev.update(skill=sid, name=name)
+        if lv:
+            ev["level"] = lv
 
     def _explain_hp(self, lo, t, d, hp, mp_ev):
         cur, mx = hp
@@ -313,7 +385,10 @@ class Usage:
                 if any(e.get("skill") == HEAL_ID for e in mp_ev):
                     cand.append((pen + 1.5, ("heal", "Heal", r)))
                 if t <= self.recovery_until:
-                    cand.append((pen + 1.5, ("recovery", "Recovery", r)))
+                    # an exact Recovery tick (formulas.recovery_tick) beats a regen tick of the same
+                    # size unless the regen clock expects a tick here (pen 0.6); any other size: weak
+                    exact = r == formulas.recovery_tick(self._skill_text(RECOVERY_ID))
+                    cand.append((pen - 0.2 if exact else pen + 1.5, ("recovery", "Recovery", r)))
                 if self.party:
                     cand.append((pen + 2, ("heal", "Heal (party?)", r)))
             for sc, how in cand:

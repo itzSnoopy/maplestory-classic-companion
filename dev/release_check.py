@@ -92,6 +92,16 @@ def check_data_files():
           "add to packaging/build.py DATA_FILES or LOCAL_JSON here: " + ", ".join(unshipped))
 
 
+def check_pq_data():
+    pq = json.loads((ROOT / "gamedata" / "pq_classic.json").read_text(encoding="utf-8"))["pqs"]
+    names = {m["name"] for m in json.loads((ROOT / "gamedata" / "maps_classic.json").read_text(encoding="utf-8"))["maps"]}
+    used = set()
+    for p in pq:
+        used |= {p["first"], p["bonus"], *p.get("other", []), *(s["map"] for s in p["stages"])}
+    missing = sorted(used - names)
+    check("pq_classic.json: every map name is in maps_classic.json", not missing, ", ".join(missing))
+
+
 def check_skill_kinds():
     try:
         sk = json.loads((ROOT / "gamedata" / "skills_classic.json").read_text(encoding="utf-8"))["skills"]
@@ -254,6 +264,101 @@ def check_killers():
     check("killers audit runs", r.returncode == 0 and "Traceback" not in r.stderr, r.stderr[-200:])
 
 
+def check_kpq():
+    """KPQ run summary: a synthetic log (town -> stages -> bonus with a level-up and one garbled map
+    reading -> town) replayed through the composed hub must give exactly these stage + bonus EXP."""
+    import csv
+    from datetime import datetime, timedelta
+    P = "1st Accompaniment <"
+    seq = [("Kerning City", 50000, 26)] * 2         + [(P + "1st Stage>", c, 26) for c in (50100, 50200, 50300)]         + [(P + "2nd Stage>", c, 26) for c in (50500, 50700)]         + [(P + "Last Stage>", c, 26) for c in (51000, 51300)]         + [(P + "Bonus>", 52300, 26), (P + "Bonus>", 53300, 26), (P + "Bonus>", 54300, 26),
+           (P + "Bonus>", 400, 27), (P + "Bonus>", 1400, 27), ("Boaus Qxv", 2400, 27),
+           (P + "Bonus>", 3400, 27)]         + [("Kerning City", 3500, 27)] * 3
+    out = TMP / "sim_kpq"
+    shutil.rmtree(out, ignore_errors=True)
+    out.mkdir(parents=True)
+    path = out / "exp_log.csv"
+    t0 = datetime(2026, 10, 30, 20, 0, 0)
+    cols = "time,event,map,level,exp_current,exp_needed,exp_pct,exp_delta,exp_gained_total,eta_s,interval_s,source,raw".split(",")
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(cols)
+        for i, (m, cur, lv) in enumerate(seq):
+            need = 54900 if lv == 26 else 60000
+            w.writerow([(t0 + timedelta(seconds=30 * i)).isoformat(timespec="milliseconds"), "", m, lv, cur,
+                        need, round(cur / need * 100, 2), 0, 0, "", 30, "csv", ""])
+    stage, bonus = 52300 - 50100, (54900 + 3500) - 52300
+    r = run([sys.executable, "dev/kpq_sim.py", str(path), str(out / "data"), "--expect", f"{stage}+{bonus}"])
+    ok = r.returncode == 0 and "EXPECT OK" in r.stdout
+    check("KPQ run summary matches the synthetic log", ok, "" if ok else (r.stderr + r.stdout)[-400:])
+
+
+def check_kpq_logic():
+    """kpq.Runs on readings 5 s apart: the completion reward (+1,000 five seconds after entering the
+    bonus) goes to the Last stage, the bonus rate waits for 10 kills, and the view clears only on EXP
+    gained on a later non-PQ reading (not on the tail reading that carries the last kills)."""
+    from components.kpq import kpq
+    P = "1st Accompaniment <"
+    bonus = P + "Bonus>"
+    R = kpq.Runs(avg={bonus: 36.0})
+    feeds = [(0, "Kerning City", 0), (10, P + "1st Stage>", 100), (15, P + "2nd Stage>", 300),
+             (20, P + "Last Stage>", 600), (25, bonus, 900), (30, bonus, 1900), (35, bonus, 2080)]
+    for t, m, e in feeds:
+        R.feed(t, m, e)
+    v5 = R.view()
+    R.feed(40, bonus, 2260)
+    v10 = R.view()
+    R.on_left("Kerning City")
+    rec = R.feed(45, "Kerning City", 2300)                 # the tail reading: closes the run, keeps the view
+    after_tail = R.view()
+    R.feed(50, "Kerning City", 2300)
+    still = R.view()
+    R.feed(55, "Kerning City", 2350)                       # EXP outside the PQ
+    ok = (v5["bonus"]["kills"] == 5 and v5["bonus"]["rate"] is None
+          and v10["bonus"]["kills"] == 10 and v10["bonus"]["rate"]
+          and rec and rec["stage_exp"] == 1800 and rec["bonus_exp"] == 400 and rec["bonus_kills"] == 11
+          and rec["stages"][-1]["exp"] == 1300 and rec["stages"][-1]["state"] == "done"
+          and after_tail and after_tail["done"] and still and R.view() is None)
+    check("KPQ reward / 10-kill gate / view lifecycle", bool(ok), f"{rec} {v5} {v10}")
+
+
+def check_kpq_best():
+    """kpq best records: FASTEST per cleared stage and per completed run (bonus not counted); only the last
+    3 runs are kept but the best survives the trim; a file without "best" gets it computed from its runs."""
+    from components.kpq import kpq
+    P = "1st Accompaniment <"
+    R = kpq.Runs(avg={P + "Bonus>": 36.0})
+    recs, t, exp = [], 0, 0
+
+    def play(d, completed=True):
+        nonlocal t, exp
+        t, exp = t + 600, exp + 100
+        R.feed(t, "Kerning City", exp)
+        steps = [(P + "1st Stage>", d[0]), (P + "2nd Stage>", d[1]), (P + "Last Stage>", d[2])]
+        for m, dur in steps:
+            R.feed(t, m, exp)
+            t, exp = t + dur, exp + 100
+        if completed:
+            R.feed(t, P + "Bonus>", exp)
+            t, exp = t + 30, exp + 400
+            R.feed(t, P + "Bonus>", exp)
+        R.on_left("Kerning City")
+        recs.append(R.feed(t + 5, "Kerning City", exp))
+    play((60, 40, 100))
+    play((50, 50, 120))
+    play((70, 30, 60), completed=False)     # left in the last stage: Stage 2 counts, King Slime and the run don't
+    play((55, 45, 90))
+    play((80, 80, 200))
+    b = R.best["kpq"]
+    st = {k: v["minutes"] for k, v in b["stages"].items()}
+    ok = (st == {"Stage 1": round(50 / 60, 2), "Stage 2": round(30 / 60, 2), "King Slime": round(90 / 60, 2)}
+          and b["run"]["stage_minutes"] == round(190 / 60, 2) and len(R.runs) == 3
+          and all(r["reason"] == "left" for r in recs))
+    M = kpq.Runs(recs)                       # migration: five runs, no best
+    ok = ok and M.best == R.best and len(M.runs) == 3 and M.runs[-1]["start"] == recs[-1]["start"]
+    check("KPQ best = fastest per stage / completed run, last 3 kept, best computed on load", bool(ok),
+          f"{R.best} {len(R.runs)}")
+
+
 def check_relay():
     r = run([sys.executable, str(ROOT / "relay" / "test_relay.py")], env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=120)
     check("relay tests pass (relay/test_relay.py)", r.returncode == 0, (r.stderr or r.stdout)[-300:])
@@ -336,18 +441,34 @@ def check_exe():
           and not (data / "crash.log").exists(), ", ".join(titles))
 
 
+def check_buffs():
+    """Buff icon reader on the local burst frames (skips without them) + the skill bar's deferred cast decision."""
+    sys.path.insert(0, str(ROOT / "dev"))
+    import buffs_check
+    ok, note, skipped = buffs_check.run_frames()
+    check("buff icons: Magic Guard found exactly when on in the local burst frames"
+          + (" (SKIPPED: no frames/icons here)" if skipped else ""), ok, note)
+    ok, note, _ = buffs_check.run_logic()
+    check("skill bar: ambiguous 8-MP cast decided by the buff icon flip", ok, note)
+
+
 def main():
     TMP.mkdir(parents=True, exist_ok=True)
     check_compile()
     check_layers()
     check_data_files()
     check_skill_kinds()
+    check_pq_data()
     check_privacy()
     if ensure_fixture():
         check_sim_regular()
         check_sim_fresh()
         check_fresh_windows()
     check_killers()
+    check_buffs()
+    check_kpq()
+    check_kpq_logic()
+    check_kpq_best()
     check_relay()
     if "--build" in sys.argv and all(ok for _, ok in results):
         z = do_build()

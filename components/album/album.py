@@ -1,14 +1,17 @@
 """album.py - the monster album: every Classic mob, as "?", greyed out (seen) or caught (killed).
 
   ?        never on a map that spawns it
-  grey     seen: you were on a map that spawns it. Bosses (MeowDB's flag) and mobs at most
-           GREY_LEVELS above your level are always grey, never "?" (player, 2026-10-25)
+  grey     seen: you were on a map that spawns it. Bosses (MeowDB's flag) at most
+           BOSS_GREY_LEVELS above your level are grey too (player, 2026-10-31; before: every boss
+           and any mob up to 3 levels above you)
   caught   first kill confirmed: full-colour picture, and a diary beat ("first_kill") with a photo
 
 Which mob died: nothing on screen names it. training.py splits every EXP rise on a quick look into
 the map's mobs; the album counts a first kill only when the rise is exactly one mob's EXP, no other
 mob there gives the same EXP, and no mix of 2-4 kills adds up to it. Party EXP is skipped (shares
-make the numbers lie). Missing a first kill costs nothing: the next one counts.
+make the numbers lie), with one exception: a boss that is always fought in a party (King Slime) is
+caught from a party rise bigger than anything a regular mob of its map could give (party_boss, how
+"party_boss"). Missing a first kill costs nothing: the next one counts.
 
 Photo: while the map has a mob you haven't caught, each quick look also grabs a square around the
 screen middle (sources/screen.py); on a first kill the square from the look before the EXP rose
@@ -37,12 +40,16 @@ from pathlib import Path
 from base import paths
 from base.paths import DATA
 
-GREY_LEVELS = 3          # mobs up to this many levels above you are always grey (never "?")
+BOSS_GREY_LEVELS = 15    # bosses up to this many levels above you are grey before you see them
 MAX_KILLS = 2            # kills that may share one EXP rise between two looks ~1 s apart. 4 (as
                          # in training.py) made Octopus uncatchable on Kerning City Construction
                          # Site (23 = 4+4+15); single-target attacks rarely kill 3 within a second
 MAX_GAP_S = 2.5          # a rise over a longer gap between looks may hide several kills: skipped
+PARTY_MAX_FACTOR = 1.6   # a full share plus a 6-member bonus (~10% of base each): the most a party rise
+                         # can be over one mob's EXP (NOTES.md, "Boss kills in a party")
+PQ_BOSS_IDS = (800000, 899999)   # party-quest mob ids: the only bosses party_boss() catches
 SKIP_REGIONS = {"Hidden Street", "Event"}
+HIDDEN_IDS = {"1"}       # tutorial-only mobs (Tutorial Jr. Sentinel): never part of the album
 
 
 def set_root(root):
@@ -75,8 +82,8 @@ _cat = {"key": None, "val": None}
 
 def _hidden(mid, m):
     """Not album mobs: party-quest / job-test copies ('(alt)', MeowDB ids 800000+ except bosses
-    like King Slime) and Lv 200 event / test dummies."""
-    return ("(alt)" in m["name"] or (m.get("level") or 0) >= 200
+    like King Slime), Lv 200 event / test dummies, and HIDDEN_IDS (tutorial-only mobs)."""
+    return (str(mid) in HIDDEN_IDS or "(alt)" in m["name"] or (m.get("level") or 0) >= 200
             or (str(mid).isdigit() and 800000 <= int(mid) < 900000 and not m.get("boss")))
 
 
@@ -100,7 +107,9 @@ def catalog():
                 e["maps"].append({"id": mid, "name": mp["name"], "region": mp["region"],
                                   "count": x["count"], "respawn": x["respawn"]})
     out = []
+    _raw.clear()
     for mid, m in mobs.items():
+        _raw[str(mid)] = m
         if _hidden(mid, m):
             continue
         regions = Counter(x["region"] for x in m.get("maps") or [])
@@ -126,6 +135,15 @@ def find(name):
 
 
 _on = {"cat": None, "maps": {}}
+
+
+_raw = {}
+
+
+def _all_on(map_name):
+    """Every mob of the catalog source that spawns on a map, including the ones _hidden hides."""
+    catalog()
+    return [m for m in _raw.values() if any(x.get("name") == map_name for x in m.get("maps") or [])]
 
 
 def mobs_on(map_name):
@@ -177,6 +195,34 @@ def identify(map_name, d):
     return hits[0] if len(names) == 1 else None
 
 
+def party_boss(map_name, d):
+    """The boss a PARTY EXP rise of d can only be, or None. Assumption from NOTES.md ("Boss kills in
+    a party"): in a party the rise is your share plus ~10% of the base per active member, so a
+    boss that is only ever fought in a party (King Slime) can't be matched by exact EXP. Rule: the
+    map has exactly one boss with EXP (and it is a catalog mob), d is bigger than anything a regular
+    mob of the map could give in a party (its max EXP x PARTY_MAX_FACTOR; hidden '(alt)' mobs count,
+    no regular mobs = 0) and at most the boss's EXP x PARTY_MAX_FACTOR.
+    Party-quest bosses only (MeowDB ids 800000-899999): open-world bosses (Mano, Stumpy, Mushmom...)
+    have low ceilings that a few mixed kills can pass, and crowds hit them; they need their own rule."""
+    if not map_name or not d or d <= 0:
+        return None
+    allm = _all_on(map_name)
+    bosses = [m for m in allm if m.get("boss") and (m.get("exp") or 0) > 0]
+    if len(bosses) != 1:
+        return None
+    boss = bosses[0]
+    bid = next((k for k, v in _raw.items() if v is boss), "")
+    if not (bid.isdigit() and PQ_BOSS_IDS[0] <= int(bid) <= PQ_BOSS_IDS[1]):
+        return None
+    mine = [m for m in mobs_on(map_name) if m["name"] == boss["name"]]
+    if not mine:
+        return None                               # the boss itself must be an album mob
+    ceiling = max([m.get("exp") or 0 for m in allm if not m.get("boss")] or [0]) * PARTY_MAX_FACTOR
+    if ceiling < d <= boss["exp"] * PARTY_MAX_FACTOR:
+        return mine[0]
+    return None
+
+
 # ------------------------------------------------------------------ the player's album
 class Album:
     def __init__(self, root=None):
@@ -185,6 +231,7 @@ class Album:
         self.data = _read_json(STATE, {})
         self.data.setdefault("chars", {})
         self.who = self.data.get("last_who") or "_me"
+        self.last_how = "exp"
 
     # -- who / level
     def set_who(self, who, name=None):
@@ -264,10 +311,16 @@ class Album:
 
     def first_kill(self, map_name, d, party=False, gap=None):
         """The mob an EXP rise d just caught for the first time, or None (not sure / not new).
-        gap: seconds since the previous look with an EXP reading (None = unknown)."""
-        if party or (gap is not None and gap > MAX_GAP_S):
+        gap: seconds since the previous look with an EXP reading (None = unknown).
+        self.last_how says how it was told: "exp" (exact EXP) or "party_boss" (party_boss())."""
+        self.last_how = "exp"
+        if gap is not None and gap > MAX_GAP_S:
             return None
-        m = identify(map_name, d)
+        if party:
+            m = party_boss(map_name, d)
+            self.last_how = "party_boss"
+        else:
+            m = identify(map_name, d)
         if m is None or self.caught(m["id"]):
             return None
         return m
@@ -288,14 +341,14 @@ class Album:
 
     # -- what the page shows
     def state(self, mob, level=None):
-        """'caught' | 'seen' | 'grey' (always shown: boss / near your level) | 'unknown'."""
+        """'caught' | 'seen' | 'grey' (a boss at most BOSS_GREY_LEVELS above you) | 'unknown'."""
         c = self.char()
         level = level if level is not None else c.get("level")
         if mob["id"] in c["killed"]:
             return "caught"
         if mob["id"] in c["seen"]:
             return "seen"
-        if mob.get("boss") or (level and (mob.get("level") or 999) <= level + GREY_LEVELS):
+        if mob.get("boss") and level and (mob.get("level") or 999) <= level + BOSS_GREY_LEVELS:
             return "grey"
         return "unknown"
 
