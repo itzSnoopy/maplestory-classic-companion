@@ -27,6 +27,16 @@ services:
         It also has a small "skill feedback" inbox (off unless FEEDBACK_KEY is set): friends send a skill
         review export, the owner fetches it with a key. Also memory only; a restart forgets it.
 
+        Challenges (friendly timed kill races between members of one code, memory only): a member creates
+        one for a name / everyone on their map / everyone, invitees accept, the relay clock starts it 5 s later,
+        every client sends its kills (on its normal party post under "ch", or on the challenge path) and the relay
+        keeps the score and decides the winner (or a tie).
+          POST /v1/challenge/<code>        {"name", "mode": "1v1"|"map"|"all", "minutes": 2|5|10|15, "target"?} -> challenge
+          POST /v1/challenge/<code>/<id>   {"name", "action": "accept"|"decline"|"cancel"|"kills", "kills"?: [{"s","n","t"?}]}
+          GET  /v1/challenge/<code>/<id>   -> challenge
+        A party post may carry "ch": {"id", "kills": [{"s": seq, "n": 1..4, "t": server-clock time}]}; its reply gets
+        "challenges": [...] (the ones you are in or invited to) with your acknowledged "ack" seq.
+
         Python 3.8+, standard library only.
 
           PORT=8787 python3 party_relay.py
@@ -90,7 +100,22 @@ services:
             "mp": lambda v: _pair(v),
             "channel": lambda v: isinstance(v, (int, str)) and len(str(v)) <= 4,
             "v": lambda v: isinstance(v, str) and len(v) <= 16,
+            "caps": lambda v: isinstance(v, str) and len(v) <= 32 and re.match(r"^[a-z0-9,]*$$", v),
         }
+
+        # challenges (memory only; they last minutes)
+        CH_MODES = ("1v1", "map", "all")
+        CH_MINUTES = (2, 5, 10, 15)
+        CH_PENDING_S = 60       # an invitation nobody accepted expires
+        CH_COUNTDOWN_S = 5      # accept -> start
+        CH_GRACE_S = 4          # kill events that arrive this long after the end still count (if stamped before it)
+        CH_KEEP_S = 300         # finished challenges are forgotten after this
+        CH_SHOW_RESULT_S = 120  # a result stays in the replies this long
+        CH_MAX = 20             # per code
+        CH_MAX_KPS = 1.5        # kills per second a player can plausibly make (90/min); more is dropped
+        CH_MAX_N = 4            # kills in one event
+        CH_MAX_EVENTS = 20      # events in one post
+        challenges = {}         # code -> {id: challenge}
 
 
         def _pair(v):
@@ -143,6 +168,160 @@ services:
 
         class Invalid(Exception):
             pass
+
+
+        class ChError(Exception):
+            def __init__(self, code, msg):
+                super().__init__(msg)
+                self.code, self.msg = code, msg
+
+
+        def _ch_tick(code, now):
+            """Move this code's challenges along with the clock; forget old ones. Call under the lock."""
+            chs = challenges.get(code)
+            if not chs:
+                challenges.pop(code, None)
+                return {}
+            for cid, c in list(chs.items()):
+                if c["state"] == "open" and now - c["created_t"] > CH_PENDING_S:
+                    c["state"], c["ended_t"] = "expired", now
+                elif c["state"] == "running" and now > c["end_t"] + CH_GRACE_S:
+                    ranking = sorted(({"name": n, "score": p["score"]} for n, p in c["players"].items()
+                                      if p["accepted"]), key=lambda r: (-r["score"], r["name"]))
+                    tie = len(ranking) > 1 and ranking[0]["score"] == ranking[1]["score"]
+                    c["state"], c["ended_t"] = "done", now
+                    c["result"] = {"ranking": ranking, "tie": tie, "winner": None if tie else ranking[0]["name"]}
+                if c["state"] not in ("open", "running") and now - c["ended_t"] > CH_KEEP_S:
+                    del chs[cid]
+            if not chs:
+                challenges.pop(code, None)
+            return chs
+
+
+        def _ch_busy(chs, name):
+            return any(c["state"] in ("open", "running") and c["players"].get(name, {}).get("accepted")
+                       for c in chs.values())
+
+
+        def _ch_view(c, now):
+            if c["state"] == "running":
+                phase = "starting" if now < c["start_t"] else "live" if now <= c["end_t"] else "ending"
+            else:
+                phase = c["state"]
+            out = {"id": c["id"], "type": "kills", "mode": c["mode"], "minutes": c["minutes"],
+                   "creator": c["creator"], "state": c["state"], "phase": phase,
+                   "invited": sorted(c["invited"]), "start_t": c.get("start_t"), "end_t": c.get("end_t"),
+                   "players": [{"name": n, "score": p["score"], "accepted": p["accepted"], "ack": p["seq"]}
+                               for n, p in c["players"].items()]}
+            if c.get("result"):
+                out["result"] = c["result"]
+            return out
+
+
+        def _ch_for(code, name, now):
+            """The challenges a member is in or invited to (open, running, or finished a moment ago)."""
+            out = []
+            for c in _ch_tick(code, now).values():
+                if name not in c["players"] and name not in c["invited"]:
+                    continue
+                if c["state"] in ("open", "running") or (c["state"] == "done"
+                                                         and now - c["ended_t"] < CH_SHOW_RESULT_S):
+                    out.append(_ch_view(c, now))
+            return out
+
+
+        def _ch_create(code, name, d, now):
+            mode, minutes, target = d.get("mode"), d.get("minutes"), d.get("target")
+            if mode not in CH_MODES or minutes not in CH_MINUTES or isinstance(minutes, bool):
+                raise ChError(400, "bad mode or minutes")
+            chs = _ch_tick(code, now)
+            members = {n: f for n, (t, f) in (parties.get(code) or {}).items() if now - t <= TTL_S}
+            if name not in members:
+                raise ChError(409, "post your state first")
+            if _ch_busy(chs, name):
+                raise ChError(409, "you are already in a challenge")
+            if sum(1 for c in chs.values() if c["state"] in ("open", "running")) >= CH_MAX:
+                raise ChError(429, "too many challenges")
+            if mode == "1v1":
+                if not isinstance(target, str) or not NAME_RE.match(target) or target == name:
+                    raise ChError(400, "bad target")
+                if target not in members:
+                    raise ChError(404, "target is not online")
+                invited = {target}
+            elif mode == "map":
+                here = members[name].get("map")
+                invited = {n for n, f in members.items() if n != name and here and f.get("map") == here}
+            else:
+                invited = {n for n in members if n != name}
+            if not invited:
+                raise ChError(409, "nobody to invite")
+            c = {"id": secrets.token_hex(4), "mode": mode, "minutes": minutes, "creator": name,
+                 "created_t": now, "state": "open", "invited": invited,
+                 "players": {name: {"accepted": True, "score": 0, "seq": 0}}}
+            challenges.setdefault(code, {})[c["id"]] = c
+            return c
+
+
+        def _ch_act(code, name, cid, d, now):
+            chs = _ch_tick(code, now)
+            c = chs.get(cid)
+            if c is None:
+                raise ChError(404, "no such challenge")
+            action = d.get("action")
+            if action == "accept":
+                if name not in c["invited"] or c["state"] not in ("open", "running"):
+                    raise ChError(409, "can't accept")
+                if c["state"] == "running" and now >= c["start_t"]:
+                    raise ChError(409, "already started")
+                if _ch_busy(chs, name):
+                    raise ChError(409, "you are already in a challenge")
+                c["invited"].discard(name)
+                c["players"][name] = {"accepted": True, "score": 0, "seq": 0}
+                if c["state"] == "open":
+                    c["state"] = "running"
+                    c["start_t"] = now + CH_COUNTDOWN_S
+                    c["end_t"] = c["start_t"] + c["minutes"] * 60
+            elif action == "decline":
+                if name not in c["invited"]:
+                    raise ChError(409, "not invited")
+                c["invited"].discard(name)
+                if c["state"] == "open" and (c["mode"] == "1v1" or not c["invited"]):
+                    c["state"], c["ended_t"] = "declined", now
+            elif action == "cancel":
+                if name != c["creator"] or c["state"] != "open":
+                    raise ChError(409, "can't cancel")
+                c["state"], c["ended_t"] = "cancelled", now
+            elif action == "kills":
+                _ch_kills(c, name, d.get("kills"), now)
+            else:
+                raise ChError(400, "bad action")
+            return c
+
+
+        def _ch_kills(c, name, events, now):
+            """Count a player's kill events: [{"s": seq, "n": kills, "t": server-clock time}]. Events are
+            acknowledged by seq (the client resends until "ack" catches up); what can't count (before the
+            start, after the end, stamped outside it, faster than anyone can kill) is acknowledged and ignored."""
+            p = c["players"].get(name)
+            if p is None or c["state"] != "running" or not isinstance(events, list):
+                return
+            for e in events[:CH_MAX_EVENTS]:
+                if not isinstance(e, dict):
+                    continue
+                s, n, t = e.get("s"), e.get("n"), e.get("t")
+                if not isinstance(s, int) or isinstance(s, bool) or s <= p["seq"]:
+                    continue
+                p["seq"] = s
+                if not isinstance(n, int) or isinstance(n, bool) or not 1 <= n <= CH_MAX_N:
+                    continue
+                if now < c["start_t"] - 1 or now > c["end_t"] + CH_GRACE_S:
+                    continue
+                stamp = t if isinstance(t, (int, float)) and not isinstance(t, bool) else now
+                if stamp < c["start_t"] or stamp > c["end_t"]:
+                    continue
+                if p["score"] + n > (min(now, c["end_t"]) - c["start_t"]) * CH_MAX_KPS + CH_MAX_N:
+                    continue
+                p["score"] += n
 
 
         def _clean_submission(d):
@@ -229,7 +408,45 @@ services:
                     return False
                 return code
 
+            def _challenge(self, method):
+                m = re.match(r"^/v1/challenge/([^/?]+)(?:/([0-9a-f]{8}))?$$", self.path)
+                if not m:
+                    return self._send(404, {"error": "not found"})
+                code, cid = m.groups()
+                if not CODE_RE.match(code) or (ALLOWED and code not in ALLOWED):
+                    return self._send(403, {"error": "unknown party code"})
+                d = {}
+                if method == "POST":
+                    raw = self._body(MAX_BODY)
+                    if raw is None:
+                        return self._send(413, {"error": "body too large or empty"})
+                    try:
+                        d = json.loads(raw)
+                    except ValueError:
+                        return self._send(400, {"error": "bad json"})
+                    name = d.get("name") if isinstance(d, dict) else None
+                    if not isinstance(name, str) or not NAME_RE.match(name):
+                        return self._send(400, {"error": "bad name"})
+                now = time.time()
+                with lock:
+                    try:
+                        if method == "GET":
+                            c = _ch_tick(code, now).get(cid) if cid else None
+                            if c is None:
+                                return self._send(404, {"error": "no such challenge"})
+                        elif cid is None:
+                            c = _ch_create(code, name, d, now)
+                        else:
+                            c = _ch_act(code, name, cid, d, now)
+                    except ChError as e:
+                        return self._send(e.code, {"error": e.msg})
+                    return self._send(200, {**_ch_view(c, now), "server_t": now})
+
             def do_GET(self):
+                if self.path.startswith("/v1/challenge/"):
+                    if not _rate_ok(self.client_address[0]):
+                        return self._send(429, {"error": "slow down"})
+                    return self._challenge("GET")
                 if self.path == "/health":
                     return self._send(200, {"ok": True, "source": SOURCE_URL, "feedback": bool(FEEDBACK_KEY)})
                 if not _rate_ok(self.client_address[0]):
@@ -248,6 +465,8 @@ services:
             def do_POST(self):
                 if not _rate_ok(self.client_address[0]):
                     return self._send(429, {"error": "slow down"})
+                if self.path.startswith("/v1/challenge/"):
+                    return self._challenge("POST")
                 if self.path.startswith("/v1/feedback"):
                     return self._feedback("POST")
                 code = self._code()
@@ -275,7 +494,13 @@ services:
                         oldest = min(p, key=lambda k: p[k][0])
                         del p[oldest]
                     p[name] = (now, fields)
-                    return self._send(200, {"members": _members(code, now), "server_t": now})
+                    ch = d.get("ch")
+                    if isinstance(ch, dict) and isinstance(ch.get("id"), str):
+                        c = (challenges.get(code) or {}).get(ch["id"])
+                        if c is not None:
+                            _ch_kills(c, name, ch.get("kills"), now)
+                    return self._send(200, {"members": _members(code, now), "server_t": now,
+                                            "challenges": _ch_for(code, name, now)})
 
 
             def do_DELETE(self):
