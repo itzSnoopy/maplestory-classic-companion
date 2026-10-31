@@ -190,7 +190,7 @@ def _ch_view(c, now):
     else:
         phase = c["state"]
     out = {"id": c["id"], "type": "kills", "mode": c["mode"], "minutes": c["minutes"],
-           "creator": c["creator"], "state": c["state"], "phase": phase,
+           "creator": c["creator"], "state": c["state"], "phase": phase, "created_t": c["created_t"],
            "invited": sorted(c["invited"]), "start_t": c.get("start_t"), "end_t": c.get("end_t"),
            "players": [{"name": n, "score": p["score"], "accepted": p["accepted"], "ack": p["seq"]}
                        for n, p in c["players"].items()]}

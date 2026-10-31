@@ -35,7 +35,7 @@ from pathlib import Path
 from base import paths
 from base.paths import DATA
 ICON = {"levelup": "⬆️", "death": "💀", "job": "⭐", "first_visit": "🗺️", "first_kill": "⚔️",
-        "note": "📝", "moment": "📸"}
+        "note": "📝", "moment": "📸", "challenge": "🤺"}
 SKIP_REGIONS = {"Event", "Hidden Street", None}     # never "arrived in a new region"
 MOMENT_TEXT = "A random moment."
 SNAP_TEXT = "A moment I captured."       # the helper's camera button

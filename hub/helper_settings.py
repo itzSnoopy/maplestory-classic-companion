@@ -110,6 +110,14 @@ DEFAULTS = {
         "icon_size": 90,                # the icon's size in px (slider ICON_MIN..ICON_MAX in helper_ui)
         "icon_ring": "#16181d",         # ring colour "#rrggbb" (theme BG, the Settings background: stands out from the art), or "state"
     },
+    "challenge": {                      # Settings > General; components/challenge: duels over the party relay
+        "enabled": True,                # the board over the game + invitations (needs the party link)
+        "dnd": False,                   # don't disturb: no invitations shown, friends' buttons stay off
+        "bg": "#000000",                # the cage-match board's background
+        "flames": "blaze",              # blaze | tongues | embers | arcane | poison | painted
+        "locked": False,
+        "x": None, "y": None,           # None = top centre
+    },
 }
 
 

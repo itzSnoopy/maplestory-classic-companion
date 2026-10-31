@@ -51,6 +51,9 @@ HIDDEN = ["launcher.setup_ui", "hub.settings_ui", "engine.calibrate", "component
           "components.album.component", "components.party.component", "components.training.component", "components.kpq.kpq", "components.kpq.component",
           "components.discord.component", "components.discord.settings_page", "components.discord.text",
           "components.feedback.component", "components.feedback.review_page",
+          "components.challenge.component", "components.challenge.duel", "components.challenge.board",
+          "components.challenge.bulbs", "components.challenge.sprites", "components.challenge.settings_page",
+          "gamedata.kills",
           "hub.pages", "hub.ui.shell", "hub.ui.overlay", "hub.ui.theme", "hub.ui.layered",
           "engine.hudtext", "engine.levelup_shot", "gamedata.translate", "gamedata.parse", "gamedata.maplist",
           "engine.sources.wgc", "engine.sources.screen", "engine.sources.csv_replay", "windows_capture",
@@ -58,7 +61,7 @@ HIDDEN = ["launcher.setup_ui", "hub.settings_ui", "engine.calibrate", "component
 EXCLUDE = ["cv2",        # only used by windows-capture to save files; replaced by rthook_cv2.py
            "pkg_resources", "setuptools"]   # not used; its runtime hook breaks the build
 FORBIDDEN = ["config.json", "helper_settings.json", "glyphs.json", "glyphs_level.json", "glyphs_ui.json", "glyphs_hud.json",
-             "party.json", "live.json",
+             "party.json", "live.json", "challenge.json", "challenge_cmd.json",
              "minimap_world.png", "minimap_header.png", "nametag.png"]
 
 
