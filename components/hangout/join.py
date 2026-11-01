@@ -53,6 +53,7 @@ class Client:
 
     def __init__(self, server_fn):
         self.server_fn = server_fn
+        self.last_role = None
 
     def call(self, method, path, body=None, token=None):
         """-> (status, json). Status 0 = could not connect (or the internet gate is closed)."""
@@ -91,7 +92,7 @@ class Client:
             status = "pending" if d.get("status") == "pending" else "active"
             rec = relay_room.clean({"id": room["id"], "name": room.get("name"), "kind": room.get("kind"),
                                     "token": d["token"], "status": status, "me": name,
-                                    "joined_t": round(time.time(), 1)})
+                                    "role": d.get("role"), "joined_t": round(time.time(), 1)})
             return Outcome(PENDING if status == "pending" else JOINED, "", rec)
         if st == 0:
             return Outcome(OFFLINE, msg or "Can't reach the relay")
@@ -114,9 +115,11 @@ class Client:
     # ---- keep checking
     def check_me(self, room):
         """GET /me with the stored token -> (ACTIVE | STILL_PENDING | LOST | UNSURE, message).
-        A 401 ends it (kicked, denied, room deleted); a network error or a 429 lockout is UNSURE, never LOST."""
+        A 401 ends it (kicked, denied, room deleted); a network error or a 429 lockout is UNSURE, never LOST.
+        `self.last_role` = the role /me reported (a promoted member becomes a mod there)."""
         st, d = self.call("GET", f"/v2/rooms/{room['id']}/me", token=room["token"])
         if st == 200:
+            self.last_role = d.get("role") if d.get("role") in relay_room.ROLES else None
             return (ACTIVE if d.get("status") == "active" else STILL_PENDING), ""
         if st == 401 or st == 404:
             return LOST, ""
@@ -130,3 +133,46 @@ class Client:
         if st == 0:
             return True, "Left (the relay was not reachable)"
         return True, ""
+
+
+# ---- room activities (the Start button): the tracker's challenge component does the relay call
+RACE_MINUTES = (2, 5, 10, 15)       # the relay's MINUTES (it answers 400 for anything else)
+CMD_FILE = "challenge_cmd.json"     # the same hand-off file the party panel's Challenge button uses
+
+
+RELIC_LEVELS = (("easy", "Easy · 12 pieces"), ("medium", "Medium · 24 pieces"), ("challenging", "Challenging · 48 pieces"),
+                ("epic", "Epic · 96 pieces"), ("hardcore", "Hardcore · 192 pieces"))
+RELIC_CMD_FILE = "relic_cmd.json"   # read by the tracker's relic component (components/relic/CLAUDE.md)
+
+
+def write_relic_command(cmd, root=None):
+    """Hand a relic hunt command to the tracker's relic component: {"action": "start", "difficulty": "easy"} or
+    {"action": "stop"}. The file is the contract; no import of that component."""
+    root = root or H.ROOT
+    H.write_json(root / RELIC_CMD_FILE, {"t": round(time.time(), 2), **cmd}, indent=None)
+
+
+def write_command(cmd, root=None):
+    """Hand a command to the tracker's challenge component (it reads and deletes the file within ~0.5 s):
+    {"action": "start", "kind": "race", "minutes": 5} or {"action": "stop"}. No import of that component:
+    the file is the contract (see components/challenge/CLAUDE.md)."""
+    root = root or H.ROOT
+    H.write_json(root / CMD_FILE, {"t": round(time.time(), 2), **cmd}, indent=None)
+
+
+def read_status(root=None, now=None):
+    """The tracker's challenge.json -> {"error": text or None, "activity": short text or None}. `activity` is the
+    race I am in ("Kill race - 3 min left"); an error is shown only while it is recent (the tracker clears it)."""
+    root = root or H.ROOT
+    now = now or time.time()
+    ch = H.read_json(root / "challenge.json", {})
+    if not isinstance(ch, dict) or now - (ch.get("t") or 0) > 15:
+        return {"error": None, "activity": None}
+    act = ch.get("active") if isinstance(ch.get("active"), dict) else None
+    text = None
+    if act and act.get("state") == "running" and act.get("end_t"):
+        left = act["end_t"] - (now + (ch.get("server_off") or 0))
+        if left > 0:
+            text = f"Kill race \u00b7 {max(1, int(-(-left // 60)))} min left"
+    err = ch.get("error")
+    return {"error": err if isinstance(err, str) else None, "activity": text}

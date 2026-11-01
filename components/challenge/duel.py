@@ -17,6 +17,7 @@ PENDING_S = 60              # an invitation lives this long (relay CH_PENDING_S)
 MAX_KILLS = 2               # kills that may share one rise (album's number: looks are ~1 s apart)
 MAX_SEND = 20               # events in one post (relay CH_MAX_EVENTS)
 RESULT_KEEP_S = 30          # how long the finished board stays in challenge.json
+PARTY_NOTE_S = 60           # challenge.json says "party: true" this long after a rise read as a party share
 STALE_S = 15                # challenge.json older than this: the helper stops showing the board
 
 
@@ -35,6 +36,7 @@ class Duel:
         self.last = None        # the last result (dict) and when it was seen
         self.last_t = 0.0
         self.error = None       # (text, local time) of the last failed command
+        self.party_seen = None  # (note, local time) of the last rise read as a party share
 
     # ---- helpers
     def to_server(self, t):
@@ -54,6 +56,11 @@ class Duel:
         """An open challenge I made, nobody accepted yet."""
         return next((v for v in self.views if v["state"] == "open" and v["creator"] == self.me), None)
 
+    def joined_open(self):
+        """An open race (a host race waiting for answers) that I already accepted."""
+        return next((v for v in self.views if v["state"] == "open" and (p := self._mine(v)) and p["accepted"]),
+                    None)
+
     def invite(self, now):
         """The invitation to me that can still be accepted: the view, or None."""
         for v in self.views:
@@ -64,8 +71,12 @@ class Duel:
         return None
 
     # ---- kills
-    def on_rise(self, t, map_name, d):
-        """An EXP rise d on a look at time t: count the whole kills in it while a challenge is live."""
+    def on_rise(self, t, map_name, d, party=None):
+        """An EXP rise d on a look at time t: count the kills in it while a challenge is live.
+
+        Solo: whole-mob matches (kills.whole_kills). `party` = {me_level, levels (other members on my map),
+        bonus (a kills.BonusFit or None), estimating} while partied: the rise is a party share, read by kills.party_kills; only MY kills
+        count (a teammate's kill or an unknown share counts nothing)."""
         with self.lock:
             v = self.active()
             if v is None:
@@ -73,7 +84,13 @@ class Duel:
             ts = self.to_server(t)
             if not v["start_t"] <= ts <= v["end_t"]:
                 return 0
-            n = kills.whole_kills(map_name, d, MAX_KILLS)
+            if party:
+                n = kills.party_kills(map_name, d, party["me_level"], party["levels"], party["bonus"], MAX_KILLS)[0]
+                bon = party.get("bonus")
+                self.party_seen = (("party share, bonus %s" % (bon if bon is not None else "not learned yet")
+                                    + (" (estimating)" if party.get("estimating") else "")), time.time())
+            else:
+                n = kills.whole_kills(map_name, d, MAX_KILLS)
             if n:
                 self.seq += 1
                 self.events.append({"s": self.seq, "n": n, "t": round(ts, 3)})
@@ -97,7 +114,8 @@ class Duel:
                 self._switch(v["id"])
                 extra["ch"] = {"id": v["id"], "kills": self.events[:MAX_SEND]}
                 extra["_fast"] = True
-            elif self.waiting() is not None or self.invite(time.time()) is not None:
+            elif (self.waiting() is not None or self.joined_open() is not None
+                  or self.invite(time.time()) is not None):
                 extra["_fast"] = True
         return extra
 
@@ -149,18 +167,25 @@ class Duel:
         with self.lock:
             snap = {"t": round(now, 2), "enabled": bool(enabled), "dnd": bool(dnd), "me": self.me,
                     "server_off": round(self.server_off, 3), "busy": False, "invite": None,
-                    "active": None, "last": None}
+                    "active": None, "last": None, "party": False}
+            if self.party_seen and now - self.party_seen[1] < PARTY_NOTE_S:
+                snap["party"], snap["party_note"] = True, self.party_seen[0]
             if not enabled:
                 return snap
             act = self.active()
             wait = self.waiting()
-            snap["busy"] = bool(act or wait)
+            snap["busy"] = bool(act or wait or self.joined_open())
+            if wait is not None:                # my open invite: the party panel shows "Waiting for X" + Cancel
+                inv_names = sorted(wait.get("invited") or [])
+                snap["waiting"] = {"id": wait["id"], "mode": wait["mode"],
+                                   "target": inv_names[0] if len(inv_names) == 1 else None}
             inv = None if dnd else self.invite(now)
             if inv is not None:
                 end = (inv["start_t"] - self.server_off if inv["state"] == "running"
                        else inv["created_t"] - self.server_off + PENDING_S)
                 snap["invite"] = {"id": inv["id"], "from": inv["creator"], "mode": inv["mode"],
-                                  "minutes": inv["minutes"], "expires": round(end, 2)}
+                                  "minutes": inv["minutes"], "expires": round(end, 2),
+                                  "host": bool(inv.get("host"))}
             show = act
             if show is None:                    # a finished one stays on the board for a moment
                 show = next((v for v in self.views if v["state"] == "done" and self._mine(v)

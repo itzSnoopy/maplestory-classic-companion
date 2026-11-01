@@ -88,8 +88,11 @@ def call(method, path, body=None):
         return e.code, json.loads(e.read())
 
 
+RIVAL_MAP = ["Somewhere Else"]            # Rival is on another map (so my rises are solo) until the party part
+
+
 def rival_post(**ch):
-    return call("POST", f"/v1/party/{CODE_STR}", {"name": "Rival", "level": 20, "map": MAP, "state": "playing",
+    return call("POST", f"/v1/party/{CODE_STR}", {"name": "Rival", "level": 20, "map": RIVAL_MAP[0], "state": "playing",
                                                     "v": "9.9.9", "caps": "ch", **({"ch": ch} if ch else {})})[1]
 
 
@@ -171,15 +174,28 @@ try:
 
     # 3 ------------------------------------------------------------------------------------------
     t0 = time.time()
+    rival_post()                                            # Rival elsewhere: my rises are solo (whole mobs)
+    wait(lambda: any(m.get("name") == "Rival" and m.get("map") == RIVAL_MAP[0]
+                     for m in H.read_json(OUT / "party.json", {}).get("members", [])))
     rise(148)                                               # Mano
     rise(296)                                               # 2 Manos in one look
     rise(7)                                                 # no mob/pair of this map: a share, a quest
-    rise(148, party=True)                                   # party share rises are still whole matches here: counted
+    RIVAL_MAP[0] = MAP
+    rival_post()                                            # fresh presence: Rival is on my map right now
+    wait(lambda: any(m.get("name") == "Rival" and (m.get("age_s") or 99) < 2 and m.get("map") == MAP
+                     for m in H.read_json(OUT / "party.json", {}).get("members", [])))
+    # partied (Rival, Lv 20, is on my map; I am Lv 22; bonus not learned yet): shares are read by kills.party_kills
+    # Mano (148 EXP): my own kill = ceil(148*(0.2+0.8*22/42)) = 92, a teammate's = ceil(148*0.8*22/42) = 63
+    rise(92, party=True)                                    # my own Mano kill (bonus not seen yet): counts 1
+    rise(120, party=True)                                   # my own Mano kill with the party bonus (92 + ceil(92*0.3)): counts 1
+    rise(63, party=True)                                    # Rival's Mano kill as my share: counts nothing
+    rise(400, party=True)                                   # explained by nothing (no whole mob is a share): counts nothing
     time.sleep(0.05)
 
     def mine():
         return {p["name"]: p["score"] for p in (snap().get("active") or {}).get("players", [])}.get("Snoopy")
-    check(wait(lambda: mine() == 1 + 2 + 1), "relay score = 4 kills (1 + 2, a 7 EXP rise counts nothing, party-share match counted)")
+    check(wait(lambda: mine() == 1 + 2 + 1 + 1), "relay score = 5 kills (1 + 2, a 7 EXP rise counts nothing, party: only my own two shares count, a teammate's / unexplained one not)")
+    check(snap().get("party") is True and "bonus" in snap().get("party_note", ""), f"challenge.json says party: {snap().get('party_note')}")
     check(chal.duel.events == [], "all events acknowledged")
     for i in range(3):
         rival_post(id=cid, kills=[{"s": i + 1, "n": 1, "t": time.time()}])
@@ -194,17 +210,17 @@ try:
 
     partylink.exchange = down
     time.sleep(0.5)
+    rise(148)                                               # (no party data while the link is down: solo reading)
     rise(148)
-    rise(148)
-    check(chal.duel.mine == 6 and len(chal.duel.events) == 2, "kills made while the link is down are kept (2 events waiting)")
+    check(chal.duel.mine == 7 and len(chal.duel.events) == 2, "kills made while the link is down are kept (2 events waiting)")
     partylink.exchange = real
-    check(wait(lambda: mine() == 6 and chal.duel.events == []), "...and arrive when it is back (score 6)")
+    check(wait(lambda: mine() == 7 and chal.duel.events == []), "...and arrive when it is back (score 7)")
 
     # 4 ------------------------------------------------------------------------------------------
     shift(cid, 200)                                         # the end + grace passed
     check(wait(lambda: len(ev) == 1), "challenge_end emitted")
     res = ev[0]
-    check(res["won"] is True and res["score"] == [6, 3] and res["opponent"] == "Rival", f"I won 6-3 ({res['score']})")
+    check(res["won"] is True and res["score"] == [7, 3] and res["opponent"] == "Rival", f"I won 7-3 ({res['score']})")
     rec = H.read_json(OUT / "history" / "challenges.json", {})
     check(rec["vs"]["Snoopy"]["Rival"] == {"won": 1, "lost": 0, "tied": 0}, "record vs Rival 1-0")
     check(any("Challenge: won" in j for j in journal), "journal line")
@@ -215,7 +231,7 @@ try:
     check(not snap().get("busy"), "free again")
     seen = {}
     vs = board.view_state(snap(), time.time(), seen, lambda n: None)
-    check(vs and vs["phase"] == "winner" and vs["winner"] == "right" and vs["right"]["score"] == 6, "board state: winner = me")
+    check(vs and vs["phase"] == "winner" and vs["winner"] == "right" and vs["right"]["score"] == 7, "board state: winner = me")
     check(board.view_state(snap(), time.time() + 11, seen, lambda n: None) is None, "the board closes ~10 s after the result")
     time.sleep(0.8)
     check(len(ev) == 1, "the result is reported once")
@@ -226,11 +242,14 @@ try:
     H.write_json(OUT / "challenge_cmd.json", {"t": time.time(), "action": "create", "mode": "all", "minutes": 2}, indent=None)
     check(wait(lambda: bool(R.challenges.get(CODE_STR))), "second challenge created (everyone)")
     cid = next(iter(R.challenges[CODE_STR]))
+    RIVAL_MAP[0] = "Somewhere Else"
     rival_post()
     call("POST", f"/v1/challenge/{CODE_STR}/{cid}", {"name": "Rival", "action": "accept"})
     wait(lambda: (snap().get("active") or {}).get("state") == "running")
     shift(cid, 6)
     wait(lambda: (snap().get("active") or {}).get("phase") == "live")
+    wait(lambda: any(m.get("name") == "Rival" and m.get("map") == RIVAL_MAP[0]
+                     for m in H.read_json(OUT / "party.json", {}).get("members", [])))
     rise(148)
     rival_post(id=cid, kills=[{"s": 1, "n": 1, "t": time.time()}])
     wait(lambda: mine() == 1)

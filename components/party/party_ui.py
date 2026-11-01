@@ -15,9 +15,16 @@ process like the skill bar (helper_ui.App, Settings > General "Party panel"); dr
 right-click to lock (click-through) or hide. Position: helper_settings.json "partypanel".
 
 Challenges (components/challenge/): when some member's app says it can ("ch" in its caps) and
-challenge.json (the tracker's, "enabled") is on, a crossed-swords "Challenge" button sits on top; it opens a
-small picker (type, minutes, who) and writes challenge_cmd.json for the tracker. An invitation addressed
-to you (challenge.json "invite") shows as one line with Accept / x. No sound, no popup over the game.
+challenge.json (the tracker's, "enabled") is on:
+  - every such member / friend row has a small crossed-swords "Duel" button: one click opens a compact picker next to
+    the row (2 / 5 / 10 / 15 min, then "Challenge <Name>") that writes the 1v1 create command with the target;
+    greyed (a click shows the reason) while you are in a duel or that member is
+  - a top line "Race everyone here" / "Race the party" (a map / everyone race, small picker)
+  - busy states: "Waiting for <Name>..." while your invite is open (a Cancel button when challenge.json has
+    `waiting.id`), the relay's error text (e.g. the other player is already in a duel) for a few seconds
+  - an invitation addressed to you (challenge.json "invite") shows as one line with Accept / x; the obvious place
+    to answer is the popup in components/challenge/invite_ui.py (this line is the second place).
+Everything goes through challenge_cmd.json for the tracker; the panel never talks to the relay.
 
   python -m components.party.party_ui --demo [--at=X,Y]      fake data, for trying it out
 """
@@ -95,7 +102,8 @@ def members(live, status, pj, now):
             used.add(c["name"])
             c.update(hp=m.get("hp"), mp=m.get("mp"), level=m.get("level"), exp_pct=m.get("exp_pct"),
                      exp_hr=m.get("exp_hr"), eta=m.get("eta"), map=m.get("map"),
-                     playing=m.get("state") == "playing", age=m.get("age_s") or 0, app=True)
+                     playing=m.get("state") == "playing", age=m.get("age_s") or 0, app=True,
+                     busy=bool(m.get("busy")))
         cards.append(c)
     # everyone else with the code: friends in the hangout, not in your in-game party (or the box
     # isn't on screen). A compact list: same map first, then who's playing, then by name
@@ -109,22 +117,27 @@ def members(live, status, pj, now):
                             "job": m.get("job"), "channel": m.get("channel"),
                             "same_map": bool(my_map and m.get("map") == my_map),
                             "playing": m.get("state") == "playing", "age": m.get("age_s") or 0,
-                            "app": True})
+                            "app": True, "busy": bool(m.get("busy"))})
     friends.sort(key=lambda f: (not f["same_map"], not f["playing"], f["name"].lower()))
     return cards + friends
 
 
 def challenge_ui(pj, ch, now):
-    """What the challenge strips show: {"able": names that run a build with challenges, "button": bool,
-    "invite": the open invitation to you or None}. Needs challenge.json from the tracker (it says enabled)."""
+    """What the challenge strips show: {"able": names that run a build with challenges, "button": bool (the group
+    entry is shown), "busy": I am in / waiting for a duel, "waiting": {id?, target?} | None (challenge.json
+    `waiting` when the tracker writes it), "error": the relay's last refusal or None, "invite": the open invitation
+    to you or None}. Needs challenge.json from the tracker (it says enabled)."""
     if not ch.get("enabled") or not pj.get("ok"):
-        return {"able": [], "button": False, "invite": None}
+        return {"able": [], "button": False, "invite": None, "busy": False, "waiting": None, "error": None,
+                "active": False}
     able = [m["name"] for m in pj.get("members") or []
             if "ch" in str(m.get("caps") or "").split(",") and (m.get("age_s") or 0) < MATE_FRESH_S * 4]
     inv = ch.get("invite")
     if inv and (inv.get("expires") or 0) < now:
         inv = None
-    return {"able": able, "button": bool(able) and not ch.get("busy"), "invite": inv}
+    return {"able": able, "button": bool(able), "invite": inv, "busy": bool(ch.get("busy")),
+            "waiting": ch.get("waiting") if isinstance(ch.get("waiting"), dict) else None,
+            "error": ch.get("error"), "active": bool(ch.get("active"))}
 
 
 def _swords(d, cx, cy, r, k):
@@ -145,6 +158,10 @@ class PartyPanel:
         self.hot = []                        # clickable spots of the image: (x0, y0, x1, y1, action)
         self.picker = None
         self.ch = {}
+        self.pending = None                  # my last create command: {name | None, t}, until the relay shows it
+        self.note = None                     # (text, until) a blocked Duel button's reason
+        self.last_min = 5                    # the minutes the Duel picker starts on
+        self._h = []                         # hot regions a drawing helper reports (image coordinates)
         self.f_name, self.f_small = _font(int(13 * k)), _font(int(10 * k))
         self.f_bar = _font(int(10 * k))
         self.w = w = tk.Toplevel(root)
@@ -212,8 +229,13 @@ class PartyPanel:
         right = f"Lv {c['level']}" if c.get("level") else ""
         if c.get("app") and c.get("playing") is False:
             right = (right + " · away").strip(" ·")
+        rx = W - pad
+        if c.get("duel_ok") is not None:
+            bt = int(18 * k)
+            self._duel_button(d, W - pad - bt, y - int(1 * k), bt, c, c["duel_ok"])
+            rx -= bt + int(4 * k)
         if right:
-            _text(d, (W - pad, y + int(8 * k)), right, self.f_small, fill=(200, 210, 230, 255),
+            _text(d, (rx, y + int(8 * k)), right, self.f_small, fill=(200, 210, 230, 255),
                   anchor="rm")
         y += int(17 * k)
         if away:
@@ -274,6 +296,7 @@ class PartyPanel:
               fill=(200, 210, 230, 255), anchor="lm")
         y = pad + head_h
         bw = int(70 * k)
+        bt = int(22 * k)
         for f in friends:
             stale = (f.get("age") or 0) > MATE_FRESH_S
             dot = (90, 210, 120, 255) if f.get("playing") and not stale else (120, 125, 135, 255)
@@ -285,21 +308,27 @@ class PartyPanel:
             right = " · ".join(x for x in (f"Lv {f['level']}" if f.get("level") else "",
                                              f"{f['exp_pct']:.1f}%" if f.get("exp_pct") is not None
                                              else "") if x)
+            has_btn = f.get("duel_ok") is not None
+            edge = W - pad - ((bt + int(4 * k)) if has_btn else 0)
+            if has_btn:
+                self._duel_button(d, W - pad - bt, y + int(3 * k), bt, f, f["duel_ok"])
             if right:
-                _text(d, (W - pad, y + int(7 * k)), right, self.f_small,
+                _text(d, (edge, y + int(7 * k)), right, self.f_small,
                       fill=(220, 220, 150, 255), anchor="rm")
             where = f.get("map") or ("not playing" if not f.get("playing") else "?")
             if f.get("same_map"):
                 where = "here · " + where
+            if f.get("busy"):
+                where = "in a duel"
             ch = f" · ch {f['channel']}" if f.get("channel") else ""
             mcol = (140, 220, 160, 255) if f.get("same_map") else (150, 160, 180, 255)
             text = (where + ch)
-            maxw = W - 2 * pad - bw - int(16 * k)
+            maxw = edge - 2 * pad - bw - int(16 * k)
             while text and d.textlength(text, font=self.f_small) > maxw:
                 text = text[:-2] + "…" if not text.endswith("…") else text[:-2] + "…"
             _text(d, (pad + int(10 * k), y + int(21 * k)), text, self.f_small, fill=mcol,
                   anchor="lm")
-            bx = W - pad - bw
+            bx = edge - bw
             hp = f.get("hp")
             hb = int(4 * k)
             if hp:
@@ -317,41 +346,134 @@ class PartyPanel:
                   fill=(150, 160, 180, 255), anchor="lm")
         return im
 
+    def _duel_button(self, d, x, y, size, who, reason):
+        """The small crossed-swords Duel button of a row at (x, y) (size px square) in this image. `reason` is True
+        when it works, else the text a click shows (greyed look). Registers its hot region in self._h."""
+        k = self.k
+        ok = reason is True
+        d.rounded_rectangle((x, y, x + size, y + size), radius=int(5 * k),
+                            fill=(46, 44, 30, 255) if ok else (34, 36, 42, 255),
+                            outline=(230, 180, 60, 255) if ok else (80, 84, 94, 255))
+        cx, cy, r = x + size // 2, y + size // 2, int(size * 0.28)
+        if ok:
+            _swords(d, cx, cy, r, k)
+        else:                                                   # greyed: two plain grey blades
+            for sx in (-1, 1):
+                d.line((cx + sx * r, cy - r, cx - sx * r, cy + r), fill=(96, 100, 112, 255), width=max(2, int(2 * k)))
+        self._h.append((x, y, x + size, y + size, ("duel", who["name"]) if ok else ("blocked", reason)))
+
+    def busy_reason(self, ch):
+        """Why my Duel buttons are off, or None."""
+        if self.waiting_view(ch):
+            return "waiting for an answer"
+        if ch.get("busy"):
+            return "you're in a duel"
+        return None
+
+    def waiting_view(self, ch):
+        """My open invitation: {text, id?} from challenge.json `waiting` ({id, target | name}) or, until the tracker
+        writes it, from the create command this panel sent (no id then: no Cancel button)."""
+        w = ch.get("waiting")
+        p = self.pending
+        if w:
+            who = w.get("target") or w.get("name") or (p or {}).get("name")
+            return {"text": f"Waiting for {who}..." if who else "Waiting for answers...", "id": w.get("id")}
+        if p and ch.get("busy") and not ch.get("active") and not ch.get("invite"):
+            return {"text": f"Waiting for {p['name']}..." if p.get("name") else "Waiting for answers...", "id": None}
+        return None
+
     def _strip(self, ch):
-        """The Challenge button and/or the invitation line -> (image, [(x0, y0, x1, y1, action)]) or None."""
+        """The top lines (invitation, waiting, the group race entry, a note) -> (image, [(x0, y0, x1, y1, action)])
+        or None."""
         k = self.k
         W, pad = int(W_CARD * k), int(6 * k)
-        rows = (1 if ch.get("button") else 0) + (1 if ch.get("invite") else 0)
-        if not rows:
+        now = time.time()
+        inv, wait = ch.get("invite"), self.waiting_view(ch)
+        note = self.note[0] if self.note and self.note[1] > now else None
+        err = ch.get("error") if not note else None
+        if not (inv or wait or ch.get("button") or note or err):
             return None
+        rows = []
+        if inv:
+            rows.append("invite")
+        if wait:
+            rows.append("wait")
+        if ch.get("button"):
+            rows.append("group")
+        if note or err:
+            rows.append("note")
         rh = int(24 * k)
-        im = Image.new("RGBA", (W, rh * rows + pad // 2), (0, 0, 0, 0))
+        im = Image.new("RGBA", (W, rh * len(rows) + pad // 2), (0, 0, 0, 0))
         d = ImageDraw.Draw(im)
         hot, y = [], 0
-        if ch.get("invite"):
-            inv = ch["invite"]
-            d.rounded_rectangle((0, y, W - 1, y + rh - 2), radius=int(6 * k), fill=(24, 26, 32, 235),
-                                outline=(230, 180, 60, 255))
-            who = {"1v1": "", "map": " (your map)", "all": " (everyone)"}.get(inv.get("mode"), "")
-            _text(d, (pad, y + rh // 2), f"{inv.get('from', '?')}: Kills {inv.get('minutes', '?')} min{who}",
-                  self.f_small, anchor="lm")
-            bw = int(46 * k)
-            ax = W - pad - int(16 * k) - bw
-            d.rounded_rectangle((ax, y + int(3 * k), ax + bw, y + rh - int(5 * k)), radius=int(4 * k),
-                                fill=(40, 120, 60, 255), outline=(120, 220, 150, 255))
-            _text(d, (ax + bw // 2, y + rh // 2 - 1), "Accept", self.f_small)
-            xx = W - pad - int(12 * k)
-            _text(d, (xx + int(6 * k), y + rh // 2 - 1), "x", self.f_name, fill=(190, 195, 205, 255))
-            hot += [(ax, y, ax + bw, y + rh, "accept"), (xx - int(4 * k), y, W, y + rh, "decline")]
+        for kind in rows:
+            if kind == "invite":
+                d.rounded_rectangle((0, y, W - 1, y + rh - 2), radius=int(6 * k), fill=(24, 26, 32, 235),
+                                    outline=(230, 180, 60, 255))
+                who = {"1v1": "", "map": " (your map)", "all": " (everyone)"}.get(inv.get("mode"), "")
+                if inv.get("host"):
+                    who = " (room race)"
+                _text(d, (pad, y + rh // 2), f"{inv.get('from', '?')}: Kills {inv.get('minutes', '?')} min{who}",
+                      self.f_small, anchor="lm")
+                bw = int(46 * k)
+                ax = W - pad - int(16 * k) - bw
+                d.rounded_rectangle((ax, y + int(3 * k), ax + bw, y + rh - int(5 * k)), radius=int(4 * k),
+                                    fill=(40, 120, 60, 255), outline=(120, 220, 150, 255))
+                _text(d, (ax + bw // 2, y + rh // 2 - 1), "Accept", self.f_small)
+                xx = W - pad - int(12 * k)
+                _text(d, (xx + int(6 * k), y + rh // 2 - 1), "x", self.f_name, fill=(190, 195, 205, 255))
+                hot += [(ax, y, ax + bw, y + rh, "accept"), (xx - int(4 * k), y, W, y + rh, "decline")]
+            elif kind == "wait":
+                d.rounded_rectangle((0, y, W - 1, y + rh - 2), radius=int(6 * k), fill=(24, 26, 32, 235),
+                                    outline=(120, 160, 230, 255))
+                _text(d, (pad, y + rh // 2 - 1), wait["text"], self.f_small, fill=(190, 210, 245, 255), anchor="lm")
+                if wait.get("id"):
+                    bw = int(52 * k)
+                    ax = W - pad - bw
+                    d.rounded_rectangle((ax, y + int(3 * k), ax + bw, y + rh - int(5 * k)), radius=int(4 * k),
+                                        fill=(92, 50, 52, 255), outline=(220, 130, 130, 255))
+                    _text(d, (ax + bw // 2, y + rh // 2 - 1), "Cancel", self.f_small)
+                    hot.append((ax, y, W, y + rh, "cancel"))
+            elif kind == "group":
+                off = self.busy_reason(ch)
+                d.rounded_rectangle((0, y, W - 1, y + rh - 2), radius=int(6 * k), fill=(24, 26, 32, 235),
+                                    outline=(90, 96, 110, 255) if off else (200, 170, 80, 255))
+                _swords(d, pad + int(10 * k), y + rh // 2 - 1, int(6 * k) if off else int(7 * k), k)
+                _text(d, (pad + int(24 * k), y + rh // 2 - 1), ch.get("label") or "Race everyone here",
+                      self.f_small, fill=(130, 136, 148, 255) if off else (200, 210, 230, 255), anchor="lm")
+                if off:
+                    _text(d, (W - pad, y + rh // 2 - 1), off, self.f_small, fill=(150, 160, 180, 255), anchor="rm")
+                    hot.append((0, y, W, y + rh, ("blocked", off)))
+                else:
+                    hot.append((0, y, W, y + rh, "new"))
+            else:
+                _text(d, (pad, y + rh // 2 - 1), note or err, self.f_small, fill=(240, 150, 140, 255), anchor="lm")
             y += rh
-        if ch.get("button"):
-            d.rounded_rectangle((0, y, W - 1, y + rh - 2), radius=int(6 * k), fill=(24, 26, 32, 235),
-                                outline=(90, 96, 110, 255))
-            _swords(d, pad + int(10 * k), y + rh // 2 - 1, int(7 * k), k)
-            _text(d, (pad + int(24 * k), y + rh // 2 - 1), "Challenge a friend", self.f_small,
-                  fill=(200, 210, 230, 255), anchor="lm")
-            hot.append((0, y, W, y + rh, "new"))
         return im, hot
+
+    def _mark_duel(self, cards, now):
+        """Set each card's `duel_ok` (None = no button, True = works, text = why it is off) and the group entry's
+        label; forget a `pending` invite once the relay shows it (or it timed out)."""
+        ch = self.ch
+        p = self.pending
+        if p and ((not ch.get("busy") and now - p["t"] > 4) or ch.get("active") or ch.get("invite")
+                  or now - p["t"] > 70):
+            self.pending = None
+        off = self.busy_reason(ch)
+        able = set(ch.get("able") or [])
+        for c in cards:
+            if c.get("me") or c["name"] not in able:
+                c["duel_ok"] = None
+            elif c.get("friend") and not c.get("playing"):
+                c["duel_ok"] = None                         # not playing: no button (it would only time out)
+            elif off:
+                c["duel_ok"] = off[0].upper() + off[1:]
+            elif c.get("busy"):
+                c["duel_ok"] = f"{c['name']} is in a duel"
+            else:
+                c["duel_ok"] = True
+        party = sum(1 for c in cards if not c.get("friend")) > 1
+        ch["label"] = "Race the party" if party else "Race everyone here"
 
     def render(self, cards, ch=None):
         self.hot = []
@@ -367,11 +489,13 @@ class PartyPanel:
             imgs.append(strip[0])
             hots.append(strip[1])
         for c in full:
+            self._h = []
             imgs.append(self._card(c))
-            hots.append([])
+            hots.append(self._h)
         if friends:
+            self._h = []
             imgs.append(self._friends(friends))
-            hots.append([])
+            hots.append(self._h)
         if not imgs:
             return None
         g = int(4 * self.k)
@@ -394,12 +518,13 @@ class PartyPanel:
             now = time.time()
             if self.demo:
                 live, status, pj = demo_data(now)
-                chj = demo_challenge(now)
+                chj = demo_waiting(now) if "--waiting" in sys.argv else demo_challenge(now)
             else:
                 live, status, pj = _read(LIVE), _read(STATUS), _read(PARTY)
                 chj = _read(CHALLENGE)
             cards = members(live, status, pj, now)
             self.ch = challenge_ui(pj, chj, now)
+            self._mark_duel(cards, now)
             show = bool(self.get().get("enabled", True)) and bool(cards)
             if show:
                 from PIL import ImageTk
@@ -427,7 +552,7 @@ class PartyPanel:
         if abs(e.x_root - px) < 4 and abs(e.y_root - py) < 4:        # a click, not a drag
             for x0, y0, x1, y1, action in self.hot:
                 if x0 <= e.x < x1 and y0 <= e.y < y1:
-                    return self._click(action)
+                    return self._click(action, y0)
         if not self.dev:
             self.put(x=self.w.winfo_x(), y=self.w.winfo_y())
 
@@ -440,55 +565,103 @@ class PartyPanel:
         from hub import history as H
         H.write_json(CMD, {"t": round(time.time(), 2), **cmd}, indent=None)
 
-    def _click(self, action):
+    def _click(self, action, y=None):
         inv = self.ch.get("invite") or {}
         if action == "new":
             self._open_picker()
         elif action in ("accept", "decline") and inv.get("id"):
             self._command(action=action, id=inv["id"])
+        elif action == "cancel":
+            w = self.ch.get("waiting") or {}
+            if w.get("id"):
+                self._command(action="cancel", id=w["id"])
+                self.pending = None
+        elif isinstance(action, tuple) and action[0] == "blocked":
+            self.note = (action[1], time.time() + 4)
+        elif isinstance(action, tuple) and action[0] == "duel":
+            self._open_duel_picker(action[1], y)
 
-    def _open_picker(self):
-        """A small window next to the panel: type (Kills), minutes, who. Send writes the command."""
+    def _open_duel_picker(self, name, y):
+        """The compact 1v1 picker next to the clicked row: minutes, then 'Challenge <Name>'."""
+        self._close_picker()
+        k = self.k
+        p = self.picker = tk.Toplevel(self.root)
+        p.overrideredirect(True)
+        p.attributes("-topmost", True)
+        bg, fg = "#1a1c22", "#e8e8e8"
+        p.configure(bg="#e6b43c")
+        box = tk.Frame(p, bg=bg)
+        box.pack(padx=2, pady=2)
+        top = tk.Frame(box, bg=bg)
+        top.pack(fill="x", padx=int(8 * k), pady=(int(6 * k), int(2 * k)))
+        tk.Label(top, text=f"Duel {name}", bg=bg, fg=fg, font=("Segoe UI", int(10 * k), "bold")).pack(side="left")
+        tk.Button(top, text="x", bg=bg, fg="#aab", bd=0, relief="flat", activebackground=bg, activeforeground=fg,
+                  command=self._close_picker).pack(side="right")
+        mins = tk.IntVar(value=self.last_min)
+        row = tk.Frame(box, bg=bg)
+        row.pack(padx=int(8 * k), pady=int(2 * k))
+        for m in MINUTES:
+            tk.Radiobutton(row, text=f"{m} min", variable=mins, value=m, indicatoron=False, width=6,
+                           bg="#2a2d36", fg=fg, selectcolor="#3a6a48", activebackground="#3a3d46",
+                           activeforeground=fg, bd=0, relief="flat", pady=int(3 * k)).pack(side="left", padx=2)
+
+        def send():
+            self.last_min = mins.get()
+            self._command(action="create", mode="1v1", minutes=mins.get(), target=name)
+            self.pending = {"name": name, "t": time.time()}
+            self._close_picker()
+
+        tk.Button(box, text=f"Challenge {name}", command=send, bg="#2a8a46", fg="white", bd=0, relief="flat",
+                  activebackground="#33a556", activeforeground="white", font=("Segoe UI", int(10 * k), "bold"),
+                  pady=int(5 * k)).pack(fill="x", padx=int(8 * k), pady=(int(4 * k), int(8 * k)))
+        p.update_idletasks()
+        pw, ph = p.winfo_reqwidth(), p.winfo_reqheight()
+        x = self.w.winfo_x() + int(W_CARD * k) + 6
+        if x + pw > self.root.winfo_screenwidth():          # no room on the right: open on the left
+            x = max(0, self.w.winfo_x() - pw - 6)
+        yy = max(0, min(self.w.winfo_y() + (y or 0) - int(4 * k), self.root.winfo_screenheight() - ph - 8))
+        p.geometry(f"+{x}+{yy}")
+        p.after(30000, self._close_picker)                  # a forgotten picker goes away on its own
+
+    def _close_picker(self):
         if self.picker is not None:
             try:
-                self.picker.lift()
-                return
+                self.picker.destroy()
             except tk.TclError:
-                self.picker = None
+                pass
+            self.picker = None
+
+    def _open_picker(self):
+        """The group race picker next to the panel: minutes and who (my map / everyone online)."""
+        self._close_picker()
         k = self.k
-        able = list(self.ch.get("able") or [])
         p = self.picker = tk.Toplevel(self.root)
-        p.title("Challenge")
+        p.title(self.ch.get("label") or "Race")
         p.attributes("-topmost", True)
         p.resizable(False, False)
         p.geometry(f"+{self.w.winfo_x() + int((W_CARD + 12) * k)}+{self.w.winfo_y()}")
         pad = dict(padx=int(8 * k), pady=int(2 * k), anchor="w")
         tk.Label(p, text="Kills: most kills wins", font=("Segoe UI", int(10 * k), "bold")).pack(**pad)
-        mins = tk.IntVar(value=5)
+        mins = tk.IntVar(value=self.last_min)
         row = tk.Frame(p)
         row.pack(**pad)
         for m in MINUTES:
             tk.Radiobutton(row, text=f"{m} min", variable=mins, value=m).pack(side="left")
-        who = tk.StringVar(value=able[0] if able else "map")
-        for val, text in [(n, n) for n in able] + [("map", "Everyone on my map"), ("all", "Everyone online")]:
+        who = tk.StringVar(value="map")
+        for val, text in (("map", "Everyone on my map"), ("all", "Everyone online")):
             tk.Radiobutton(p, text=text, variable=who, value=val).pack(**pad)
 
-        def close():
-            self.picker = None
-            p.destroy()
-
         def send():
-            w = who.get()
-            cmd = ({"mode": "map"} if w == "map" else {"mode": "all"} if w == "all"
-                   else {"mode": "1v1", "target": w})
-            self._command(action="create", minutes=mins.get(), **cmd)
-            close()
+            self.last_min = mins.get()
+            self._command(action="create", minutes=mins.get(), mode=who.get())
+            self.pending = {"name": None, "t": time.time()}
+            self._close_picker()
 
         row = tk.Frame(p)
         row.pack(padx=int(8 * k), pady=int(6 * k))
-        tk.Button(row, text="Send", width=8, command=send).pack(side="left", padx=4)
-        tk.Button(row, text="Cancel", width=8, command=close).pack(side="left", padx=4)
-        p.protocol("WM_DELETE_WINDOW", close)
+        tk.Button(row, text="Start race", width=10, command=send).pack(side="left", padx=4)
+        tk.Button(row, text="Cancel", width=8, command=self._close_picker).pack(side="left", padx=4)
+        p.protocol("WM_DELETE_WINDOW", self._close_picker)
 
     def _menu(self, e):
         m = tk.Menu(self.w, tearoff=0)
@@ -517,11 +690,7 @@ class PartyPanel:
             print(f"party panel lock failed: {e}")
 
     def destroy(self):
-        if self.picker is not None:
-            try:
-                self.picker.destroy()
-            except tk.TclError:
-                pass
+        self._close_picker()
         if self.after_tick:
             self.root.after_cancel(self.after_tick)
         self.w.destroy()
@@ -541,7 +710,7 @@ def demo_data(now):
          "exp_hr": 4100, "eta": "1h40m", "map": "L Forest I", "state": "playing", "age_s": 1.2},
         {"name": "Mapler99", "level": 22, "hp": [600, 700], "exp_pct": 71.0, "map": "L Forest I",
          "channel": 40, "state": "playing", "age_s": 2.0},
-        {"name": "ArcherJen", "level": 31, "hp": [150, 900], "exp_pct": 8.3,
+        {"name": "ArcherJen", "caps": "ch", "level": 31, "hp": [150, 900], "exp_pct": 8.3,
          "map": "The Forest of Wisdom", "channel": 12, "state": "playing", "age_s": 0.5},
         {"name": "SleepyThief", "level": 18, "exp_pct": 44.4, "map": "Kerning City",
          "state": "idle", "age_s": 5.0}]}
@@ -551,6 +720,11 @@ def demo_data(now):
 def demo_challenge(now):
     return {"enabled": True, "busy": False,
             "invite": {"id": "demo", "from": "Robin", "mode": "1v1", "minutes": 5, "expires": now + 3600}}
+
+
+def demo_waiting(now):
+    """--waiting: my invite to Robin is open (what challenge.json `waiting` will look like)."""
+    return {"enabled": True, "busy": True, "invite": None, "waiting": {"id": "w1", "target": "Robin"}}
 
 
 def main():

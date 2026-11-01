@@ -125,8 +125,14 @@ DEFAULTS = {
         "dnd": False,                   # don't disturb: no invitations shown, friends' buttons stay off
         "bg": "#000000",                # the cage-match board's background
         "flames": "blaze",              # blaze | tongues | embers | arcane | poison | painted
+        "scale": 50,                    # board size in percent of the design: 50 | 75 | 100
         "locked": False,
         "x": None, "y": None,           # None = top centre
+        "invite_x": None, "invite_y": None,     # the invitation popup (None = top centre); invite_ui.py
+    },
+    "relic": {                          # Settings > General; components/relic: the relic hunt (needs a joined room)
+        "enabled": True,                # send eligible kills to the room's hunt
+        "toast": True,                  # "+ Relic piece 17/48" over the game for 3 s
     },
 }
 

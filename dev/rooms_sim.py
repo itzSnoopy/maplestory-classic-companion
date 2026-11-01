@@ -12,6 +12,9 @@ opens). The internet gate is opened for this process only (everything is 127.0.0
  3. the party link syncs the room: two members see each other in the party.json / party panel shape; v1 untouched
  4. leave; a kicked member: one 401, room_lost in party.json, no retry storm, the panel clears the room and says so
  5. a duel create / accept / kills / result over the room between the tracker and a simulated second client
+ 6. a host-started room race: a mod's Start button (panel -> challenge_cmd.json -> tracker -> relay) with three
+    simulated members (two accept, one declines), kills, a 3-player result; and the owner on the web page (not live)
+    starting one over plain HTTP, the helper invited like to a duel, then stop
 """
 import json
 import os
@@ -55,6 +58,7 @@ from launcher import compose  # noqa: E402
 
 fails = []
 MAP = "Thicket Around the Beach III"
+RMAP = "The Cave of Trial I"      # where my rises happen: Firebombs of 148 EXP; the simulated members stand on MAP, so these are solo
 ME = "Tester1"
 
 
@@ -339,11 +343,11 @@ try:
     check(wait(lambda: (snap().get("active") or {}).get("state") == "running"), "my board gets the running challenge")
     a = snap()["active"]
     check(a["phase"] == "starting" and 3 < a["start_t"] - time.time() - snap()["server_off"] < 6, "countdown of about 5 s on the relay clock")
-    hub.emit("exp_rise", t=time.time(), map=MAP, d=148, party=False, gap=1.0)          # during the countdown: nothing
+    hub.emit("exp_rise", t=time.time(), map=RMAP, d=148, party=False, gap=1.0)          # during the countdown: nothing
     rclock.offset += 6                                                                    # now live
     check(wait(lambda: (snap().get("active") or {}).get("phase") == "live"), "phase goes live")
     for d_ in (148, 296, 7):                                                              # 1 + 2 kills, a 7 EXP rise counts nothing
-        hub.emit("exp_rise", t=time.time(), map=MAP, d=d_, party=False, gap=1.0)
+        hub.emit("exp_rise", t=time.time(), map=RMAP, d=d_, party=False, gap=1.0)
 
     def score(name):
         return {p["name"]: p["score"] for p in (snap().get("active") or {}).get("players", [])}.get(name)
@@ -392,6 +396,114 @@ try:
         check(pump(lambda: room_get() is not None and settled()), "joined the same room again")
         check(wait(lambda: pj().get("ok") is True and pj().get("mode") == "v2"), "link syncs the new token", pj())
         leave_current()
+    # 6: a host-started room race (the Start button) -----------------------------------------------------------
+    R_ACT, T_ACT = mk("Activity test", "open", "hangout")
+    others = {}
+    for n in ("Tester2", "Tester3", "Tester4"):
+        others[n] = J.Client(lambda: base).join(R_ACT, n).room["token"]
+
+    def post_live(*names):
+        for n in names:
+            call("POST", f"/v2/rooms/{R_ACT['id']}/sync", {"presence": {
+                "level": 30, "job": "Cleric", "map": MAP, "state": "playing", "caps": "ch"}}, others[n])
+
+    def act(n, action, **body):
+        return call("POST", f"/v2/rooms/{R_ACT['id']}/challenge/{action}", body, others[n])
+
+    def cmd(**c):
+        H.write_json(OUT / "challenge_cmd.json", {"t": time.time(), **c}, indent=None)
+
+    if panel is not None:
+        panel.on_join(R_ACT)
+        check(pump(lambda: room_get() is not None and settled()), "6: helper joins the activity room")
+    else:
+        room_put(J.Client(lambda: base).join(R_ACT, ME).room)
+    check(wait(lambda: pj().get("ok") and pj().get("room") in (None, R_ACT["id"])), "6: link syncs it", pj())
+    check(not relay_room.can_host(room_get()), "6: a plain member has no Start button")
+    if panel is not None:
+        panel.render([], "ok")
+        check(not any(h[4] == "start" for h in panel.hot), "...none drawn")
+    call("POST", f"/v2/rooms/{R_ACT['id']}/members/{ME}/promote", None, T_ACT)
+    if panel is not None:
+        panel.next_check = 0
+        check(pump(lambda: relay_room.can_host(room_get())), "6: promoted to mod: the panel's /me poll picks up the role",
+              room_get())
+        panel.render([], "ok")
+        check(any(h[4] == "start" for h in panel.hot), "...and the Start button is drawn")
+    else:
+        r6 = room_get()
+        room_put({**r6, "role": "mod"})
+    post_live("Tester2", "Tester3", "Tester4")
+    check(wait(lambda: any(m["name"] == ME for m in call("GET", f"/v2/rooms/{R_ACT['id']}", None, T_ACT)[1]["members"]
+                           if m.get("online"))), "6: I am live in the room (owner view)")
+    if panel is not None:
+        panel.start_race(5)                                          # the helper path: challenge_cmd.json -> tracker -> relay
+    else:
+        J.write_command({"action": "start", "kind": "race", "minutes": 5}, OUT)
+    check(wait(lambda: snap().get("busy")), "6: the tracker started it (I am busy while it is open)", snap())
+    lob = [r for r in call("GET", "/v2/lobby")[1]["rooms"] if r["id"] == R_ACT["id"]][0]
+    check(lob["activity"] == "Kill race starting", "6: lobby says Kill race starting", lob["activity"])
+    s, owner_view = call("GET", f"/v2/rooms/{R_ACT['id']}", None, T_ACT)
+    cur = owner_view["activity"]
+    check(cur and cur["state"] == "open" and cur["creator"] == ME and cur["host"] and
+          sorted(cur["invited"]) == ["Tester2", "Tester3", "Tester4"], "...owner view shows the open race", cur)
+    check(act("Tester2", "accept", id=cur["id"])[0] == 200 and act("Tester3", "accept", id=cur["id"])[0] == 200,
+          "6: two members accept")
+    s, view = act("Tester4", "decline", id=cur["id"])
+    check(s == 200 and view["state"] == "running", "...the third declines: everyone answered, it starts", view)
+    check(wait(lambda: (snap().get("active") or {}).get("state") == "running"), "6: my board gets the 3-player race")
+    check(len(snap()["active"]["players"]) == 3, "...three players", snap()["active"]["players"])
+    post_live("Tester2", "Tester3", "Tester4")
+    rclock.offset += 6
+    check(wait(lambda: (snap().get("active") or {}).get("phase") == "live"), "...live")
+    lob = [r for r in call("GET", "/v2/lobby")[1]["rooms"] if r["id"] == R_ACT["id"]][0]
+    check(lob["activity"] == "Kill race · 3 players · 5 min left", "...lobby: " + str(lob["activity"]))
+    if panel is not None:
+        panel.status_t = 0
+        panel._read_status(time.time())
+        check(panel.activity([]) == "Kill race · 5 min left", "...the In: strip falls back to challenge.json", panel.activity([]))
+        check(panel.activity([lob]) == lob["activity"], "...and prefers the lobby row", panel.activity([lob]))
+    hub.emit("exp_rise", t=time.time(), map=RMAP, d=296, party=False, gap=1.0)
+    now_s = time.time() + rclock.offset
+    act("Tester2", "kills", id=cur["id"], kills=[{"s": 1, "n": 1, "t": now_s}])
+    act("Tester3", "kills", id=cur["id"], kills=[{"s": 1, "n": 3, "t": now_s}, {"s": 2, "n": 1, "t": now_s}])
+    check(wait(lambda: score(ME) == 2 and score("Tester3") == 4 and score("Tester2") == 1), "6: scores of all three reach my board",
+          [(p["name"], p["score"]) for p in snap()["active"]["players"]])
+    vs = board.view_state(snap(), time.time(), {}, lambda n: None)
+    check(vs is not None, "...the board draws with 3 players (best other on the left)")
+    ev.clear()
+    rclock.offset += 400
+    check(wait(lambda: len(ev) == 1), "6: result reported")
+    res = ev[0] if ev else {}
+    check(res.get("won") is False and res.get("score") == [2, 4] and res.get("opponent") == "Tester3"
+          and len(res.get("ranking", [])) == 3, "...I lost 2-4 to Tester3 of 3 players", res)
+    rec = H.read_json(OUT / "history" / "challenges.json", {}).get("vs", {}).get(ME, {})
+    check(rec.get("Tester3", {}).get("lost") == 1 and rec.get("Tester2", {}).get("won") == 2, "...record per opponent (Tester2: the duel before + this)", rec)
+
+    # 6b: the owner on the web page (not live) starts it with plain HTTP; I am invited like to a duel
+    post_live("Tester2", "Tester3", "Tester4")
+    s, d = call("POST", f"/v2/rooms/{R_ACT['id']}/challenge/start", {"minutes": 2}, T_ACT)
+    check(s == 200 and d["host"] and d["creator"] == "Hostone" and d["players"] == [], "6b: owner (not live) starts: organizer only", d)
+    check(sorted(d["invited"]) == [ME, "Tester2", "Tester3", "Tester4"], "...everyone live is invited", d["invited"])
+    check(wait(lambda: (snap().get("invite") or {}).get("id") == d["id"]), "...I get the invitation (like a duel)", snap().get("invite"))
+    check(snap()["invite"]["host"] is True and snap()["invite"]["from"] == "Hostone", "...marked as a room race from the owner")
+    cmd(action="accept", id=d["id"])
+    check(wait(lambda: snap().get("busy")), "...I accept through the same command file")
+    act("Tester2", "accept", id=d["id"])
+    act("Tester3", "decline", id=d["id"])
+    s, v = act("Tester4", "decline", id=d["id"])
+    check(v["state"] == "running" and sorted(p["name"] for p in v["players"]) == [ME, "Tester2"], "...2 accepted, all answered: starts", v)
+    s, d2 = call("POST", f"/v2/rooms/{R_ACT['id']}/challenge/start", {"minutes": 2}, T_ACT)
+    check(s == 409, "...a second start is refused", d2)
+    s, d2 = call("POST", f"/v2/rooms/{R_ACT['id']}/challenge/start", {"minutes": 2}, others["Tester2"])
+    check(s == 403, "...a plain member cannot start", d2)
+    s, d2 = call("POST", f"/v2/rooms/{R_ACT['id']}/challenge/stop", {}, T_ACT)
+    check(s == 200 and d2["state"] == "cancelled", "...the owner stops it", d2)
+    check(wait(lambda: not snap().get("busy") and (snap().get("active") or {}).get("state") != "running"),
+          "...I am free again (the finished race stays on the board a moment)", snap())
+    s, d = call("POST", f"/v2/rooms/{R_ACT['id']}/members/{ME}/demote", None, T_ACT)
+    leave_current()
+
 finally:
     hub.emit("service_stop")
     partylink.exchange = real_exchange

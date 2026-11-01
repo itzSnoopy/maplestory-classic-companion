@@ -8,8 +8,13 @@ Three phases in one board (plus a tie), all drawn from challenge.json (the track
 The timer box is bolted under the panel. Flames (setting challenge.flames: blaze, tongues, embers, arcane, poison,
 painted) lick up both outer sides. Sprites: sprites.py (ClassicRank, fetched per client). No sound, no flashing.
 
-  python -m components.challenge.board --demo [--at=X,Y] [--phase=start|live|winner|tie]   cycles the phases
-  python -m components.challenge.board --shot OUT_DIR                                        PNGs of every phase / flame style
+  python -m components.challenge.board --demo [--at=X,Y] [--phase=start|live|winner|tie] [--scale=50|75|100]   cycles the phases
+  python -m components.challenge.board --shot OUT_DIR                                        PNGs of every phase / flame style / scale
+
+Size: setting challenge.scale (50 | 75 | 100 %, default 50) = the window's size relative to the 920 x 250 design. The
+picture is drawn at a supersample (s, >= 2) and resized down with Lanczos, so bulbs, flames and the bolted timer stay
+smooth; sprites are nearest-neighbour when enlarged, Lanczos when reduced. The bulb NAMES keep a minimum on-screen
+bulb pitch (MIN_NAME_PX), so at 50 % they are drawn a little bigger than the design (still fits: NAME_MAX_PITCH).
 """
 import json
 import math
@@ -29,6 +34,10 @@ NAME_COLS = 13                  # characters per side
 SPRITE = 96
 HOUSE_W, HOUSE_H = 190, 90      # a 3-digit score housing at pitch 10
 SCORE_PITCH, NAME_PITCH, TIMER_PITCH = 10, 4.4, 7
+SCALES = (50, 75, 100)          # challenge.scale choices (percent of the design size)
+DEFAULT_SCALE = 50
+MIN_NAME_PX = 2.6               # smallest on-screen bulb pitch for the names (the digits and timer are bigger anyway)
+NAME_MAX_PITCH = 5.0            # 13 name columns must fit in their half of the panel
 SHOW_WINNER_S = 10.0
 STALE_S = 15.0
 FPS = 5
@@ -181,15 +190,29 @@ def _house(d, s, x, y, n, color=bulbs.AMBER):
     bulbs.draw_digits(d, (x + 10) * s, (y + 10) * s, min(int(n), 999), 3, SCORE_PITCH * s, color)
 
 
-def _name(d, s, text, right):
+def scale_of(cfg):
+    """challenge.scale from the settings -> one of SCALES as a fraction (0.5 / 0.75 / 1.0)."""
+    try:
+        v = int(cfg.get("scale", DEFAULT_SCALE))
+    except (TypeError, ValueError, AttributeError):
+        v = DEFAULT_SCALE
+    return min(SCALES, key=lambda c: abs(c - v)) / 100.0
+
+
+def name_pitch(k):
+    """Bulb pitch (design px) of the names at on-screen scale k: the design's, raised so a bulb stays >= MIN_NAME_PX."""
+    return min(NAME_MAX_PITCH, max(NAME_PITCH, MIN_NAME_PX / max(k, 0.1)))
+
+
+def _name(d, s, text, right, pitch=NAME_PITCH):
     """A name in bulbs, NAME_COLS characters wide (unlit cells show), left or right aligned."""
     t = (text or "").upper()[:NAME_COLS]
     t = t.rjust(NAME_COLS) if right else t.ljust(NAME_COLS)
     y = (PY + 16) * s
     if right:
-        bulbs.draw_text(d, (PX + PW - 22) * s, y, t, NAME_PITCH * s, anchor="r")
+        bulbs.draw_text(d, (PX + PW - 22) * s, y, t, pitch * s, anchor="r")
     else:
-        bulbs.draw_text(d, (PX + 22) * s, y, t, NAME_PITCH * s, anchor="l")
+        bulbs.draw_text(d, (PX + 22) * s, y, t, pitch * s, anchor="l")
 
 
 def _fit(text, room, top):
@@ -199,18 +222,19 @@ def _fit(text, room, top):
 def _paste_sprite(im, s, img, x, y, mirror):
     from PIL import Image, ImageOps
     img = img.convert("RGBA")
-    if img.size != (SPRITE, SPRITE):
-        img = img.resize((SPRITE, SPRITE), Image.LANCZOS)
     if mirror:
         img = ImageOps.mirror(img)
-    big = img.resize((SPRITE * s, SPRITE * s), Image.LANCZOS)
+    n = int(SPRITE * s)
+    # pixel pictures stay crisp when enlarged (nearest); a bigger picture is reduced smoothly (Lanczos)
+    big = img.resize((n, n), Image.NEAREST if img.width < n and img.height < n else Image.LANCZOS)
     im.alpha_composite(big, (int(x * s), int(y * s)))
 
 
-def draw_state(st, flames="blaze", bg="#000000", s=2):
+def draw_state(st, flames="blaze", bg="#000000", s=2, k=1.0):
     """The whole board for one state (see view_state) -> RGBA at s x design size.
     st: phase (start|live|winner|tie), left / right {name, score, img}, count (start), timer "M:SS", colon (bool),
-    winner "left" | "right" (winner phase)."""
+    winner "left" | "right" (winner phase). k: the on-screen scale the result will be shown at (only the names' bulb
+    size depends on it, see name_pitch)."""
     from PIL import ImageDraw
     im = static_layer(bg, flames if flames in FLAME_STYLES else "blaze", s).copy()
     d = ImageDraw.Draw(im)
@@ -234,8 +258,9 @@ def draw_state(st, flames="blaze", bg="#000000", s=2):
         bulbs.draw_text(d, mid * s, (cy + 12) * s, nm, _fit(nm, 410, 6) * s, bulbs.AMBER, anchor="m")
         _paste_sprite(im, s, win["img"], x0 + total - SPRITE, top, False)
         return im
-    _name(d, s, L["name"], False)
-    _name(d, s, R["name"], True)
+    npitch = name_pitch(k)
+    _name(d, s, L["name"], False, npitch)
+    _name(d, s, R["name"], True, npitch)
     if ph == "tie":
         tie_p = 9
         total = SPRITE + 14 + HOUSE_W + 16 + bulbs.width("TIE", tie_p) + 16 + HOUSE_W + 14 + SPRITE
@@ -266,8 +291,8 @@ def draw_state(st, flames="blaze", bg="#000000", s=2):
 def to_rgb(im, k):
     """RGBA at 2k -> the window picture (RGB over the transparent key, hard alpha like the other panels)."""
     from PIL import Image
-    w, h = int(W * k), int(H * k)
-    small = im.resize((w, h), Image.LANCZOS)
+    w, h = max(1, int(W * k)), max(1, int(H * k))
+    small = im if im.size == (w, h) else im.resize((w, h), Image.LANCZOS)
     key = tuple(int(KEY[i:i + 2], 16) for i in (1, 3, 5))
     out = Image.new("RGB", (w, h), key)
     out.paste(small.convert("RGB"), (0, 0), small.getchannel("A").point(lambda v: 255 if v > 100 else 0))
@@ -327,6 +352,7 @@ class Board:
         self.tk = tk
         self.root, self.get, self.put, self.demo, self.k = root, settings_get, settings_put, demo, k
         self.phase = phase
+        self.scale = scale_of(settings_get())           # the size now on screen (settings: challenge.scale)
         self.photo, self.shown, self.key = None, None, None
         self.seen = {}
         self.w = w = tk.Toplevel(root)
@@ -345,7 +371,7 @@ class Board:
         cfg = self.get()
         x, y = at or (cfg.get("x"), cfg.get("y"))
         if x is None or y is None:
-            x, y = max(0, (root.winfo_screenwidth() - int(W * k)) // 2), 16
+            x, y = max(0, (root.winfo_screenwidth() - int(W * k * self.scale)) // 2), 16
         self.dev = at is not None
         w.geometry(f"+{int(x)}+{int(y)}")
         w.withdraw()
@@ -372,16 +398,18 @@ class Board:
         try:
             cfg = self.get()
             now = time.time()
+            self._rescale(scale_of(cfg))
             st = self._state(now) if cfg.get("enabled", True) else None
             if st is not None:
-                key = (st["phase"], st.get("count"), st["timer"], st["colon"], st["left"]["name"], st["left"]["score"],
+                key = (self.scale, st["phase"], st.get("count"), st["timer"], st["colon"], st["left"]["name"], st["left"]["score"],
                        st["right"]["name"], st["right"]["score"], st.get("winner"), cfg.get("flames"), cfg.get("bg"),
                        id(st["left"]["img"]), id(st["right"]["img"]))
                 if key != self.key:
                     from PIL import ImageTk
-                    s = max(2, int(round(self.k * 2)))
+                    ke = self.k * self.scale                    # on-screen scale of the picture
+                    s = max(2, int(round(ke * 2)))              # supersample, then Lanczos down
                     self.photo = ImageTk.PhotoImage(to_rgb(draw_state(st, cfg.get("flames", "blaze"),
-                                                                      cfg.get("bg", "#000000"), s), self.k))
+                                                                      cfg.get("bg", "#000000"), s, ke), ke))
                     self.lbl.configure(image=self.photo)
                     self.key = key
             show = st is not None
@@ -393,6 +421,23 @@ class Board:
         except Exception as e:
             print(f"challenge board draw failed: {e}")
         self.after_tick = self.root.after(int(1000 / FPS), self._tick)
+
+    def _rescale(self, new):
+        """The size setting changed: keep the board's top centre where it was (x moves by half the width change),
+        so a saved position stays sensible; a board that was never moved stays centred."""
+        if new == self.scale:
+            return
+        dw = int(W * self.k * (new - self.scale))
+        old_x, y = self.w.winfo_x(), self.w.winfo_y()
+        self.scale = new
+        cfg = self.get()
+        if cfg.get("x") is None or cfg.get("y") is None:
+            x = max(0, (self.root.winfo_screenwidth() - int(W * self.k * new)) // 2)
+        else:
+            x = max(0, old_x - dw // 2)
+        self.w.geometry(f"+{x}+{y}")
+        if not self.dev and cfg.get("x") is not None:
+            self.put(x=x, y=y)
 
     # ---------------------------------------------------------------- move / lock
     def _drag_start(self, e):
@@ -471,19 +516,25 @@ def main():
         out = Path(argv[argv.index("--shot") + 1])
         out.mkdir(parents=True, exist_ok=True)
         sil = sprites.silhouette()
-        for fl in FLAME_STYLES:
-            for ph in ("start", "live", "winner", "tie"):
-                if fl != "blaze" and ph != "live":
-                    continue
-                to_rgb(draw_state(demo_state(0, lambda n: sil, ph) | ({"count": 5} if ph == "start" else {}),
-                                  fl), 1.0).save(out / f"board_{fl}_{ph}.png")
+        for sc in SCALES:
+            ke = sc / 100.0
+            for fl in FLAME_STYLES:
+                for ph in ("start", "live", "winner", "tie"):
+                    if fl != "blaze" and ph != "live":
+                        continue
+                    if sc != 50 and fl != "blaze":
+                        continue
+                    st = demo_state(0, lambda n: sil, ph) | ({"count": 5} if ph == "start" else {})
+                    to_rgb(draw_state(st, fl, "#000000", max(2, int(round(ke * 2))), ke), ke
+                           ).save(out / f"board_{sc}_{fl}_{ph}.png")
         print("wrote", out)
         return
-    at = next((tuple(int(v) for v in opt["--at"].split(","))), None) if "--at" in opt else None
+    at = tuple(int(v) for v in opt["--at"].split(",")) if "--at" in opt else None
     import tkinter as tk
     root = tk.Tk()
     root.withdraw()
-    state = {"enabled": True, "locked": False, "flames": opt.get("--flames", "blaze"), "bg": "#000000"}
+    state = {"enabled": True, "locked": False, "flames": opt.get("--flames", "blaze"), "bg": "#000000",
+             "scale": int(opt.get("--scale", DEFAULT_SCALE))}
     Board(root, lambda: state, lambda **kw: state.update(kw), demo="--demo" in argv, at=at, phase=opt.get("--phase"))
     root.mainloop()
 

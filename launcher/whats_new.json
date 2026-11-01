@@ -1,4 +1,9 @@
 {
+ "0.10.1": [
+  "Relic hunt: the room owner starts a hunt, and your kills (monsters near your level) can drop puzzle pieces, more often with friends on the same map. Tray > Open relic hunt shows the shared puzzle; drag pieces into place together.",
+  "Duels: click the sword next to a friend on the party panel to challenge them; an invite pops up with Accept / Decline. The versus board is half the size (Settings: 50 / 75 / 100 %). Room owners can start a kill race for everyone.",
+  "Duels in a party now count only your own kills, worked out from your share of each monster's EXP."
+ ],
  "0.10.0": [
   "Rooms: turn on the Rooms panel (Settings > General) to see your group's rooms over the game. Click Join: open rooms let you straight in, private ones ask for the PIN, and some need the owner's OK. Your party panel and duels then run through the room.",
   "Duels: challenge a friend to a kill race and watch the score on the versus board.",

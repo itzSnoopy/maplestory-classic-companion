@@ -376,6 +376,8 @@ def check_relay():
     check("relay v2 public page / room creation tests pass (relay/tests/test_v2_public.py)", r.returncode == 0, (r.stderr or r.stdout)[-300:])
     r = run([sys.executable, str(ROOT / "relay" / "tests" / "test_v2_tokens.py")], env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=300)
     check("relay v2 tokens / lockout / room size / lobby tests pass (relay/tests/test_v2_tokens.py)", r.returncode == 0, (r.stderr or r.stdout)[-300:])
+    r = run([sys.executable, str(ROOT / "relay" / "tests" / "test_v2_relic.py")], env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=300)
+    check("relay v2 relic hunt tests pass (relay/tests/test_v2_relic.py)", r.returncode == 0, (r.stderr or r.stdout)[-300:])
     r = run([sys.executable, str(ROOT / "dev" / "feedback_sim.py"), str(TMP / "feedback_sim")],
             env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=180)
     check("skill feedback sim (page -> relay -> dev tool)", r.returncode == 0, (r.stdout or r.stderr)[-300:])
@@ -388,6 +390,15 @@ def check_relay():
     r = run([sys.executable, str(ROOT / "dev" / "challenge_sim.py"), str(TMP / "challenge_sim")],
             env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=180)
     check("challenge sim (duel: link, kills, result, record, board state)", r.returncode == 0, (r.stdout or r.stderr)[-300:])
+    r = run([sys.executable, str(ROOT / "dev" / "relic_sim.py"), str(TMP / "relic_sim")],
+            env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=240)
+    check("relic sim (hunt: start, eligible kills, drops, shared table, restart)", r.returncode == 0, (r.stdout or r.stderr)[-300:])
+    r = run([sys.executable, str(ROOT / "dev" / "party_kills_sim.py"), str(TMP / "party_kills_sim")],
+            env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=180)
+    check("party kills sim (party EXP shares, learned bonus, calibration)", r.returncode == 0, (r.stdout or r.stderr)[-300:])
+    r = run([sys.executable, "-m", "components.challenge.invite_ui", "--selftest"],
+            env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=60)
+    check("duel invite popup state (show / answer / dnd / expiry)", r.returncode == 0, (r.stdout or r.stderr)[-300:])
 
 
 # ------------------------------------------------------------------ build checks

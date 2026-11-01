@@ -10,7 +10,8 @@ Header: "Rooms" + a refresh button. Empty: "No rooms listed right now." Errors s
 The button is Join (or Leave on the room you are in): open rooms join at once, private ones ask for the PIN
 or password in a small themed prompt, approval rooms join and then show "Waiting for approval" (polled every
 10 s). The joined room sits in helper_settings.json "relay": {"room"} (hub/relay_room.py) and is shown at the
-top ("In: <room> · <kind>" + Leave). All requests run on worker threads (components/hangout/join.py); the
+top ("In: <room> · <kind>" + Leave; owners and mods also get a Start button for a room activity, the Kill race,
+with the current activity on a second line). All requests run on worker threads (components/hangout/join.py); the
 Tk thread only draws, prompts and stores results. Polling (lobby.Poller) starts only while the panel is shown.
 
 Drag to move (saved in helper_settings.json "hangout"), right-click for refresh / lock / hide.
@@ -29,7 +30,7 @@ from PIL import Image, ImageDraw
 from base.paths import DATA
 from components.hangout import join as J
 from components.hangout import lobby
-from hub import relay_addr
+from hub import relay_addr, relay_room
 from hub.ui import theme
 from hub.ui.overlay import KEY, font as _font, text as _text
 
@@ -40,6 +41,7 @@ TOAST_S = 2.0
 LONG_TOAST_S = 6.0
 PENDING_POLL_S = 10.0           # waiting for approval: ask the relay this often
 ACTIVE_POLL_S = 60.0            # joined: a slow check that the token still works (the tracker usually notices first)
+STATUS_FILE_S = 2.0             # how often challenge.json is looked at (the activity line, command errors)
 LOST_FILE_S = 2.0               # how often party.json is looked at for room_lost
 HANGOUT_COL = (70, 190, 110)
 PARTY_COL = (150, 100, 220)
@@ -123,6 +125,8 @@ class HangoutPanel:
         self.joining = None                  # room id being joined (blocks a second click)
         self.prompt = None
         self.next_check, self.lost_t, self.checking = 0.0, 0.0, False
+        self.status, self.status_t = {"error": None, "activity": None}, 0.0
+        self.last_err = None
         self.photo, self.shown, self.drawn = None, None, None
         self.toast, self.toast_until = "", 0.0
         self.hot = []                        # (x0, y0, x1, y1, action, arg)
@@ -187,21 +191,45 @@ class HangoutPanel:
         d.polygon([(cx + r + int(2 * k), cy - int(1 * k)), (cx + r - int(3 * k), cy - int(4 * k)),
                    (cx + r - int(3 * k), cy + int(3 * k))], fill=c)
 
-    def _in_strip(self, d, W, pad, y, h, cur):
+    def activity(self, rooms=None):
+        """The current room activity for the "In:" strip ("Kill race · 3 min left") or ''. From the lobby row of
+        the joined room (what everyone sees), else from the tracker's challenge.json (unlisted rooms)."""
+        cur = self.current()
+        if not cur:
+            return ""
+        if rooms is None:
+            rooms = self.poller.snapshot()[0]
+        row = next((r for r in rooms if r["id"] == cur["id"]), None)
+        return (row or {}).get("activity") or self.status.get("activity") or ""
+
+    def _in_strip(self, d, W, pad, y, h, cur, act=""):
         """"In: <room> · <kind>" and a Leave button, under the header."""
         k = self.k
         d.line((pad, y, W - pad, y), fill=(60, 64, 76, 255))
         bw = int(44 * k)
         bx = W - pad - bw
+        row_h = int(24 * k)
+        left = bx
+        if cur.get("status") != "pending" and relay_room.can_host(cur):
+            sw = int(40 * k)
+            sx = bx - int(4 * k) - sw
+            d.rounded_rectangle((sx, y + int(3 * k), sx + sw, y + row_h - int(3 * k)), radius=int(4 * k),
+                                fill=(40, 120, 60, 255), outline=(120, 220, 150, 255))
+            _text(d, (sx + sw // 2, y + row_h // 2), "Start", self.f_small)
+            self.hot.append((sx, y, sx + sw, y + row_h, "start", None))
+            left = sx
         label = f"In: {cur.get('name')} · {cur.get('kind')}"
         if cur.get("status") == "pending":
             label = f"Waiting: {cur.get('name')}"
-        _text(d, (pad, y + h // 2), _fit(d, label, self.f_small, bx - pad - int(6 * k)), self.f_small,
+        _text(d, (pad, y + row_h // 2), _fit(d, label, self.f_small, left - pad - int(6 * k)), self.f_small,
               fill=(170, 235, 190, 255), anchor="lm")
-        d.rounded_rectangle((bx, y + int(3 * k), bx + bw, y + h - int(3 * k)), radius=int(4 * k),
+        d.rounded_rectangle((bx, y + int(3 * k), bx + bw, y + row_h - int(3 * k)), radius=int(4 * k),
                             fill=(110, 56, 56, 255), outline=(220, 130, 130, 255))
-        _text(d, (bx + bw // 2, y + h // 2), "Leave", self.f_small)
-        self.hot.append((bx, y, bx + bw, y + h, "leave", None))
+        _text(d, (bx + bw // 2, y + row_h // 2), "Leave", self.f_small)
+        self.hot.append((bx, y, bx + bw, y + row_h, "leave", None))
+        if act:
+            _text(d, (pad, y + row_h + int(7 * k)), _fit(d, act, self.f_small, W - 2 * pad), self.f_small,
+                  fill=(240, 200, 120, 255), anchor="lm")
 
     def render(self, rooms, state):
         k = self.k
@@ -209,7 +237,8 @@ class HangoutPanel:
         head_h, row_h = int(24 * k), int(36 * k)
         cur = self.room_get()
         cur = cur if isinstance(cur, dict) and cur.get("id") else None
-        in_h = int(24 * k) if cur else 0
+        act = self.activity(rooms) if cur else ""
+        in_h = (int(24 * k) + (int(14 * k) if act else 0)) if cur else 0
         shown = rooms[:MAX_ROWS]
         more = len(rooms) - len(shown)
         msg = lobby.LINES.get(state) if state != "ok" else ("No rooms listed right now." if not rooms else "")
@@ -233,7 +262,7 @@ class HangoutPanel:
         self.hot.append((bx, y, bx + int(20 * k), y + head_h, "refresh", None))
         y += head_h
         if cur:
-            self._in_strip(d, W, pad, y, in_h, cur)
+            self._in_strip(d, W, pad, y, in_h, cur, act)
             y += in_h
         for r in shown:
             mine = bool(cur and cur["id"] == r["id"])
@@ -281,7 +310,8 @@ class HangoutPanel:
                 rooms, state, ver = self.poller.snapshot()
                 self._room_tick()
                 cur = self.room_get() or {}
-                sig = (ver, state, time.time() < self.toast_until, cur.get("id"), cur.get("status"), self.joining)
+                sig = (ver, state, time.time() < self.toast_until, cur.get("id"), cur.get("status"), self.joining,
+                       cur.get("role"), self.activity(rooms))
                 if sig != self.drawn:
                     from PIL import ImageTk
                     self.photo = ImageTk.PhotoImage(self.render(rooms, state))
@@ -406,6 +436,7 @@ class HangoutPanel:
         if not cur:
             return
         self._read_lost(cur, now)
+        self._read_status(now)
         cur = self.current()
         if not cur or self.joining or now < self.next_check or self.checking:
             return
@@ -418,12 +449,27 @@ class HangoutPanel:
             now_cur = self.current()
             if not now_cur or now_cur["id"] != cur["id"] or not isinstance(res, tuple):
                 return
+            role = self.client.last_role if res[0] == J.ACTIVE else None
             if res[0] == J.ACTIVE and now_cur["status"] != "active":
-                self.room_put({**now_cur, "status": "active"})
+                self.room_put({**now_cur, "status": "active", **({"role": role} if role else {})})
                 self.say(f"You're in {now_cur.get('name')}", LONG_TOAST_S)
+            elif role and role != now_cur.get("role"):            # promoted / demoted: the Start button follows
+                self.room_put({**now_cur, "role": role})
             elif res[0] == J.LOST:                       # one 401 ends it: never retry a bad token
                 self._lost(now_cur, denied=now_cur["status"] == "pending")
         self._worker(lambda: self.client.check_me(cur), done)
+
+    def _read_status(self, now):
+        """challenge.json (the tracker's): the activity line, and a command's error shown once."""
+        if now - self.status_t < STATUS_FILE_S:
+            return
+        self.status_t = now
+        st = J.read_status(self.party_path.parent, now)
+        if st != self.status:
+            self.status, self.drawn = st, None
+        if st["error"] and st["error"] != self.last_err:
+            self.say(st["error"], LONG_TOAST_S)
+        self.last_err = st["error"]
 
     def _read_lost(self, cur, now):
         """The tracker reports a refused token in party.json (room_lost): clear the room and say so."""
@@ -458,6 +504,58 @@ class HangoutPanel:
             self.on_join(arg)
         elif action == "leave":
             self.on_leave()
+        elif action == "start":
+            self.on_start()
+
+    # ---- the Start button (owner / mod): pick an activity + minutes, hand it to the tracker
+    def on_start(self):
+        cur = self.current()
+        if not cur or not relay_room.can_host(cur):
+            return
+        m = tk.Menu(self.w, tearoff=0)
+        for minutes in J.RACE_MINUTES:
+            m.add_command(label=f"Kill race · {minutes} min", command=lambda mi=minutes: self.start_race(mi))
+        m.add_separator()
+        for key, label in J.RELIC_LEVELS:
+            m.add_command(label="Relic hunt · " + label, command=lambda k=key: self.start_relic(k))
+        if "Relic hunt" in self.activity():
+            m.add_command(label="Stop the relic hunt", command=self.stop_relic)
+        if self.activity() and "Relic hunt" not in self.activity():
+            m.add_separator()
+            m.add_command(label="Stop the current activity", command=self.stop_activity)
+        m.tk_popup(self.w.winfo_pointerx(), self.w.winfo_pointery())
+
+    def _send(self, cmd, msg):
+        if self.demo:
+            print("room command:", cmd)
+            return
+        try:
+            J.write_command(cmd, self.party_path.parent)
+        except OSError:
+            return self.say("Couldn't reach the tracker", LONG_TOAST_S)
+        self.say(msg, LONG_TOAST_S)
+
+    def start_race(self, minutes):
+        self._send({"action": "start", "kind": "race", "minutes": minutes}, "Starting the kill race…")
+
+    def start_relic(self, difficulty):
+        self._send_relic({"action": "start", "difficulty": difficulty}, "Starting the relic hunt…")
+
+    def stop_relic(self):
+        self._send_relic({"action": "stop"}, "Stopping the relic hunt…")
+
+    def _send_relic(self, cmd, msg):
+        if self.demo:
+            print("room command:", cmd)
+            return
+        try:
+            J.write_relic_command(cmd, self.party_path.parent)
+        except OSError:
+            return self.say("Couldn't reach the tracker", LONG_TOAST_S)
+        self.say(msg, LONG_TOAST_S)
+
+    def stop_activity(self):
+        self._send({"action": "stop"}, "Stopping…")
 
     # ---------------------------------------------------------------- move / lock
     def _drag_start(self, e):

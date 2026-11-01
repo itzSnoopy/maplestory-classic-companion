@@ -175,6 +175,8 @@ EVENTS = (
                     "ours, s). The party link got an answer. Runs on the party link THREAD, keep it short"),
     ("challenge_end", "result (dict: id, mode, minutes, me, won (True/False/None = tie), score [mine, theirs], opponent, "
                       "names, t). A duel finished; the diary writes a line, the record is already saved"),
+    ("relic_found", "ids (piece ids found just now), found (pieces found so far), total, placed, difficulty, t. The relay "
+                    "dealt this player relic hunt pieces (components/relic); the diary can add a line. Link THREAD, keep it short"),
     ("first_kill", "mob (album record), map, level, job, shots [relative paths], caught (album count), text "
                    "(the diary line). The album caught a mob for the first time and already saved it"),
 )

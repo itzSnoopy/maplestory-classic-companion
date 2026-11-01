@@ -5,6 +5,9 @@ party link (events relay_post / relay_reply, service relay_link: no import of th
 each kill and follow the relay's score, runs the commands the party panel writes (challenge_cmd.json:
 create / accept / decline), writes challenge.json for the helper's board and the panel, keeps the win /
 loss record per opponent (history/challenges.json) and emits `challenge_end` when a duel is over.
+Room activities: the hangout panel's Start button (owner / mod of the joined room) writes the same
+challenge_cmd.json with action "start" {kind: "race", minutes} / "stop"; the relay makes a room-wide race (invited =
+everyone live in the room; the starter plays only if live themselves).
 Helper side: the versus board (board.py) over the game, its Settings extras and a `--demo`.
 
 In a joined v2 room (relay_link mode "v2") the kills ride the room's `challenge` sync part and the commands go to
@@ -27,6 +30,11 @@ CMD_POLL_S = 0.5
 LOG_MAX = 50
 
 
+def kills_maps():
+    from gamedata import kills
+    return kills.map_mobs()
+
+
 class ChallengeComponent(Component):
     name = "challenge"
     settings_defaults = {"challenge": HS.DEFAULTS["challenge"]}
@@ -36,6 +44,7 @@ class ChallengeComponent(Component):
         from components.challenge import duel
         self.hub = hub
         self.duel = duel.Duel()
+        self.pb = None                                  # PartyBonus (party EXP shares), made on service_start
         self.worker = None
         self.stop_ev = threading.Event()
         hub.on("service_start", self.on_start)
@@ -54,6 +63,8 @@ class ChallengeComponent(Component):
         H.write_json(self.hub.root / "challenge.json", self.duel.snapshot(enabled, dnd), indent=None)
 
     def on_start(self, **_):
+        from components.challenge import partyexp
+        self.pb = partyexp.PartyBonus(self.hub.root)
         self.stop_ev.clear()
         self.duel.done = {r.get("id") for r in H.read_json(self.hub.root / "history" / "challenges.json",
                                                             {}).get("log", [])}
@@ -63,12 +74,38 @@ class ChallengeComponent(Component):
 
     def on_stop(self, **_):
         self.stop_ev.set()
+        if self.pb is not None:
+            self.pb.save()
 
-    def on_rise(self, t, map, d, **_):
+    def _party(self, map, d, party):
+        """The party read of a rise: {me_level, levels, bonus, estimating, size} or None when solo. Also feeds the
+        calibration (every rise while partied, duel or not)."""
+        from components.challenge import partyexp
+        me_level = self.hub.state.level
+        if self.pb is None or not me_level:
+            return {"unknown": True} if party else None
+        levels = partyexp.party_levels(self.hub.root, me_level, map)
+        if levels is None and party:
+            levels = partyexp.Levels([me_level])   # the tracker says a member is on the map; who is unknown
+            levels.guessed = 1                     # a stand-in level: party_kills allows +-1
+        if levels is None:
+            return None
+        size = len(levels) + 1
+        b, est = self.pb.bonus(size)
+        if 0 < d < 3000 and map in kills_maps():
+            self.pb.add(size, map, d, me_level, levels)
+        return {"me_level": me_level, "levels": levels, "bonus": b, "estimating": est, "size": size}
+
+    def on_rise(self, t, map, d, party=False, **_):
         with perf.timed("challenge"):
-            enabled, _dnd = self._cfg() if self.duel.active() else (False, False)
-            if enabled:
-                self.duel.on_rise(t, map, d)
+            enabled, _dnd = self._cfg()
+            if not enabled:
+                return
+            pc = self._party(map, d, party)
+            if pc is not None and pc.get("unknown"):
+                return                          # partied but my level is unknown: count nothing, never guess
+            if self.duel.active():
+                self.duel.on_rise(t, map, d, pc)
 
     def on_post(self, extra, me, **_):                  # link thread
         self.duel.me = me.get("name")
@@ -133,6 +170,12 @@ class ChallengeComponent(Component):
                     status, res = link["call"]("challenge", "create", body)     # the name comes from the member token
                 else:
                     status, res = link["request"]("challenge", "", {"name": d.me, **body})
+            elif action == "start" and v2:
+                # owner / mod starts a room-wide activity (relay: challenge/start); a v1 party code has none
+                body = {"kind": cmd.get("kind") or "race", "minutes": cmd.get("minutes")}
+                status, res = link["call"]("challenge", "start", body)
+            elif action == "stop" and v2:
+                status, res = link["call"]("challenge", "stop", {})
             elif action in ("accept", "decline", "cancel") and isinstance(cmd.get("id"), str):
                 if v2:
                     status, res = link["call"]("challenge", action, {"id": cmd["id"]})
@@ -162,8 +205,13 @@ class ChallengeComponent(Component):
         from hub.ui.overlay import PanelHost
         self.host = host = PanelHost(shell, "challenge", "challenge board", make_board, dy=40)
         shell.on_refresh(lambda snap: host.sync(), early=True)
+        from components.challenge.invite_ui import InviteHost      # the invitation popup (shown while an invite is open)
+        self.invite_host = ih = InviteHost(shell)
+        shell.on_refresh(lambda snap: ih.sync(), early=True)
         shell.add_settings_extra("General", self.settings_extra, order=35)
         shell.on_settings_save(self.on_save)
+        shell.on_settings_save(lambda win: win.s.setdefault("challenge", {}).update(
+            {k: v for k, v in shell.settings("challenge").items() if k in ("invite_x", "invite_y")}))
 
     def settings_extra(self, win, f):
         from components.challenge import settings_page
