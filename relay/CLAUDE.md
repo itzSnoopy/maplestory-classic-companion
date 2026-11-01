@@ -45,13 +45,13 @@ side is `components/party/partylink.py`.
 
 ## v2: rooms (`relayd/`, steps 1-4 of the v2 plan; deploy files ready, not deployed yet)
 One server, many rooms. Run `cd relay && python -m relayd` (env `PORT`, `BIND`, `DATA_DIR` (./data, Docker /data),
-`LOBBY`, `ALLOW_ANYONE_CREATE`, `LEGACY_V1` (1), `MAX_ROOMS` (500), `MAX_ROOMS_PER_ACCOUNT` (5),
+`LOBBY`, `ALLOW_ANYONE_CREATE`, `SECURE_TOKENS`, `LEGACY_V1` (1), `MAX_ROOMS` (500), `MAX_ROOMS_PER_ACCOUNT` (5),
 `ANON_CREATES_PER_DAY` (3), `MAX_ROOM_MEMBERS` (0), `FEEDBACK_KEY`, `FEEDBACK_CODES`, `FEEDBACK_TTL_DAYS` (30), `FEEDBACK_MAX` (300),
 `ADMIN_PASS` (>= 12 chars, plain) or `ADMIN_PASS_HASH` (`scrypt$salt$hash`; make one with `cd relay && python -c "from relayd.auth import hash_secret as h; print(h('...'))"`, escape `$` in compose), `ADMIN_NETS` (CIDRs; default loopback + private ranges), `TRUSTED_PROXIES` (IPs/CIDRs)).
-Tests (all in release_check): `python relay/tests/test_v2.py`, `test_v2_challenge.py`, `test_v2_feedback.py`, `test_v2_admin.py`, `test_v2_public.py` (shared helpers in `tests/_helpers.py`).
+Tests (all in release_check): `python relay/tests/test_v2.py`, `test_v2_challenge.py`, `test_v2_feedback.py`, `test_v2_admin.py`, `test_v2_public.py`, `test_v2_tokens.py` (shared helpers in `tests/_helpers.py`).
 | File | Role |
 |---|---|
-| `relayd/server.py`, `__main__.py`, `config.py` | `make_server(cfg)`, start from env; `LOBBY`/`ALLOW_ANYONE_CREATE` override the DB `settings` value when set |
+| `relayd/server.py`, `__main__.py`, `config.py` | `make_server(cfg)`, start from env; `LOBBY`/`ALLOW_ANYONE_CREATE`/`SECURE_TOKENS` override the DB `settings` value when set |
 | `relayd/legacy.py` | Handler = v2 routes + `party_relay.Handler`: `/v1/*` runs the v1 code untouched (own memory) while `LEGACY_V1` is on; `/health` = `{ok, version, source, lobby, feedback, legacy_v1, create_open, you, via_proxy}`; `/rooms` + `/rooms/*` go to `public.py` |
 | `relayd/http.py` | `/v2` router (V2Mixin), 8 KB bodies (64 KB for feedback POST only: `_json_body(limit)`), per-address bucket 4/s burst 10 |
 | `relayd/rooms.py` | `Relay`: create, join, me, leave, view, patch, delete, member actions, sync dispatch, module actions, lobby, hourly cleanup (members idle 30 d, rooms 90 d) |
@@ -68,6 +68,9 @@ Tests (all in release_check): `python relay/tests/test_v2.py`, `test_v2_challeng
   `POST /v2/rooms/<id>/join` `{name, secret?}` -> `{token, status, role}`; `GET .../me`; `POST .../sync` `{presence: {...}}` -> `{server_t, presence: {members}}` (1 per s per token);
   `POST .../leave`; `GET/PATCH/DELETE /v2/rooms/<id>`; `POST .../members/<name>/approve|deny|kick|ban|unban|promote|demote`; `POST .../<module>/<action>`.
   Wrong host keys: 5 per address -> 10 min lockout for creating (Lockouts key `!hostkey`, per address only; a right key resets it).
+  **Tokens:** owner tokens and host keys are friendly `<monster>-<job>-<4 digits>` (`relayd/words.py`, `secrets`, lowercase; input is trimmed and lowercased before hashing, long tokens stay exact); member tokens given on join stay long random. Host keys retry on collision. Setting `secure_tokens` (admin Overview switch / env `SECURE_TOKENS`) makes new owner tokens and host keys long random; existing ones keep working.
+  Wrong bearer tokens (a token was sent, no member matched): 10 per address -> 429 for 10 min for that address (Lockouts key `!token`, address only, never per room; any valid token from the address resets the count; no token at all is not counted). `/health`, the lobby and join-by-PIN never go through it (join has its own secret lockout).
+  Room size: `party` holds 1..6 (default 6), `hangout` default 0 = no limit; enforced on create and on owner/admin PATCH (400 "a party room holds up to 6 people"); `MAX_ROOM_MEMBERS` still caps on top. Lobby rooms: `{id, name, kind, access, members, online, max_members, activity}`; `activity` from `Module.lobby_activity(room)` (first non-None in the room's module order; challenge: "Duel waiting" / "Duel running").
   Auth `Authorization: Bearer <token>`. Room ids `xxxx-xxxx` (no 0/o/1/l/i).
 - Rules as built: any room with a secret asks for it on join; wrong secret 403 (unlisted: 404, same as an unknown id);
   mods approve/deny/kick plain members only; deny lets the name ask again; a name already in the room is 409 (no token

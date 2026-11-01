@@ -23,6 +23,8 @@ ROOM_IDLE_S = 90 * 86400
 MEMBER_ACTIONS = ("approve", "deny", "kick", "ban", "unban", "promote", "demote")
 MOD_ACTIONS = ("approve", "deny", "kick")
 HOSTKEY_LOCK = "!hostkey"           # Lockouts key for wrong host keys (not a valid room id)
+TOKEN_LOCK = "!token"               # wrong bearer tokens, per address only (10 wrong -> 10 min; see auth.Lockouts.special)
+PARTY_MAX = 6                       # a party room holds 1..6 people
 
 
 def _obj(body):
@@ -41,6 +43,16 @@ def _check_name(v):
     if not isinstance(v, str) or not NAME_RE.match(v):
         raise ApiError(400, "bad character name")
     return v
+
+
+def _members_in_range(mm, kind):
+    """max_members 0..100000; a party room holds 1..PARTY_MAX."""
+    if isinstance(mm, bool) or not isinstance(mm, int) or not 0 <= mm <= 100000:
+        raise ApiError(400, "bad max_members")
+    if kind == "party" and not 1 <= mm <= PARTY_MAX:
+        # An observer slot (watchers on top of the six) would go here later.
+        raise ApiError(400, f"a party room holds up to {PARTY_MAX} people")
+    return mm
 
 
 def _secret_ok(s):
@@ -162,15 +174,25 @@ class Relay:
                 "access": room["access"], "max_members": room["max_members"],
                 "modules": room["modules"]}
 
-    def member_auth(self, room_id, header, allow_pending=False):
-        """Bearer token -> (room, member). 401 whatever is wrong, so nothing leaks."""
+    def member_auth(self, room_id, header, allow_pending=False, addr=None):
+        """Bearer token -> (room, member). 401 whatever is wrong, so nothing leaks.
+
+        With addr: wrong tokens are counted per address only (never per room, so nobody can lock a
+        room out for everyone); past the limit every token from that address gets 429 for a while."""
         token = ""
         if header and header.startswith("Bearer "):
-            token = header[7:].strip()
+            token = auth.normalize_token(header[7:])
+        now = clock.now()
+        if addr is not None:
+            self.lockouts.check(addr, TOKEN_LOCK, now)
         m = self.store.member_by_token(room_id, auth.sha256hex(token)) if token else None
         room = self.store.get_room(room_id) if m else None
         if not m or not room:
+            if addr is not None and token:       # no token at all = a client bug, not a guess
+                self.lockouts.fail(addr, TOKEN_LOCK, now, track=False)
             raise ApiError(401, "missing or bad token")
+        # no reset on a correct token: one valid token between guesses would dodge the limit.
+        # Wrong-token counts expire on their own instead (auth.Lockouts.fail, window = lock time).
         if m["status"] != "active" and not allow_pending:
             raise ApiError(403, "waiting for approval", status="pending")
         return room, m
@@ -183,8 +205,15 @@ class Relay:
         out = []
         for r in self.store.list_lobby():
             pres = self.modules.get("presence") if "presence" in r["modules"] else None
+            activity = None
+            for mod_name in r["modules"]:           # first module with something to say wins
+                mod = self.modules.get(mod_name)
+                activity = mod.lobby_activity(r) if mod else None
+                if activity is not None:
+                    break
             out.append({"id": r["id"], "name": r["name"], "kind": r["kind"], "access": r["access"],
-                        "members": r["members"], "online": pres.online(r["id"], now) if pres else 0})
+                        "members": r["members"], "online": pres.online(r["id"], now) if pres else 0,
+                        "max_members": r["max_members"], "activity": activity})
         return {"enabled": True, "rooms": out}
 
     # ---- create
@@ -205,9 +234,8 @@ class Relay:
             raise ApiError(400, "this access type needs a secret")
         mm = body.get("max_members")
         if mm is None:
-            mm = 6 if kind == "party" else 0
-        if isinstance(mm, bool) or not isinstance(mm, int) or not 0 <= mm <= 100000:
-            raise ApiError(400, "bad max_members")
+            mm = PARTY_MAX if kind == "party" else 0
+        mm = _members_in_range(mm, kind)
         return {"name": name, "owner": owner, "kind": kind, "access": access,
                 "secret_hash": auth.hash_secret(secret) if secret is not None else None,
                 "max_members": self._cap(mm)}
@@ -223,7 +251,7 @@ class Relay:
             rid = rid[:4] + "-" + rid[4:]
             if not self.store.get_room(rid):
                 break
-        token = auth.new_token()
+        token = auth.new_owner_token(self.flag("secure_tokens"))      # unique per room: it is the only member
         self.store.insert_room(rid, spec["name"], spec["kind"], spec["access"], spec["secret_hash"],
                                account_id, spec["max_members"], list(DEFAULT_MODULES), now)
         self.store.add_member(rid, spec["owner"], auth.sha256hex(token), "owner", "active", now)
@@ -302,13 +330,13 @@ class Relay:
         self.lockouts.ok(addr, room_id)
         return {"token": token, "status": status, "role": "member"}
 
-    def me(self, room_id, header):
-        room, m = self.member_auth(room_id, header, allow_pending=True)
+    def me(self, room_id, header, addr=None):
+        room, m = self.member_auth(room_id, header, allow_pending=True, addr=addr)
         return {"name": m["name"], "role": m["role"], "status": m["status"],
                 "room": self.public(room)}
 
-    def leave(self, room_id, header):
-        room, m = self.member_auth(room_id, header, allow_pending=True)
+    def leave(self, room_id, header, addr=None):
+        room, m = self.member_auth(room_id, header, allow_pending=True, addr=addr)
         with self.lock:
             if m["role"] == "owner":
                 if self.store.count_members(room_id) > 1:
@@ -320,8 +348,8 @@ class Relay:
         return {"ok": True}
 
     # ---- room view / edit / delete
-    def view(self, room_id, header):
-        room, m = self.member_auth(room_id, header)
+    def view(self, room_id, header, addr=None):
+        room, m = self.member_auth(room_id, header, addr=addr)
         members = self.store.list_members(room_id)
         out = self.public(room)
         out["members"] = [x for x in members if x["status"] == "active"]
@@ -330,8 +358,8 @@ class Relay:
             out["failed_joins"] = self.lockouts.failed_joins(room_id)
         return out
 
-    def patch(self, room_id, header, body):
-        room, m = self.member_auth(room_id, header)
+    def patch(self, room_id, header, body, addr=None):
+        room, m = self.member_auth(room_id, header, addr=addr)
         if m["role"] != "owner":
             raise ApiError(403, "owner only")
         return self._patch(room, body)
@@ -365,10 +393,10 @@ class Relay:
         if access in ("private", "unlisted") and not has_secret:
             raise ApiError(400, "this access type needs a secret")
         if "max_members" in body:
-            mm = body["max_members"]
-            if isinstance(mm, bool) or not isinstance(mm, int) or not 0 <= mm <= 100000:
-                raise ApiError(400, "bad max_members")
+            mm = _members_in_range(body["max_members"], upd.get("kind", room["kind"]))
             upd["max_members"] = self._cap(mm)
+        elif upd.get("kind") == "party":          # switching to party: the stored size must fit
+            _members_in_range(room["max_members"], "party")
         if "modules" in body:
             mods = body["modules"]
             if (not isinstance(mods, list) or len(set(mods)) != len(mods)
@@ -380,8 +408,8 @@ class Relay:
             room = self.store.get_room(room_id)
         return self.public(room)
 
-    def delete(self, room_id, header):
-        room, m = self.member_auth(room_id, header)
+    def delete(self, room_id, header, addr=None):
+        room, m = self.member_auth(room_id, header, addr=addr)
         if m["role"] != "owner":
             raise ApiError(403, "owner only")
         with self.lock:
@@ -389,8 +417,8 @@ class Relay:
         return {"ok": True}
 
     # ---- members
-    def member_action(self, room_id, header, name, action):
-        room, actor = self.member_auth(room_id, header)
+    def member_action(self, room_id, header, name, action, addr=None):
+        room, actor = self.member_auth(room_id, header, addr=addr)
         return self._member_action(room_id, actor["role"], name, action)
 
     def _member_action(self, room_id, actor_role, name, action):
@@ -447,11 +475,11 @@ class Relay:
         return {"ok": True}
 
     # ---- sync and module actions
-    def sync(self, room_id, header, body):
-        room, m = self.member_auth(room_id, header)
+    def sync(self, room_id, header, body, addr=None):
+        room, m = self.member_auth(room_id, header, addr=addr)
         body = _obj(body)
         now = clock.now()
-        th = auth.sha256hex(header[7:].strip())
+        th = auth.sha256hex(auth.normalize_token(header[7:]))
         if now - self._sync_last.get(th, -1e18) < self.cfg.sync_gap_s:
             raise ApiError(429, "one sync per second")
         if len(self._sync_last) > 10000:
@@ -467,8 +495,8 @@ class Relay:
                     out[mod_name] = part
         return out
 
-    def module_action(self, room_id, header, module, action, body):
-        room, m = self.member_auth(room_id, header)
+    def module_action(self, room_id, header, module, action, body, addr=None):
+        room, m = self.member_auth(room_id, header, addr=addr)
         mod = self.modules.get(module) if module in room["modules"] else None
         fn = mod.actions().get(action) if mod else None
         if not fn:

@@ -121,7 +121,8 @@
       add(viewEl, h("p", { class: "muted" }, "Version " + s.version + ", up " + Math.floor(up / 60) + " h " + (up % 60) + " min. " +
         "Old /v1 party endpoints: " + (s.legacy_v1 ? "on" : "off") + ". Feedback inbox: " + (s.feedback_enabled ? "on" : "off") + "."));
       var p = h("div", { class: "panel" }, h("h2", {}, "Switches"));
-      [["lobby", "Public lobby list"], ["allow_anyone_create", "Anyone can create rooms (no host key)"]].forEach(function (k) {
+      [["lobby", "Public lobby list"], ["allow_anyone_create", "Anyone can create rooms (no host key)"],
+       ["secure_tokens", "Long random tokens for new owner tokens and host keys (turn on if short ones are abused)"]].forEach(function (k) {
         var st = s.settings[k[0]];
         var cb = h("input", { type: "checkbox", disabled: st.locked_by_env });
         cb.checked = st.value;
@@ -168,16 +169,20 @@
     clear(viewEl);
     var name = h("input", { type: "text", maxlength: "40" });
     var owner = h("input", { type: "text", maxlength: "16", autocomplete: "off" });
-    var kind = h("select", {}, ["party", "hangout"].map(function (a) { return h("option", { value: a }, a); }));
+    var kind = h("select", {}, ["hangout", "party"].map(function (a) { return h("option", { value: a }, a); }));
     var access = h("select", {}, ["open", "approval", "private", "unlisted"].map(function (a) { return h("option", { value: a }, a); }));
     var secret = h("input", { type: "text", autocomplete: "off", placeholder: "needed for private and unlisted" });
     var max = h("input", { type: "number", min: "0", placeholder: "default (party 6, hangout none)" });
+    kind.addEventListener("change", function () {       // a party room holds 1-6 people
+      if (kind.value === "party") { max.setAttribute("max", "6"); max.setAttribute("min", "1"); }
+      else { max.removeAttribute("max"); max.setAttribute("min", "0"); }
+    });
     add(viewEl, h("div", { class: "panel" }, h("h2", {}, "Create room"),
       h("label", {}, "Room name", name),
       h("label", {}, "Owner name (the owner's name in the room, letters and digits, up to 16)", owner),
       h("label", {}, "Kind", kind), h("label", {}, "Access", access),
       h("label", {}, "PIN (4-12 digits) or password (8+ characters)", secret),
-      h("label", {}, "Max members (0 = no limit)", max),
+      h("label", {}, "Max members (hangout: 0 = no limit; party: 1-6)", max),
       btn("Create", function () {
         var b = { name: name.value, owner: owner.value, kind: kind.value, access: access.value };
         if (secret.value) b.secret = secret.value;

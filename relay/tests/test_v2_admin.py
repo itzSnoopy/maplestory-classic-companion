@@ -399,7 +399,7 @@ class TestApi(AdminBase):
         self.do("POST", "hostkeys", {"label": "Bob", "max_rooms": 0}, want=400)
         self.do("POST", "hostkeys", {"label": "Bob", "max_rooms": 1, "expires_days": 0}, want=400)
         k = self.do("POST", "hostkeys", {"label": "Bob", "max_rooms": 2, "expires_days": 30})
-        self.assertTrue(k["key"].startswith("hk_"))
+        self.assertRegex(k["key"], r"^[a-z]+-[a-z]+-\d{4}$")
         listed = self.get("hostkeys")["hostkeys"]
         self.assertEqual(len(listed), 1)
         self.assertNotIn("key", listed[0])

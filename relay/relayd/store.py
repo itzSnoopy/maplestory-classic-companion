@@ -6,6 +6,7 @@ import sqlite3
 import threading
 
 from .auth import sha256hex
+from . import words
 
 MIGRATIONS = [
     """
@@ -130,13 +131,25 @@ class Store:
         return self._one("SELECT * FROM identities WHERE provider=? AND subject=?",
                          (provider, subject))
 
-    def create_host_key(self, label, max_rooms, expires_t, with_id=False, created_t=None):
-        """Make a host key; returns the plain key (or (id, key)); only its hash is stored."""
-        key = "hk_" + secrets.token_urlsafe(24)
-        _, kid = self._w("INSERT INTO host_keys(label, key_hash, max_rooms, expires_t, created_t) "
-                         "VALUES(?,?,?,?,?)",
-                         (label, sha256hex(key), max_rooms, expires_t, created_t))
-        return (kid, key) if with_id else key
+    def create_host_key(self, label, max_rooms, expires_t, with_id=False, created_t=None,
+                        secure=False):
+        """Make a host key; returns the plain key (or (id, key)); only its hash is stored.
+
+        Friendly `slime-cleric-4821` unless secure (long random). Host keys are global, so a hash
+        collision is retried (and falls back to a long key if the friendly space is crowded)."""
+        for attempt in range(60):
+            if secure or attempt >= 50:
+                key = "hk_" + secrets.token_urlsafe(24)
+            else:
+                key = words.friendly_token()
+            try:
+                _, kid = self._w("INSERT INTO host_keys(label, key_hash, max_rooms, expires_t, "
+                                 "created_t) VALUES(?,?,?,?,?)",
+                                 (label, sha256hex(key), max_rooms, expires_t, created_t))
+            except sqlite3.IntegrityError:
+                continue
+            return (kid, key) if with_id else key
+        raise RuntimeError("could not make a host key")
 
     def host_key_by_hash(self, key_hash):
         return self._one("SELECT * FROM host_keys WHERE key_hash=?", (key_hash,))
@@ -185,7 +198,7 @@ class Store:
 
     def list_lobby(self, limit=500):
         rows = self._q(
-            "SELECT r.id, r.name, r.kind, r.access, r.modules, (SELECT COUNT(*) FROM members m "
+            "SELECT r.id, r.name, r.kind, r.access, r.max_members, r.modules, (SELECT COUNT(*) FROM members m "
             "WHERE m.room_id=r.id AND m.status='active') AS members FROM rooms r "
             "WHERE r.access IN ('open','approval','private') "
             "ORDER BY r.last_active_t DESC LIMIT ?", (limit,))

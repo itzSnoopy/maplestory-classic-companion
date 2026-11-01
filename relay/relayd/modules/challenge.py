@@ -243,6 +243,15 @@ class Challenge(Module):
             return self._reply(self._find(room, d, now), now)
 
     # ---- housekeeping
+    def lobby_activity(self, room):
+        with self.lock:
+            if room["id"] not in self.rooms:
+                return None
+            states = {c["state"] for c in self._tick(room["id"], clock.now()).values()}
+        if "running" in states:
+            return "Duel running"
+        return "Duel waiting" if "open" in states else None
+
     def tick(self, room, now):
         with self.lock:
             self._tick(room["id"], now)

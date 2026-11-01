@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import secrets
 
+from . import words
 from .errors import ApiError
 
 SCRYPT_N, SCRYPT_R, SCRYPT_P = 2 ** 14, 8, 1
@@ -39,7 +40,16 @@ def verify_secret(secret, stored):
 
 
 def new_token():
+    """A long random token (member tokens, and owner tokens / host keys in secure mode)."""
     return secrets.token_urlsafe(32)
+
+
+def new_owner_token(secure=False):
+    """Owner tokens: friendly `slime-cleric-4821`, or long random when secure. Unique per room only."""
+    return new_token() if secure else words.friendly_token()
+
+
+normalize_token = words.normalize     # case-insensitive friendly tokens; long tokens stay exact
 
 
 class Lockouts:
@@ -51,6 +61,8 @@ class Lockouts:
         self._addr = {}         # (addr, room) -> [count, locked_until]
         self._room = {}         # room -> [fail times, paused_until]
         self._failed = {}       # room -> total failed joins (the owner sees it)
+        # own (limit, lock seconds) for non-room keys; see TOKEN_LOCK in rooms.py
+        self.special = {"!token": (10, 600)}
 
     def check(self, addr, room_id, now):
         a = self._addr.get((addr, room_id))
@@ -74,9 +86,17 @@ class Lockouts:
         """track=False: an unknown room id; counts against the address only."""
         self._prune(now)
         a = self._addr.setdefault((addr, room_id), [0, 0.0])
+        limit, lock_s = self.special.get(room_id, (self.addr_limit, self.addr_lock_s))
+        if room_id in self.special:
+            # windowed count (these keys never reset on success): a quiet spell longer than the
+            # lock time starts the count over, so a rare stale token never adds up to a lockout
+            if len(a) < 3:
+                a.append(now)
+            elif now - a[2] > lock_s:
+                a[0], a[2] = 0, now
         a[0] += 1
-        if a[0] >= self.addr_limit:
-            a[0], a[1] = 0, now + self.addr_lock_s
+        if a[0] >= limit:
+            a[0], a[1] = 0, now + lock_s
         if not track:
             return
         r = self._room.setdefault(room_id, [[], 0.0])
@@ -131,7 +151,8 @@ class HostKeyProvider:
 
     def authenticate(self, store, cfg, now, cred):
         key = cred.get("host_key")
-        row = store.host_key_by_hash(sha256hex(key)) if isinstance(key, str) and key else None
+        key = words.normalize(key) if isinstance(key, str) else None
+        row = store.host_key_by_hash(sha256hex(key)) if key else None
         if not row or row["revoked"] or (row["expires_t"] and row["expires_t"] <= now):
             raise ApiError(403, "bad host key")
         acct = row["account_id"]

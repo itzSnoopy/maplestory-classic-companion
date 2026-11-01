@@ -12,9 +12,12 @@
 </header>
 <main>
   <section class="panel">
-    <h2>Create a room</h2>
+    <div class="bar" id="createBar">
+      <h2>Create a room</h2>
+      <button class="primary" id="createToggle" type="button" aria-expanded="false" aria-controls="createForm">Create room</button>
+    </div>
     <p id="closed" class="muted" hidden>Creating rooms is not open to everyone on this server. You need a host key from the server's owner.</p>
-    <form id="createForm">
+    <form id="createForm" hidden>
       <label>Room name
         <input id="name" type="text" maxlength="40" required>
       </label>
@@ -23,8 +26,8 @@
       </label>
       <label>Kind
         <select id="kind">
-          <option value="party">party</option>
-          <option value="hangout">hangout</option>
+          <option value="hangout" selected>hangout: drop in and out, no size limit</option>
+          <option value="party">party: up to 6 people</option>
         </select>
       </label>
       <label>Who can join
@@ -40,11 +43,15 @@
       </label>
       <label>Max members (optional)
         <input id="max" type="number" min="0" placeholder="default">
+        <span id="maxHelp" class="muted">Hangout: leave empty or 0 for no limit.</span>
       </label>
       <label>Host key (only if the server asks for one)
         <input id="hostkey" type="password" autocomplete="off">
       </label>
-      <button class="primary" type="submit">Create room</button>
+      <div class="row">
+        <button class="primary" type="submit">Create room</button>
+        <button id="createCancel" type="button">Close</button>
+      </div>
     </form>
     <p id="err" class="error" role="alert" hidden></p>
     <div id="result"></div>

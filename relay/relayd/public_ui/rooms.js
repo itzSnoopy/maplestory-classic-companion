@@ -64,6 +64,28 @@
     });
   }
 
+  // ---- create form: collapsed into one bar
+  function setOpen(open) {
+    $("createForm").hidden = !open;
+    $("createToggle").setAttribute("aria-expanded", open ? "true" : "false");
+    $("createToggle").hidden = open;
+    if (open) $("name").focus();
+  }
+  $("createToggle").addEventListener("click", function () { setOpen(true); });
+  $("createCancel").addEventListener("click", function () { showError(""); setOpen(false); });
+  function syncKind() {            // a party room holds 1-6 people; a hangout has no limit
+    var m = $("max");
+    if ($("kind").value === "party") {
+      m.setAttribute("min", "1"); m.setAttribute("max", "6"); m.setAttribute("placeholder", "6");
+      $("maxHelp").textContent = "Party: 1 to 6 people (empty = 6).";
+    } else {
+      m.setAttribute("min", "0"); m.removeAttribute("max"); m.setAttribute("placeholder", "no limit");
+      $("maxHelp").textContent = "Hangout: leave empty or 0 for no limit.";
+    }
+  }
+  $("kind").addEventListener("change", syncKind);
+  syncKind();
+
   // ---- create
   function accessText(access) {
     if (access === "approval") return "You accept each person who asks to join.";
@@ -78,6 +100,10 @@
     var secret = $("secret").value;
     if (secret) b.secret = secret;
     if ($("max").value !== "") b.max_members = parseInt($("max").value, 10);
+    if (b.kind === "party" && b.max_members !== undefined && (b.max_members < 1 || b.max_members > 6)) {
+      showError("a party room holds up to 6 people");
+      return;
+    }
     var headers = {}, key = $("hostkey").value.trim();
     if (key) headers["X-Host-Key"] = key;
     api("POST", "/v2/rooms", b, headers).then(function (r) {
@@ -98,12 +124,42 @@
       saveMine(list);
       renderMine();
       $("name").value = ""; $("secret").value = ""; $("max").value = "";
+      setOpen(false);
       loadLobby();
     }, function (e) {
       showError(e.error);
       checkOpen();
     });
   });
+
+  // ---- lobby cards
+  var SVG = "http://www.w3.org/2000/svg";
+  function icon(path) {
+    var svg = document.createElementNS(SVG, "svg");
+    svg.setAttribute("viewBox", "0 0 16 16");
+    svg.setAttribute("aria-hidden", "true");
+    var p = document.createElementNS(SVG, "path");
+    p.setAttribute("d", path);
+    svg.appendChild(p);
+    return svg;
+  }
+  var CUP = "M2 4h9v5a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V4zm9 1h1.5a1.5 1.5 0 0 1 0 3H11V5zM3 14h8v1H3z";
+  var DIAMOND = "M8 1l6 7-6 7-6-7z";
+  var ACCESS_TEXT = { open: "Open", approval: "Approval", private: "PIN (private)", unlisted: "PIN (private)" };
+  function roomCard(r) {
+    var party = r.kind === "party";
+    var count = party
+      ? (r.max_members ? r.members + "/" + r.max_members : r.members + " in")
+      : (r.online != null ? r.online : 0) + " online";
+    var meta = r.activity ? count + " \u00b7 " + r.activity : count;
+    return h("div", { class: "roomcard " + (party ? "party" : "hangout") },
+      h("div", { class: "top" },
+        h("span", { class: "badge kind" }, icon(party ? DIAMOND : CUP), party ? "Party" : "Hangout"),
+        h("span", { class: "badge access" }, ACCESS_TEXT[r.access] || r.access)),
+      h("div", { class: "rname" }, r.name),
+      h("div", { class: "meta" }, meta),
+      h("div", { class: "meta" }, h("code", {}, r.id)));
+  }
 
   // ---- lobby
   function loadLobby() {
@@ -112,11 +168,9 @@
       clear(box);
       if (!d.enabled) { box.textContent = "Lobby is off on this server"; return; }
       if (!d.rooms.length) { box.textContent = "No rooms listed right now."; return; }
-      d.rooms.forEach(function (r) {
-        var line = r.kind + ", " + r.access + ", " + r.members + (r.members === 1 ? " member" : " members") +
-          (r.online != null ? ", " + r.online + " online" : "");
-        box.appendChild(h("div", { class: "item" }, h("b", {}, r.name), " ", h("code", {}, r.id), h("div", { class: "muted" }, line)));
-      });
+      var grid = h("div", { class: "grid" });
+      d.rooms.forEach(function (r) { grid.appendChild(roomCard(r)); });
+      box.appendChild(grid);
     }, function (e) { box.textContent = e.error; });
   }
   $("reload").addEventListener("click", loadLobby);

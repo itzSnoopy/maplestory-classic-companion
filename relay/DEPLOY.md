@@ -104,6 +104,7 @@ Who may create from the public page: if **Anyone can create rooms** is on (Overv
 `ALLOW_ANYONE_CREATE=1`), everybody, with a small daily limit per address. If it is off, only people with a
 **host key**: make one on the Host keys tab, give it to the friend, and they paste it in the "Host key" field.
 Wrong host keys are limited too: 5 wrong tries from one address block creating from it for 10 minutes.
+Owner tokens and host keys look like `slime-cleric-4821` (monster, job, 4 digits; not case sensitive) so they are easy to read out. They are short on purpose: wrong bearer tokens are limited per address (10 wrong -> 10 minutes). If someone abuses them, switch on **Long random tokens** (Overview > Switches, or `SECURE_TOKENS=1`): new ones are long random strings, existing ones keep working.
 `/health` shows `"create_open": true/false` for the switch. The page is plain HTTP unless you put TLS in front,
 so PINs and tokens travel unencrypted until then.
 
@@ -113,7 +114,7 @@ so PINs and tokens travel unencrypted until then.
 |---|---|---|
 | `ADMIN_PASS` | empty (admin off) | admin page pass, 12+ characters |
 | `RELAY_PORT` | 8788 | host port for plain HTTP |
-| `LOBBY`, `ALLOW_ANYONE_CREATE` | empty (admin page decides) | `1`/`0` fixes the switch |
+| `LOBBY`, `ALLOW_ANYONE_CREATE`, `SECURE_TOKENS` | empty (admin page decides) | `1`/`0` fixes the switch; `SECURE_TOKENS=1` makes new owner tokens and host keys long random ones |
 | `LEGACY_V1` | 1 | old `/v1` paths for app builds before v2 |
 | `MAX_ROOMS`, `MAX_ROOMS_PER_ACCOUNT`, `MAX_ROOM_MEMBERS` | 500, 5, 0 | limits (0 = none) |
 | `FEEDBACK_KEY`, `FEEDBACK_CODES` | empty | skill feedback inbox (empty key = off) |

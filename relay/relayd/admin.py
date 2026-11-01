@@ -39,7 +39,7 @@ REFUSED = "admin is only reachable from the LAN or over https"
 ROOM_ID_RE = re.compile(r"^[a-z0-9]{4}-[a-z0-9]{4}$")
 CODE_RE = re.compile(r"^[A-Za-z0-9_-]{6,64}$")
 CTRL_RE = re.compile(r"[\x00-\x1f\x7f]")
-SETTING_KEYS = ("lobby", "allow_anyone_create")
+SETTING_KEYS = ("lobby", "allow_anyone_create", "secure_tokens")
 
 Raw = namedtuple("Raw", "body ctype headers")
 
@@ -196,10 +196,10 @@ class Admin:
     def _settings(self, body, via):
         app = self.app
         if not isinstance(body, dict) or not body:
-            raise ApiError(400, "send lobby and/or allow_anyone_create")
+            raise ApiError(400, "send lobby, allow_anyone_create and/or secure_tokens")
         for k, v in body.items():
             if k not in SETTING_KEYS or not isinstance(v, bool):
-                raise ApiError(400, "only lobby and allow_anyone_create (true/false) can be set")
+                raise ApiError(400, "only lobby, allow_anyone_create and secure_tokens (true/false) can be set")
             if getattr(app.cfg, k) is not None:
                 raise ApiError(409, f"{k} is set by the environment and cannot be changed here")
         for k, v in body.items():
@@ -287,7 +287,8 @@ class Admin:
             exp = None
             if body.get("expires_days") is not None:
                 exp = now + _int_in(body["expires_days"], 1, 3650, "expires_days") * 86400
-            kid, key = store.create_host_key(label, max_rooms, exp, with_id=True, created_t=now)
+            kid, key = store.create_host_key(label, max_rooms, exp, with_id=True, created_t=now,
+                                            secure=self.app.flag("secure_tokens"))
             self.audit(via, "hostkey create", f"created host key '{label}' (max {max_rooms} rooms)")
             return {"id": kid, "key": key}
         if n == 3 and method == "POST" and seg[2] == "revoke" and seg[1].isdigit():

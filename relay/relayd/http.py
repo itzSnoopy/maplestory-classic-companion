@@ -61,26 +61,26 @@ class V2Mixin:
                     raise ApiError(404, "not found")
                 if n == 3:
                     if method == "GET":
-                        return app.view(rid, auth)
+                        return app.view(rid, auth, addr)
                     if method == "PATCH":
-                        return app.patch(rid, auth, self._json_body())
+                        return app.patch(rid, auth, self._json_body(), addr)
                     if method == "DELETE":
-                        return app.delete(rid, auth)
+                        return app.delete(rid, auth, addr)
                 elif n == 4 and method == "GET" and seg[3] == "me":
-                    return app.me(rid, auth)
+                    return app.me(rid, auth, addr)
                 elif n == 4 and method == "POST":
                     if seg[3] == "join":
                         return app.join(addr, rid, self._json_body())
                     if seg[3] == "sync":
-                        return app.sync(rid, auth, self._json_body())
+                        return app.sync(rid, auth, self._json_body(), addr)
                     if seg[3] == "leave":
-                        return app.leave(rid, auth)
+                        return app.leave(rid, auth, addr)
                 elif n == 5 and method == "POST":
                     if seg[3] == "members":
                         raise ApiError(404, "not found")
-                    return app.module_action(rid, auth, seg[3], seg[4], self._json_body())
+                    return app.module_action(rid, auth, seg[3], seg[4], self._json_body(), addr)
                 elif n == 6 and method == "POST" and seg[3] == "members":
-                    return app.member_action(rid, auth, seg[4], seg[5])
+                    return app.member_action(rid, auth, seg[4], seg[5], addr)
         raise ApiError(404, "not found")
 
     def _feedback(self, app, method, code, addr):

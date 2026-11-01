@@ -40,6 +40,7 @@ class Config:
     data_dir: str = "./data"
     lobby: Optional[bool] = None
     allow_anyone_create: Optional[bool] = None
+    secure_tokens: Optional[bool] = None    # True = new owner tokens / host keys are long random ones
     legacy_v1: bool = True
     max_rooms: int = 500
     max_rooms_per_account: int = 5
@@ -91,6 +92,7 @@ class Config:
             data_dir=env.get("DATA_DIR") or "./data",
             lobby=_flag(env.get("LOBBY")),
             allow_anyone_create=_flag(env.get("ALLOW_ANYONE_CREATE")),
+            secure_tokens=_flag(env.get("SECURE_TOKENS")),
             legacy_v1=True if legacy is None else legacy,
             max_rooms=_int(env, "MAX_ROOMS", 500),
             max_rooms_per_account=_int(env, "MAX_ROOMS_PER_ACCOUNT", 5),

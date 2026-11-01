@@ -31,6 +31,11 @@ class Module:
         """Rows within their TTL (lobby 'online'); 0 when the module has no such idea."""
         return 0
 
+    def lobby_activity(self, room):
+        """A short string for the lobby card ("Duel running") or None. Called for every listed room
+        on each lobby request: keep it cheap (no SQL, no loops over members)."""
+        return None
+
     def on_member_removed(self, room_id, name):
         pass
 

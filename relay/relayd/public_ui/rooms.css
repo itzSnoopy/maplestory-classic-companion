@@ -16,7 +16,7 @@ body {
 header { padding: 12px 16px; background: var(--card); border-bottom: 1px solid var(--line); }
 h1 { font-size: 18px; margin: 0; }
 h2 { font-size: 16px; margin: 0 0 8px; }
-main { max-width: 640px; margin: 0 auto; padding: 16px; }
+main { max-width: 860px; margin: 0 auto; padding: 16px; }
 [hidden] { display: none !important; }
 .muted { color: var(--muted); }
 .error { color: var(--danger); background: var(--card); border: 1px solid var(--danger);
@@ -38,3 +38,23 @@ code { background: var(--code); border-radius: 4px; padding: 1px 4px; overflow-w
 .item { border-top: 1px solid var(--line); padding: 8px 0; }
 .item:first-child { border-top: 0; }
 .result { border: 1px solid var(--accent); border-radius: 8px; padding: 12px; margin-top: 12px; }
+
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.bar h2 { margin: 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.roomcard { background: var(--card); border: 1px solid var(--line); border-top: 5px solid var(--edge, var(--line));
+  border-radius: 8px; padding: 10px 12px; }
+.roomcard.hangout { --edge: #1f9d55; --edge-fg: #1f9d55; }
+.roomcard.party { --edge: #7c4dcc; --edge-fg: #7c4dcc; }
+@media (prefers-color-scheme: dark) {
+  .roomcard.hangout { --edge: #4cc38a; --edge-fg: #4cc38a; }
+  .roomcard.party { --edge: #b08cf0; --edge-fg: #b08cf0; }
+}
+.roomcard .top { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 6px; }
+.badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600;
+  border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+.badge.kind { color: var(--edge-fg); border-color: var(--edge-fg); }
+.badge.access { color: var(--muted); }
+.badge svg { width: 13px; height: 13px; fill: currentColor; }
+.roomcard .rname { font-weight: 700; overflow-wrap: anywhere; }
+.roomcard .meta { color: var(--muted); font-size: 13px; margin-top: 2px; }

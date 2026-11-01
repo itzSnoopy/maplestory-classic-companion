@@ -134,7 +134,7 @@ class TestCreate(Base):
         self.app.cfg.max_room_members = 8
         rid, tok = self.mk(kind="hangout")
         self.assertEqual(self.call("GET", f"/v2/rooms/{rid}", token=tok)[1]["max_members"], 8)
-        rid, tok = self.mk(max_members=50)
+        rid, tok = self.mk(kind="hangout", max_members=50)
         self.assertEqual(self.call("GET", f"/v2/rooms/{rid}", token=tok)[1]["max_members"], 8)
 
     def test_creator_is_owner(self):
@@ -336,7 +336,8 @@ class TestLobby(Base):
         self.assertTrue(d["enabled"])
         names = {r["name"] for r in d["rooms"]}
         self.assertEqual(names, {"OpenOne", "ApprovalOne", "PrivateOne"})
-        self.assertEqual(set(d["rooms"][0]), {"id", "name", "kind", "access", "members", "online"})
+        self.assertEqual(set(d["rooms"][0]), {"id", "name", "kind", "access", "members", "online",
+                                                  "max_members", "activity"})
 
     def test_lobby_off(self):
         self.app.cfg.lobby = False
