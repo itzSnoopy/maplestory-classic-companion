@@ -19,8 +19,9 @@ services:
       DATA_DIR: /data
       # admin page: plain pass, at least 12 characters (empty = admin page off)
       ADMIN_PASS: "${ADMIN_PASS:-}"
-      # Caddy's fixed address below; requests from it carry the real client address
-      TRUSTED_PROXIES: "${PROXY_IP:-172.29.87.10}"
+      # Caddy's fixed address below, plus any other reverse proxy in front (EXTRA_PROXIES, e.g. an
+      # Nginx Proxy Manager address); requests from these carry the real client address
+      TRUSTED_PROXIES: "${PROXY_IP:-172.29.87.10},${EXTRA_PROXIES:-}"
       # who may open the admin page over plain http: home LAN only. Docker's own 172.16/12 range is
       # left out on purpose: traffic Docker forwards itself (e.g. over IPv6) shows up from it.
       ADMIN_NETS: "${ADMIN_NETS:-192.168.0.0/16,10.0.0.0/8}"

@@ -20,9 +20,11 @@ class Handler(AdminMixin, V2Mixin, party_relay.Handler):
 
     def _health(self):
         app = self.server.app
+        c = app.access.resolve(self.client_address[0], self.headers)
+        # "you": the caller's own address as the relay sees it (helps set EXTRA_PROXIES behind a proxy)
         return {"ok": True, "version": VERSION, "source": party_relay.SOURCE_URL,
                 "lobby": app.flag("lobby"), "feedback": bool(party_relay.FEEDBACK_KEY or app.cfg.feedback_key),
-                "legacy_v1": app.cfg.legacy_v1}
+                "legacy_v1": app.cfg.legacy_v1, "you": c.ip, "via_proxy": c.proxied}
 
     def _dispatch(self, method):
         path = self.path.split("?", 1)[0]

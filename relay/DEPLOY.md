@@ -62,6 +62,30 @@ How it stays safe: the relay trusts forwarded addresses only from Caddy's fixed 
 clashes with another one on the box, set `RELAY_SUBNET` and `PROXY_IP` to another free range (both together).
 Admin logins from the internet have their own lockout and can't lock you out at home.
 
+## Behind your own reverse proxy (e.g. Nginx Proxy Manager)
+
+Already run a reverse proxy with its own certificate? Point it at the relay instead of using Caddy:
+
+1. Proxy host: scheme **http**, forward to `<box LAN address>` port `RELAY_PORT` (8788), websockets off.
+   Pick your certificate on the SSL tab.
+2. In the stack's environment variables add the address the proxy's requests come from:
+   ```
+   EXTRA_PROXIES=<proxy address>
+   ```
+   (Several: comma-separated; a range like `172.18.0.0/16` also works.) Then **Pull and redeploy**.
+
+The relay then reads the real client address from the proxy's `X-Forwarded-For`, and the admin page
+opens through the proxy's https address. Only list addresses that really are your proxy: anything
+listed may claim to be any client.
+
+Finding the address: for a proxy in Docker on the same box, it's usually its network's gateway
+(Portainer > Networks > the proxy's network > Gateway, e.g. `172.18.0.1`) when it forwards to the
+box's LAN address. A proxy on another machine: that machine's LAN address.
+A request through the proxy to `/health` before setting it shows `"you": "<address>"` if unsure.
+
+Note: the app checks certificates, so a self-made certificate (e.g. for a `.home` name) works in
+the browser but not in the app. Point the app at `http://<box LAN address>:8788` on the home network.
+
 ## Settings reference
 
 | Variable | Default | What |
