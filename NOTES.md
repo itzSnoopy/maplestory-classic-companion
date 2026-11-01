@@ -166,7 +166,7 @@ whitelist, threshold).
 
 ### 2026-10-23: diary + character close-ups
 - The name tag can be found by template (gray > 150 text mask, FFT correlation). True tag 0.46–1.0,
-  false ≤ 0.14 on 5 frames. Close-ups are good even with a touching tag (`dingdingSnoopySparda`)
+  false ≤ 0.14 on 5 frames. Close-ups are good even with a touching tag (`dingdingPlayerName`)
   and the LEVEL UP banner.
 - Quest-reward EXP prints in the chat box too (`You received EXP (+120)`), with item gained/lost lines.
 - Long minimap titles get truncated: `Hunting Ground Middle of the Fore`.
@@ -398,7 +398,7 @@ changing.
   there as soon as the overview says it's open. A window open for one frame is read. A window at a
   new spot needs one more look (full grab). Spots persist in history/panel_spots.json.
 - **Who is playing** (charname.py): the status-bar name, one text line (14 px) below the job.
-  Tesseract reads "SnoopySparda" as "SsnhoopySparda", and names can't be snapped to a list, so the
+  Tesseract garbles the name (an extra letter and a swapped one in a 12-letter name), and names can't be snapped to a list, so the
   key is a 10-hex SHA-1 of the trimmed white-pixel mask (white_min 220): the same on all frames
   Lv 5-14 (13 checked), unaffected by open windows. Checked on every reading (~0.1 ms); a new one
   becomes a "who" fact. The display name comes from the Stat window (OCR reads it right). Two
@@ -528,12 +528,12 @@ setting is on the roadmap (A). Every exact-pixel reader would need it, not only 
 
 ## 2026-10-23 23:50 · Party box (party HP UI under the minimap)
 
-Live PNG frames + a JPEG burst, 1920x1080, minimap full at 0,0, party of 2 (SnoopySparda leader,
-DSius). Box at x 218-410, y 218-252. Bars: white top border row y=222 at x 342..404 (63 px), white
+Live PNG frames + a JPEG burst, 1920x1080, minimap full at 0,0, party of 2 (the player leader,
+a partner). Box at x 218-410, y 218-252. Bars: white top border row y=222 at x 342..404 (63 px), white
 bottom border y=230, side borders x 341 and 405, black outline rows 221 and 231; second bar 17 px
 lower (239). Interior rows 223-229, red strongest in rows 225-228 (e.g. cf0505, edge column 342
 9f2323), empty = (45,3a,40)-ish. Fill = last red column + 1 over 63: 90.5 % vs exact 380/424 = 89.6 %.
-Names: black text (lum < 32) on your map; DSius on another map was grey, darkest ~50-55, background
+Names: black text (lum < 32) on your map; the partner on another map was grey, darkest ~50-55, background
 under the box 100+ (lum < 100 & sat < 35 catches it, ragged in JPEG). Leader star: ~37 gold pixels
 (R>200, G>110, R-B>100) in the icon box, member sun ~14. Tesseract (mask x4, psm 7, alnum
 whitelist) read both names exactly on lossless frames, "or" for the grey name in JPEG.

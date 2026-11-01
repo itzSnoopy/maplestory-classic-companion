@@ -528,16 +528,16 @@ class PartyPanel:
 
 
 def demo_data(now):
-    live = {"t": now, "character": "SnoopySparda",
+    live = {"t": now, "character": "MagicianAlex",
             "hp": {"cur": 380, "max": 424}, "mp": {"cur": 512, "max": 630},
             "party": {"t": now, "rows": [
-                {"name": "SnoopySparda", "me": True, "on_map": True, "hp": 89.0, "leader": True},
-                {"name": "DSius", "me": False, "on_map": True, "hp": 22.0, "leader": False},
+                {"name": "MagicianAlex", "me": True, "on_map": True, "hp": 89.0, "leader": True},
+                {"name": "Robin", "me": False, "on_map": True, "hp": 22.0, "leader": False},
                 {"name": "Friend", "me": False, "on_map": False, "hp": None, "leader": False}]}}
     status = {"state": "playing", "level": 15, "pct": 41.28, "exp_per_hour_recent": 3820,
               "eta_to_level": "1h05m", "map": "L Forest I"}
     pj = {"t": now, "ok": True, "members": [
-        {"name": "DSius", "caps": "ch", "level": 16, "hp": [101, 460], "mp": [280, 410], "exp_pct": 12.5,
+        {"name": "Robin", "caps": "ch", "level": 16, "hp": [101, 460], "mp": [280, 410], "exp_pct": 12.5,
          "exp_hr": 4100, "eta": "1h40m", "map": "L Forest I", "state": "playing", "age_s": 1.2},
         {"name": "Mapler99", "level": 22, "hp": [600, 700], "exp_pct": 71.0, "map": "L Forest I",
          "channel": 40, "state": "playing", "age_s": 2.0},
@@ -550,7 +550,7 @@ def demo_data(now):
 
 def demo_challenge(now):
     return {"enabled": True, "busy": False,
-            "invite": {"id": "demo", "from": "DSius", "mode": "1v1", "minutes": 5, "expires": now + 3600}}
+            "invite": {"id": "demo", "from": "Robin", "mode": "1v1", "minutes": 5, "expires": now + 3600}}
 
 
 def main():
