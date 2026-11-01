@@ -354,6 +354,21 @@ class Relay:
         out = self.public(room)
         out["members"] = [x for x in members if x["status"] == "active"]
         if m["role"] in ("owner", "mod"):
+            now = clock.now()
+            pres = self.modules.get("presence") if "presence" in room["modules"] else None
+            live = pres.live_rows(room_id, now) if pres else {}
+            out["members"] = [{**x, "online": x["name"] in live,
+                               "state": (live.get(x["name"]) or {}).get("state")}
+                              for x in out["members"]]
+            acts, current = {}, None
+            for mod_name in room["modules"]:
+                mod = self.modules.get(mod_name)
+                v = mod.owner_view(room, now) if mod else None
+                if v:
+                    acts.update(v.get("activities") or {})
+                    current = current or v.get("current")
+            out["activities"] = acts
+            out["activity"] = current
             out["requests"] = [x["name"] for x in members if x["status"] == "pending"]
             out["failed_joins"] = self.lockouts.failed_joins(room_id)
         return out

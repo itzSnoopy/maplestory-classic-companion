@@ -4,7 +4,10 @@ Ported from party_relay.py (v1) with the same rules. Differences: state is per r
 name always comes from the member token, and invitees come from the room (1v1 = a room member,
 map / all = members with a live presence row, read through presence.live_rows).
 
-Actions (POST /v2/rooms/<id>/challenge/<action>): create, accept, decline, cancel, kills, get.
+Actions (POST /v2/rooms/<id>/challenge/<action>): create, accept, decline, cancel, kills, get, start, stop.
+`start` / `stop` are the room owner's / a mod's: a host-started room-wide activity (today only the kill race,
+kind "race"; the relic hunt can become a second kind). The host may be an organizer who is not playing (owner on
+the web page): then the host is only the creator, not a player. Start rule: see _host_step.
 Sync part: body "challenge": {"id", "kills": [...]} -> reply {"challenges": [views]}.
 """
 import re
@@ -29,6 +32,9 @@ CH_MAX_EVENTS = 20      # events in one post
 NAME_RE = re.compile(r"^[A-Za-z0-9]{1,16}$")
 ID_RE = re.compile(r"^[0-9a-f]{8}$")
 OPEN_STATES = ("open", "running")
+HOST_MIN_PLAYERS = 2    # a host race needs this many accepted players to start
+KINDS = ("race",)       # activity kinds a host can start (more later: the relic hunt)
+KIND_LABELS = {"race": "Kill race"}
 
 
 def _num(v):
@@ -51,6 +57,8 @@ class Challenge(Module):
             self.rooms.pop(room_id, None)
             return {}
         for cid, c in list(chs.items()):
+            if c.get("host"):
+                self._host_step(c, now)
             if c["state"] == "open" and now - c["created_t"] > CH_PENDING_S:
                 c["state"], c["ended_t"] = "expired", now
             elif c["state"] == "running" and now > c["end_t"] + CH_GRACE_S:
@@ -65,6 +73,27 @@ class Challenge(Module):
         if not chs:
             self.rooms.pop(room_id, None)
         return chs
+
+    @staticmethod
+    def _accepted(c):
+        return sum(1 for p in c["players"].values() if p["accepted"])
+
+    @staticmethod
+    def _host_step(c, now):
+        """The start rule of a host race (call under the lock; only moves an open race). It starts when
+        at least HOST_MIN_PLAYERS (2) accepted AND (everyone invited has answered OR CH_PENDING_S (60 s) passed
+        since creation). It is cancelled when time is up with fewer than 2 accepted, or earlier when nobody is
+        left to answer and fewer than 2 accepted (it can no longer start)."""
+        if c["state"] != "open":
+            return
+        enough = Challenge._accepted(c) >= HOST_MIN_PLAYERS
+        late = now - c["created_t"] >= CH_PENDING_S
+        if enough and (not c["invited"] or late):
+            c["state"] = "running"
+            c["start_t"] = now + CH_COUNTDOWN_S
+            c["end_t"] = c["start_t"] + c["minutes"] * 60
+        elif late or not c["invited"]:
+            c["state"], c["ended_t"] = "cancelled", now
 
     @staticmethod
     def _busy(chs, name):
@@ -83,6 +112,10 @@ class Challenge(Module):
                "start_t": c.get("start_t"), "end_t": c.get("end_t"),
                "players": [{"name": n, "score": p["score"], "accepted": p["accepted"],
                             "ack": p["seq"]} for n, p in c["players"].items()]}
+        out["host"] = bool(c.get("host"))
+        out["kind"] = c.get("kind", "race")
+        if c.get("host") and c["state"] == "open":
+            out["decide_t"] = c["created_t"] + CH_PENDING_S     # at the latest the race starts / is cancelled then
         if c.get("result"):
             out["result"] = c["result"]
         return out
@@ -144,7 +177,8 @@ class Challenge(Module):
     # ---- actions
     def actions(self):
         return {"create": self._create, "accept": self._accept, "decline": self._decline,
-                "cancel": self._cancel, "kills": self._post_kills, "get": self._get}
+                "cancel": self._cancel, "kills": self._post_kills, "get": self._get,
+                "start": self._start, "stop": self._stop}
 
     def _reply(self, c, now):
         return {**self._view(c, now), "server_t": now}
@@ -184,6 +218,57 @@ class Challenge(Module):
             self.rooms.setdefault(rid, {})[c["id"]] = c
             return self._reply(c, now)
 
+    @staticmethod
+    def _host_only(m):
+        if m["role"] not in ("owner", "mod"):
+            raise ApiError(403, "owner or mod only")
+
+    def _start(self, room, m, d, now):
+        """Host-started room-wide kill race. Invited = every member live in presence (as mode "all"); the
+        starter plays only if live themselves (an owner on the web page is an organizer)."""
+        self._host_only(m)
+        rid, name = room["id"], m["name"]
+        kind, minutes = d.get("kind", "race"), d.get("minutes")
+        if kind not in KINDS:
+            raise ApiError(400, "unknown activity")
+        if minutes not in MINUTES or isinstance(minutes, bool):
+            raise ApiError(400, "bad minutes")
+        with self.lock:
+            chs = self._tick(rid, now)
+            if any(c.get("host") and c["state"] in OPEN_STATES for c in chs.values()):
+                raise ApiError(409, "an activity is already on in this room")
+            if sum(1 for c in chs.values() if c["state"] in OPEN_STATES) >= CH_MAX:
+                raise ApiError(429, "too many challenges")
+            live = self._live_rows(rid, now)
+            if not live:
+                raise ApiError(409, "nobody is online in this room")
+            plays = name in live
+            if plays and self._busy(chs, name):
+                raise ApiError(409, "you are already in a challenge")
+            invited = {n for n in live if n != name}
+            if len(invited) + (1 if plays else 0) < HOST_MIN_PLAYERS:
+                raise ApiError(409, "at least 2 players must be online")
+            c = {"id": secrets.token_hex(4), "mode": "all", "kind": kind, "host": True,
+                 "minutes": minutes, "creator": name, "created_t": now, "state": "open",
+                 "invited": invited,
+                 "players": {name: {"accepted": True, "score": 0, "seq": 0}} if plays else {}}
+            self.rooms.setdefault(rid, {})[c["id"]] = c
+            return self._reply(c, now)
+
+    def _stop(self, room, m, d, now):
+        """End an open or running host race early (no result: it is cancelled)."""
+        self._host_only(m)
+        cid = d.get("id")
+        with self.lock:
+            chs = self._tick(room["id"], now)
+            found = [c for c in chs.values() if c.get("host") and c["state"] in OPEN_STATES
+                     and (cid is None or c["id"] == cid)]
+            if not found:
+                raise ApiError(404, "no activity to stop")
+            for c in found:
+                c["state"], c["ended_t"] = "cancelled", now
+            return self._reply(found[-1], now)
+
     def _find(self, room, d, now):
         """Challenge by body id (under the lock); also ticks the room."""
         cid = d.get("id")
@@ -207,7 +292,9 @@ class Challenge(Module):
                 raise ApiError(409, "you are already in a challenge")
             c["invited"].discard(name)
             c["players"][name] = {"accepted": True, "score": 0, "seq": 0}
-            if c["state"] == "open":
+            if c.get("host"):
+                self._host_step(c, now)
+            elif c["state"] == "open":
                 c["state"] = "running"
                 c["start_t"] = now + CH_COUNTDOWN_S
                 c["end_t"] = c["start_t"] + c["minutes"] * 60
@@ -220,7 +307,9 @@ class Challenge(Module):
             if name not in c["invited"]:
                 raise ApiError(409, "not invited")
             c["invited"].discard(name)
-            if c["state"] == "open" and (c["mode"] == "1v1" or not c["invited"]):
+            if c.get("host"):
+                self._host_step(c, now)
+            elif c["state"] == "open" and (c["mode"] == "1v1" or not c["invited"]):
                 c["state"], c["ended_t"] = "declined", now
             return self._reply(c, now)
 
@@ -247,7 +336,20 @@ class Challenge(Module):
         with self.lock:
             if room["id"] not in self.rooms:
                 return None
-            states = {c["state"] for c in self._tick(room["id"], clock.now()).values()}
+            now = clock.now()
+            chs = list(self._tick(room["id"], now).values())
+            for c in chs:
+                if not c.get("host"):
+                    continue
+                label = KIND_LABELS.get(c.get("kind"), "Activity")
+                if c["state"] == "open":
+                    return f"{label} starting"
+                if c["state"] == "running":
+                    left = c["end_t"] - max(now, c["start_t"])     # the countdown does not eat race time
+                    if left <= 0:
+                        return f"{label} ending"
+                    return f"{label} · {self._accepted(c)} players · {max(1, int(-(-left // 60)))} min left"
+            states = {c["state"] for c in chs}
         if "running" in states:
             return "Duel running"
         return "Duel waiting" if "open" in states else None
@@ -265,6 +367,20 @@ class Challenge(Module):
             chs = self.rooms.get(room["id"]) or {}
             return {"open": sum(1 for c in chs.values() if c["state"] in OPEN_STATES)}
 
+    def owner_view(self, room, now):
+        """For the owner / mods (GET /v2/rooms/<id>): what can be started and the current host activity."""
+        with self.lock:
+            chs = self._tick(room["id"], now)
+            cur = None
+            for c in sorted(chs.values(), key=lambda c: c["created_t"], reverse=True):
+                if not c.get("host"):
+                    continue
+                if c["state"] in OPEN_STATES or now - c["ended_t"] < CH_SHOW_RESULT_S:
+                    cur = {**self._view(c, now), "server_t": now}
+                    break
+        return {"activities": {k: {"label": KIND_LABELS[k], "minutes": list(MINUTES)} for k in KINDS},
+                "current": cur}
+
     def on_member_removed(self, room_id, name):
         now = clock.now()
         with self.lock:
@@ -275,7 +391,9 @@ class Challenge(Module):
                     c["state"], c["ended_t"] = "cancelled", now
                 else:
                     c["invited"].discard(name)
-                    if c["state"] == "open" and not c["invited"]:
+                    if c.get("host"):
+                        self._host_step(c, now)
+                    elif c["state"] == "open" and not c["invited"]:
                         c["state"], c["ended_t"] = "cancelled", now
 
     def on_room_deleted(self, room_id):

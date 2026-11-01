@@ -41,20 +41,33 @@ code { background: var(--code); border-radius: 4px; padding: 1px 4px; overflow-w
 
 .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
 .bar h2 { margin: 0; }
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
-.roomcard { background: var(--card); border: 1px solid var(--line); border-top: 5px solid var(--edge, var(--line));
-  border-radius: 8px; padding: 10px 12px; }
-.roomcard.hangout { --edge: #1f9d55; --edge-fg: #1f9d55; }
-.roomcard.party { --edge: #7c4dcc; --edge-fg: #7c4dcc; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+.roomcard { display: flex; flex-direction: column; gap: 10px; background: var(--card);
+  border: 0.5px solid var(--line); border-top: 3px solid var(--edge, var(--line));
+  border-radius: 12px; padding: 16px; }
+.roomcard.hangout { --edge: #1f9d55; --edge-fg: #1a7f46; }
+.roomcard.party { --edge: #7c4dcc; --edge-fg: #6a3fb5; }
 @media (prefers-color-scheme: dark) {
   .roomcard.hangout { --edge: #4cc38a; --edge-fg: #4cc38a; }
   .roomcard.party { --edge: #b08cf0; --edge-fg: #b08cf0; }
 }
-.roomcard .top { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 6px; }
-.badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600;
-  border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
-.badge.kind { color: var(--edge-fg); border-color: var(--edge-fg); }
+.roomcard .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.roomcard .rname { font-weight: 500; font-size: 16px; overflow-wrap: anywhere; }
+.roomcard .meta { color: var(--muted); font-size: 13px; }
+.roomcard .idline { color: var(--muted); font-size: 12px; }
+.roomcard button.full { width: 100%; margin-top: auto; }
+.badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; white-space: nowrap; }
+.badge.kind { color: var(--edge-fg); border: 0.5px solid var(--edge-fg); border-radius: 999px; padding: 1px 9px 1px 7px; width: fit-content; }
 .badge.access { color: var(--muted); }
-.badge svg { width: 13px; height: 13px; fill: currentColor; }
-.roomcard .rname { font-weight: 700; overflow-wrap: anywhere; }
-.roomcard .meta { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.badge svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.4;
+  stroke-linecap: round; stroke-linejoin: round; flex: none; }
+button.link { border: 0; background: none; color: var(--accent); padding: 4px 2px; text-decoration: underline; }
+h3 { font-size: 14px; margin: 14px 0 4px; }
+.inline { display: flex; flex-direction: column; margin: 0; }
+.mrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 0; border-top: 0.5px solid var(--line); }
+.mrow:first-child { border-top: 0; }
+.mrow .grow { flex: 1 1 120px; min-width: 0; overflow-wrap: anywhere; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--line); margin-right: 6px; }
+.dot.on { background: #1f9d55; }
+.live { border: 0.5px solid var(--accent); border-radius: 12px; padding: 10px 12px; margin: 6px 0; }
+.score { display: flex; justify-content: space-between; gap: 8px; }

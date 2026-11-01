@@ -57,6 +57,55 @@
     <div id="result"></div>
   </section>
 
+  <section class="panel" id="manageBar">
+    <div class="bar">
+      <span class="muted">Already have a room and its owner token?</span>
+      <button class="link" id="addToggle" type="button" aria-expanded="false" aria-controls="addForm">Manage a room</button>
+    </div>
+    <form id="addForm" hidden>
+      <label>Room id
+        <input id="addId" type="text" maxlength="9" placeholder="abcd-2345" autocomplete="off" required>
+      </label>
+      <label>Owner token
+        <input id="addToken" type="password" autocomplete="off" required>
+      </label>
+      <div class="row">
+        <button class="primary" type="submit">Open</button>
+        <button id="addCancel" type="button">Close</button>
+      </div>
+      <p id="addErr" class="error" role="alert" hidden></p>
+    </form>
+  </section>
+
+  <section class="panel" id="manage" hidden>
+    <div class="bar">
+      <h2 id="mTitle">Manage</h2>
+      <button id="mClose" type="button">Close</button>
+    </div>
+    <p id="mErr" class="error" role="alert" hidden></p>
+    <div id="mBad" hidden>
+      <p class="error">This owner token no longer works.</p>
+      <div class="row"><button id="mForget" type="button" class="danger">Forget this room</button></div>
+    </div>
+    <div id="mBody">
+      <div class="meta2" id="mInfo"></div>
+      <h3>Join requests</h3>
+      <div id="mRequests"></div>
+      <h3>Members</h3>
+      <div id="mMembers"></div>
+      <h3>Activity</h3>
+      <div id="mActivity"></div>
+      <div class="row" id="mControls">
+        <label class="inline">Kill race
+          <select id="mMinutes"></select>
+        </label>
+        <button class="primary" id="mStart" type="button">Start</button>
+        <button class="danger" id="mStop" type="button" hidden>Stop</button>
+      </div>
+      <p class="muted" id="mHint">Starts for everyone who is online in the room. Players need the app open to take part.</p>
+    </div>
+  </section>
+
   <section class="panel" id="mine" hidden>
     <h2>Rooms you made on this device</h2>
     <p class="muted">The owner token is the key to manage the room. It is kept only in this browser.</p>

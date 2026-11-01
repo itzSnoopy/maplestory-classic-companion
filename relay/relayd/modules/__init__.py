@@ -36,6 +36,11 @@ class Module:
         on each lobby request: keep it cheap (no SQL, no loops over members)."""
         return None
 
+    def owner_view(self, room, now):
+        """Extra data for the owner / mods in GET /v2/rooms/<id>: {"activities": {kind: {label, minutes}},
+        "current": a view or None} or None."""
+        return None
+
     def on_member_removed(self, room_id, name):
         pass
 

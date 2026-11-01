@@ -366,6 +366,8 @@ def check_relay():
     check("relay v2 tests pass (relay/tests/test_v2.py)", r.returncode == 0, (r.stderr or r.stdout)[-300:])
     r = run([sys.executable, str(ROOT / "relay" / "tests" / "test_v2_challenge.py")], env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=180)
     check("relay v2 challenge tests pass (relay/tests/test_v2_challenge.py)", r.returncode == 0, (r.stderr or r.stdout)[-300:])
+    r = run([sys.executable, str(ROOT / "relay" / "tests" / "test_v2_activity.py")], env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=180)
+    check("relay v2 host activity tests pass (relay/tests/test_v2_activity.py)", r.returncode == 0, (r.stderr or r.stdout)[-300:])
     r = run([sys.executable, str(ROOT / "relay" / "tests" / "test_v2_feedback.py")], env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=180)
     check("relay v2 feedback tests pass (relay/tests/test_v2_feedback.py)", r.returncode == 0, (r.stderr or r.stdout)[-300:])
     r = run([sys.executable, str(ROOT / "relay" / "tests" / "test_v2_admin.py")], env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=300)
