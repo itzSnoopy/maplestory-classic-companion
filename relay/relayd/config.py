@@ -3,6 +3,14 @@ import os
 from dataclasses import dataclass, field
 from typing import Optional
 
+from . import netaccess
+
+ADMIN_PASS_MIN = 12
+
+
+class ConfigError(ValueError):
+    pass
+
 
 def _flag(v):
     v = (v or "").strip().lower()
@@ -45,6 +53,33 @@ class Config:
     feedback_ttl_days: float = 30.0
     feedback_max: int = 300
     feedback_gap_s: float = 30.0       # min seconds between feedback posts from one address
+    admin_pass: str = ""               # empty (and no hash) = the admin page and API are off (404)
+    admin_pass_hash: str = ""          # "scrypt$salt$hash" (auth.hash_secret); wins over admin_pass
+    admin_nets: str = netaccess.DEFAULT_ADMIN_NETS     # comma CIDRs allowed on plain http
+    trusted_proxies: str = ""          # comma IPs/CIDRs of reverse proxies in front (XFF is read)
+
+    def validate(self):
+        """Raise ConfigError for settings the server must not start with."""
+        if self.admin_pass_hash:
+            parts = self.admin_pass_hash.split("$")
+            ok = len(parts) == 3 and parts[0] == "scrypt"
+            try:
+                bytes.fromhex(parts[1]), bytes.fromhex(parts[2])
+            except (ValueError, IndexError):
+                ok = False
+            if not ok:
+                raise ConfigError("ADMIN_PASS_HASH must look like scrypt$<salt hex>$<hash hex>")
+        elif self.admin_pass and len(self.admin_pass) < ADMIN_PASS_MIN:
+            raise ConfigError(f"ADMIN_PASS must be at least {ADMIN_PASS_MIN} characters")
+        try:
+            netaccess.parse_nets(self.admin_nets)
+            netaccess.parse_nets(self.trusted_proxies)
+        except ValueError as e:
+            raise ConfigError(f"bad ADMIN_NETS / TRUSTED_PROXIES: {e}")
+
+    @property
+    def admin_enabled(self):
+        return bool(self.admin_pass or self.admin_pass_hash)
 
     @classmethod
     def from_env(cls, env=None):
@@ -66,4 +101,8 @@ class Config:
                             if c.strip()},
             feedback_ttl_days=_float(env, "FEEDBACK_TTL_DAYS", 30.0),
             feedback_max=_int(env, "FEEDBACK_MAX", 300),
+            admin_pass=env.get("ADMIN_PASS") or "",
+            admin_pass_hash=(env.get("ADMIN_PASS_HASH") or "").strip(),
+            admin_nets=env.get("ADMIN_NETS") or netaccess.DEFAULT_ADMIN_NETS,
+            trusted_proxies=env.get("TRUSTED_PROXIES") or "",
         )

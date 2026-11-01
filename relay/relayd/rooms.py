@@ -3,7 +3,8 @@ import re
 import secrets
 import threading
 
-from . import auth, clock
+from . import auth, clock, netaccess
+from .admin import Admin
 from .errors import ApiError
 from .modules import build_registry
 from .feedback import Feedback
@@ -53,6 +54,9 @@ class Relay:
         for m in self.modules.values():
             m.relay = self
         self.feedback = Feedback(self.store, cfg)
+        self.started = clock.now()
+        self.access = netaccess.Access(cfg)
+        self.admin = Admin(self)
         self.lockouts = auth.Lockouts()
         self.providers = {n: c() for n, c in auth.PROVIDERS.items()}
         self.lock = threading.RLock()       # serialises changes to rooms and members
@@ -300,6 +304,11 @@ class Relay:
         room, m = self.member_auth(room_id, header)
         if m["role"] != "owner":
             raise ApiError(403, "owner only")
+        return self._patch(room, body)
+
+    def _patch(self, room, body):
+        """Validate and apply a room edit. Shared by the owner and the admin page."""
+        room_id = room["id"]
         body = _obj(body)
         upd = {}
         if "name" in body:
@@ -352,9 +361,13 @@ class Relay:
     # ---- members
     def member_action(self, room_id, header, name, action):
         room, actor = self.member_auth(room_id, header)
-        if action not in MEMBER_ACTIONS:
+        return self._member_action(room_id, actor["role"], name, action)
+
+    def _member_action(self, room_id, actor_role, name, action):
+        """actor_role: owner | mod | member | admin (the admin page; also may make_owner)."""
+        if action not in MEMBER_ACTIONS and not (actor_role == "admin" and action == "make_owner"):
             raise ApiError(404, "no such action")
-        if actor["role"] == "member" or (actor["role"] == "mod" and action not in MOD_ACTIONS):
+        if actor_role == "member" or (actor_role == "mod" and action not in MOD_ACTIONS):
             raise ApiError(403, "not allowed")
         _check_name(name)
         now = clock.now()
@@ -369,9 +382,18 @@ class Relay:
                     self.store.add_ban(room_id, name, now)
                     return {"ok": True}
                 raise ApiError(404, "no such member")
-            if t["role"] == "owner" or (actor["role"] == "mod" and t["role"] != "member"):
+            if action == "make_owner" and t["role"] == "owner":
+                raise ApiError(409, "already the owner")
+            if t["role"] == "owner" or (actor_role == "mod" and t["role"] != "member"):
                 raise ApiError(403, "not allowed")
-            if action == "approve":
+            if action == "make_owner":
+                if t["status"] != "active":
+                    raise ApiError(409, "only active members can become owner")
+                old = self.store.room_owner(room_id)
+                if old:
+                    self.store.set_member(room_id, old["name"], role="mod")
+                self.store.set_member(room_id, name, role="owner")
+            elif action == "approve":
                 if t["status"] != "pending":
                     raise ApiError(409, "not waiting for approval")
                 self.store.set_member(room_id, name, status="active")

@@ -35,7 +35,13 @@ MIGRATIONS = [
         item TEXT NOT NULL);
     CREATE INDEX feedback_code ON feedback(code, received_t);
     """,
+    """
+    CREATE TABLE admin_audit(id INTEGER PRIMARY KEY AUTOINCREMENT, t REAL NOT NULL,
+        action TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '', via TEXT NOT NULL DEFAULT '');
+    ALTER TABLE host_keys ADD COLUMN created_t REAL;
+    """,
 ]
+AUDIT_KEEP = 2000
 
 ROOM_FIELDS = {"name", "kind", "access", "secret_hash", "max_members", "modules"}
 MEMBER_FIELDS = {"role", "status"}
@@ -124,12 +130,13 @@ class Store:
         return self._one("SELECT * FROM identities WHERE provider=? AND subject=?",
                          (provider, subject))
 
-    def create_host_key(self, label, max_rooms, expires_t):
-        """Make a host key; returns the plain key (only its hash is stored)."""
+    def create_host_key(self, label, max_rooms, expires_t, with_id=False, created_t=None):
+        """Make a host key; returns the plain key (or (id, key)); only its hash is stored."""
         key = "hk_" + secrets.token_urlsafe(24)
-        self._w("INSERT INTO host_keys(label, key_hash, max_rooms, expires_t) VALUES(?,?,?,?)",
-                (label, sha256hex(key), max_rooms, expires_t))
-        return key
+        _, kid = self._w("INSERT INTO host_keys(label, key_hash, max_rooms, expires_t, created_t) "
+                         "VALUES(?,?,?,?,?)",
+                         (label, sha256hex(key), max_rooms, expires_t, created_t))
+        return (kid, key) if with_id else key
 
     def host_key_by_hash(self, key_hash):
         return self._one("SELECT * FROM host_keys WHERE key_hash=?", (key_hash,))
@@ -266,6 +273,84 @@ class Store:
         for i in ids:
             n += self._w("DELETE FROM feedback WHERE code=? AND id=?", (code, i))[0]
         return n
+
+    # ---- admin: overview lists (read only, plus a few flags)
+    def counts(self, now):
+        one = lambda sql, a=(): self._one(sql, a)["n"]      # noqa: E731
+        return {"rooms": one("SELECT COUNT(*) AS n FROM rooms"),
+                "members": one("SELECT COUNT(*) AS n FROM members WHERE status='active'"),
+                "accounts": one("SELECT COUNT(*) AS n FROM accounts"),
+                "host_keys_active": one("SELECT COUNT(*) AS n FROM host_keys WHERE revoked=0 AND "
+                                        "(expires_t IS NULL OR expires_t>?)", (now,)),
+                "feedback_items": one("SELECT COUNT(*) AS n FROM feedback")}
+
+    def admin_rooms(self):
+        rows = self._q(
+            "SELECT r.id, r.name, r.kind, r.access, r.secret_hash IS NOT NULL AS has_secret, "
+            "r.max_members, r.modules, r.created_t, r.last_active_t, r.owner_account, "
+            "a.display_name AS owner_name, "
+            "(SELECT COUNT(*) FROM members m WHERE m.room_id=r.id AND m.status='active') AS members, "
+            "(SELECT COUNT(*) FROM members m WHERE m.room_id=r.id AND m.status='pending') AS pending "
+            "FROM rooms r LEFT JOIN accounts a ON a.id=r.owner_account ORDER BY r.created_t DESC")
+        for r in rows:
+            r["modules"] = json.loads(r["modules"] or "[]")
+            r["has_secret"] = bool(r["has_secret"])
+        return rows
+
+    def admin_members(self, room_id):
+        return self._q("SELECT name, role, status, joined_t, last_seen_t FROM members "
+                       "WHERE room_id=? ORDER BY joined_t, name", (room_id,))
+
+    def room_owner(self, room_id):
+        return self._one("SELECT * FROM members WHERE room_id=? AND role='owner'", (room_id,))
+
+    def account(self, account_id):
+        return self._one("SELECT * FROM accounts WHERE id=?", (account_id,))
+
+    def admin_accounts(self):
+        return self._q(
+            "SELECT a.id, a.display_name, a.created_t, a.disabled, "
+            "(SELECT group_concat(DISTINCT i.provider) FROM identities i WHERE i.account_id=a.id) "
+            "AS providers, "
+            "(SELECT COUNT(*) FROM rooms r WHERE r.owner_account=a.id) AS rooms_owned "
+            "FROM accounts a ORDER BY a.id")
+
+    def set_account_disabled(self, account_id, flag):
+        self._w("UPDATE accounts SET disabled=? WHERE id=?", (1 if flag else 0, account_id))
+
+    def admin_host_keys(self):
+        return self._q(
+            "SELECT h.id, h.label, h.max_rooms, h.expires_t, h.revoked, h.account_id, h.created_t, "
+            "(SELECT COUNT(*) FROM rooms r WHERE r.owner_account=h.account_id) AS rooms_owned "
+            "FROM host_keys h ORDER BY h.id DESC")
+
+    def host_key(self, key_id):
+        return self._one("SELECT id, label FROM host_keys WHERE id=?", (key_id,))
+
+    def feedback_codes(self):
+        return self._q("SELECT code, COUNT(*) AS items, MAX(received_t) AS newest_t "
+                       "FROM feedback GROUP BY code ORDER BY newest_t DESC")
+
+    # ---- admin audit (no addresses, no secrets: callers keep `detail` clean)
+    def add_audit(self, t, action, detail, via):
+        with self.lock:
+            self._w("INSERT INTO admin_audit(t,action,detail,via) VALUES(?,?,?,?)",
+                    (t, action, detail, via))
+            self._w("DELETE FROM admin_audit WHERE id <= "
+                    "(SELECT MAX(id) FROM admin_audit) - ?", (AUDIT_KEEP,))
+
+    def list_audit(self, limit):
+        return self._q("SELECT id, t, action, detail, via FROM admin_audit "
+                       "ORDER BY id DESC LIMIT ?", (limit,))
+
+    def backup_to(self, path):
+        """Consistent copy of the whole database (works while the server runs)."""
+        with self.lock:
+            dst = sqlite3.connect(path)
+            try:
+                self.db.backup(dst)
+            finally:
+                dst.close()
 
     # ---- cleanup
     def purge_members_before(self, t):

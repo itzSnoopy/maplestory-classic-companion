@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relay admin</title>
+<link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+<header>
+  <h1>Relay admin</h1>
+  <div id="bar" hidden>
+    <span id="via" class="muted"></span>
+    <button id="logout" type="button">Log out</button>
+  </div>
+</header>
+<main>
+  <p id="err" class="error" role="alert" hidden></p>
+
+  <section id="login" hidden>
+    <form id="loginForm">
+      <label>Admin password
+        <input id="pass" type="password" autocomplete="current-password" required>
+      </label>
+      <button type="submit">Log in</button>
+    </form>
+  </section>
+
+  <section id="app" hidden>
+    <nav id="tabs">
+      <button type="button" data-tab="overview">Overview</button>
+      <button type="button" data-tab="rooms">Rooms</button>
+      <button type="button" data-tab="hostkeys">Host keys</button>
+      <button type="button" data-tab="accounts">Accounts</button>
+      <button type="button" data-tab="feedback">Feedback</button>
+      <button type="button" data-tab="audit">Audit</button>
+    </nav>
+    <div id="view"></div>
+  </section>
+</main>
+<script src="/admin/admin.js"></script>
+</body>
+</html>

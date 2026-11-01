@@ -5,6 +5,7 @@ from .rooms import Relay
 
 
 def make_server(cfg, start_cleanup=False):
+    cfg.validate()
     app = Relay(cfg)
     srv = ThreadingHTTPServer((cfg.bind, cfg.port), Handler)
     srv.app = app

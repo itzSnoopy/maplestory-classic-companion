@@ -11,10 +11,11 @@ if _RELAY_DIR not in sys.path:
 import party_relay  # noqa: E402
 
 from . import VERSION  # noqa: E402
+from .admin import AdminMixin  # noqa: E402
 from .http import V2Mixin  # noqa: E402
 
 
-class Handler(V2Mixin, party_relay.Handler):
+class Handler(AdminMixin, V2Mixin, party_relay.Handler):
     server_version = "relay/2"
 
     def _health(self):
@@ -27,6 +28,10 @@ class Handler(V2Mixin, party_relay.Handler):
         path = self.path.split("?", 1)[0]
         if method == "GET" and path == "/health":
             return self._send(200, self._health())
+        if path.startswith("/v2/") or path.startswith("/admin"):
+            self.cinfo = self.server.app.access.resolve(self.client_address[0], self.headers)
+            if path == "/admin" or path.startswith("/admin/") or path.startswith("/v2/admin/"):
+                return self.handle_admin(method, self.path)
         if path.startswith("/v1/"):
             if self.server.app.cfg.legacy_v1 and method in ("GET", "POST", "DELETE"):
                 return getattr(party_relay.Handler, "do_" + method)(self)

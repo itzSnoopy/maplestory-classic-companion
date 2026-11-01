@@ -34,7 +34,7 @@ class V2Mixin:
     def handle_v2(self, method, path):
         app = self.server.app
         try:
-            if not app.rate_ok(self.client_address[0]):
+            if not app.rate_ok(self.cinfo.ip):
                 raise ApiError(429, "slow down")
             self._send(200, self._route(app, method, path))
         except ApiError as e:
@@ -47,7 +47,7 @@ class V2Mixin:
         seg = [unquote(s) for s in path.strip("/").split("/")]       # seg[0] == "v2"
         n = len(seg)
         auth = self.headers.get("Authorization")
-        addr = self.client_address[0]
+        addr = self.cinfo.ip
         if n == 2 and seg[1] == "lobby" and method == "GET":
             return app.lobby()
         if n == 3 and seg[1] == "feedback":

@@ -246,6 +246,8 @@ class TestFeedbackDisk(FbBase):
         self.stop()
         con = sqlite3.connect(str(Path(self.tmp) / "relay.db"))
         con.execute("DROP TABLE feedback")
+        con.execute("DROP TABLE admin_audit")                       # undo migration 3 too
+        con.execute("ALTER TABLE host_keys DROP COLUMN created_t")
         con.execute("UPDATE meta SET version=1")
         con.commit()
         con.close()

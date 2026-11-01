@@ -43,11 +43,12 @@ side is `components/party/partylink.py`.
 - Owner side: `dev/feedback.py` (`fetch`, `merge`, `suggest`; output in gitignored `dev/local/feedback/`).
 - AGPLv3: the relay is part of this public repo; run the published code so `/health`'s `source` is true.
 
-## v2: rooms (`relayd/`, steps 1-2 of the v2 plan; not deployed yet)
+## v2: rooms (`relayd/`, steps 1-3 of the v2 plan; not deployed yet)
 One server, many rooms. Run `cd relay && python -m relayd` (env `PORT`, `BIND`, `DATA_DIR` (./data, Docker /data),
 `LOBBY`, `ALLOW_ANYONE_CREATE`, `LEGACY_V1` (1), `MAX_ROOMS` (500), `MAX_ROOMS_PER_ACCOUNT` (5),
-`ANON_CREATES_PER_DAY` (3), `MAX_ROOM_MEMBERS` (0), `FEEDBACK_KEY`, `FEEDBACK_CODES`, `FEEDBACK_TTL_DAYS` (30), `FEEDBACK_MAX` (300)).
-Tests (all in release_check): `python relay/tests/test_v2.py`, `test_v2_challenge.py`, `test_v2_feedback.py` (shared helpers in `tests/_helpers.py`).
+`ANON_CREATES_PER_DAY` (3), `MAX_ROOM_MEMBERS` (0), `FEEDBACK_KEY`, `FEEDBACK_CODES`, `FEEDBACK_TTL_DAYS` (30), `FEEDBACK_MAX` (300),
+`ADMIN_PASS` (>= 12 chars, plain) or `ADMIN_PASS_HASH` (`scrypt$salt$hash`; make one with `cd relay && python -c "from relayd.auth import hash_secret as h; print(h('...'))"`, escape `$` in compose), `ADMIN_NETS` (CIDRs; default loopback + private ranges), `TRUSTED_PROXIES` (IPs/CIDRs)).
+Tests (all in release_check): `python relay/tests/test_v2.py`, `test_v2_challenge.py`, `test_v2_feedback.py`, `test_v2_admin.py` (shared helpers in `tests/_helpers.py`).
 | File | Role |
 |---|---|
 | `relayd/server.py`, `__main__.py`, `config.py` | `make_server(cfg)`, start from env; `LOBBY`/`ALLOW_ANYONE_CREATE` override the DB `settings` value when set |
@@ -59,6 +60,8 @@ Tests (all in release_check): `python relay/tests/test_v2.py`, `test_v2_challeng
 | `relayd/modules/` | `Module` base + registry; `presence.py` = the party data (FIELDS copied from v1: keep both in step with `own_state()`) |
 | `relayd/modules/challenge.py` | Kill races per room, memory only; v1 rules and constants ported. Names come from the token. **Module seam:** `Relay` sets `mod.relay`; a module may use `relay.store` and READ another module through a small public method (challenge uses `presence.live_rows(room_id, now) -> {name: fields}` for map/all invitees). `Module.active_rooms()` lets the hourly cleanup tick live state |
 | `relayd/feedback.py` | Server-wide skill feedback inbox (not a room module), items in SQLite `feedback(id, code, received_t, item)`; `clean_submission` = v1's validation; pruned by TTL/max on write and read |
+| `relayd/netaccess.py` | Real client address: if the TCP peer is in `TRUSTED_PROXIES`, the right-most `X-Forwarded-For` entry not itself a trusted proxy (+ `via_tls` from `X-Forwarded-Proto`), else the peer and forwarded headers are ignored. v2 uses it for every per-address limit. Admin gate `admin_ok`: (not proxied and client in `ADMIN_NETS`) or (proxied and https) |
+| `relayd/admin.py`, `relayd/admin_ui/` | `Admin` (sessions in memory: 12 h max / 2 h idle; login lockout 5 wrong -> 15 min per address, > 20 wrong internet logins in 15 min -> internet logins 429 for 5 min (LAN logins never braked); audit; `second_factor_ok` = TOTP seam, no-op) + `AdminMixin` (HTTP, CSRF, headers). Page `index.html`, `admin.js`, `admin.css` (no inline code, no external resources, served from an allowlist) |
 | `relayd/clock.py`, `errors.py` | one clock (tests shift `clock.offset`), `ApiError` |
 - API: `GET /v2/lobby`; `POST /v2/rooms` `{name, owner, kind: party|hangout, access: open|approval|private|unlisted, secret?, max_members?, host_key?}` -> `{id, token, room}`;
   `POST /v2/rooms/<id>/join` `{name, secret?}` -> `{token, status, role}`; `GET .../me`; `POST .../sync` `{presence: {...}}` -> `{server_t, presence: {members}}` (1 per s per token);
@@ -73,7 +76,9 @@ Tests (all in release_check): `python relay/tests/test_v2.py`, `test_v2_challeng
   `{"challenge": {"id", "kills": [...]}}` -> reply `"challenge": {"challenges": [views I am in or invited to]}` whenever the module is on.
 - Feedback (off unless `FEEDBACK_KEY`; else every `/v2/feedback` path 404): `POST /v2/feedback/<code>` (export, 64 KB, 1 per 30 s per address, in memory) -> `{ok, id}`;
   `GET` / `DELETE` (optional `{ids}`) `/v2/feedback/<code>` with `X-Feedback-Key`. `/health` `feedback` = v1 or v2 key set. Survives restarts; no addresses stored.
-- Not yet: relic module (step 3+), admin page, Docker packaging of `relayd/` (`make_stack.py` embeds only v1).
+- Admin (off unless `ADMIN_PASS`/`ADMIN_PASS_HASH`; then `/admin` page + `/v2/admin/*`, else 404). Cookie `relay_admin` (HttpOnly, SameSite=Strict, Secure over https), every non-GET needs header `X-Relay-Admin: 1` and a matching `Origin` if sent. Endpoints: `POST login|logout`, `GET me|status|rooms|rooms/<id>|hostkeys|accounts|feedback|feedback/<code>|audit?limit=|backup`, `PATCH settings` (409 when env-locked) and `rooms/<id>`, `DELETE rooms/<id>|feedback/<code>`, `POST rooms/<id>/members/<name>/<action>` (owner actions + `make_owner`), `POST hostkeys` (key shown once) / `hostkeys/<id>/revoke` / `accounts/<id>/disable|enable`. Audit table `admin_audit` (last 2000, no addresses, no secrets). Admin edits reuse `Relay._patch` / `_member_action` (actor role `admin`).
+- **TRUSTED_PROXIES:** a proxy container on the same Docker host has a private address, so without `TRUSTED_PROXIES` its requests count as LAN and the admin page would be open to the internet through it. Set `TRUSTED_PROXIES` to the proxy's address/network as soon as one is in front. The proxy must pass `Host`, `X-Forwarded-For`, `X-Forwarded-Proto` (NPM and Caddy do by default).
+- Not yet: relic module, Docker packaging of `relayd/` (step 4; `make_stack.py` embeds only v1), optional TOTP.
 
 ## Test it
 `PORT=8787 python relay/party_relay.py`, then `curl http://127.0.0.1:8787/health`; post with curl or run two trackers/`partylink.exchange`. Docker: `cd relay && docker compose up -d --build`. After editing the relay run `python relay/make_stack.py`. Tests: `python relay/test_relay.py`.
