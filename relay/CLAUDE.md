@@ -26,6 +26,13 @@ side is `components/party/partylink.py`.
 - Plain HTTP unless behind TLS; the code travels in the URL. Data is low-sensitivity (names + game numbers).
 - A change to `FIELDS` must stay in step with `own_state()` in `partylink.py`.
 
+## Challenges (friendly kill races; client side `components/challenge/`)
+- Memory only (they last minutes). `POST /v1/challenge/<code>` `{name, mode: 1v1|map|all, minutes: 2|5|10|15, target?}` creates (invited = the target / members on the creator's map / everyone online); `POST /v1/challenge/<code>/<id>` `{name, action: accept|decline|cancel|kills, kills?}`; `GET` the same path = the challenge. A view: `{id, type: "kills", mode, minutes, creator, state: open|running|done|declined|cancelled|expired, phase: starting|live|ending|..., created_t, invited, start_t, end_t, players: [{name, score, accepted, ack}], result: {ranking, tie, winner}, server_t}`.
+- The first accept starts it: `start_t = relay clock + CH_COUNTDOWN_S (5)`, `end_t = start_t + minutes`. More invitees may accept until `start_t`. One open/running challenge per member, `CH_MAX` (20) per code, an unanswered invitation expires after 60 s, finished ones are forgotten after 5 min (a result is in replies for 2 min).
+- Kill events `{s: seq, n: 1..4, t: relay-clock time}`: ride on the normal party post as `ch: {id, kills: [...]}` (reply gets `challenges: [...]` = the ones you are in or invited to, with your acknowledged `ack`) or on the action `kills`. Counted only while `start_t - 1 <= arrival <= end_t + 4 s` and stamped inside `[start_t, end_t]`; capped at `CH_MAX_KPS` (1.5/s) + 4; duplicates by seq. The relay decides the result when `end_t + CH_GRACE_S` passes: ranking, `tie` when the top two are level, `winner` else.
+- The party post also takes a `caps` field (`"ch"` = this build does challenges; the panel shows its button only for members that have it).
+- Tests: `relay/test_relay.py` (`test_ch_*`: clock, validation, modes, expiry, kills window, rate cap, tie, party-post ride-along). Names only: no player data beyond what the party post already has.
+
 ## Skill feedback inbox (separate from the party endpoints)
 - Off unless `FEEDBACK_KEY` is set (empty = every `/v1/feedback` path 404; `/health` says `feedback: false`). `/health` also returns `source` (the public repo, AGPL).
 - `POST /v1/feedback/<code>`: anyone with the code sends one `classic-skill-review/1` export (JSON, max 64 KB, `FEEDBACK_MAX_BODY`); reply `{ok, id}`. `branch` may be `all`; exports are partial (1..400 review entries, any classes). Strict validation, only the cleaned copy + `received_t` is stored; note cut at 500 chars; entries with nothing answered dropped; `count` = stored entries.
@@ -41,4 +48,4 @@ side is `components/party/partylink.py`.
 
 ## Rules that bite here
 - Public repo: no real address, IP or party code in any file (`PARTY_CODES` stays empty in git).
-- Nothing is written to disk; keep it that way.
+- Nothing is written to disk; keep it that way (the relic hunt's puzzle file will be the one exception, see the plan).

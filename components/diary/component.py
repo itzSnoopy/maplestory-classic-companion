@@ -42,6 +42,7 @@ class DiaryComponent(Component):
                           ("levelup", self.on_levelup), ("death", self.on_death),
                           ("job_change", self.on_job), ("map_enter", self.on_enter),
                           ("moment", self.on_moment), ("first_kill", self.on_first_kill),
+                          ("challenge_end", self.on_challenge_end),
                           ("session_end", self.on_session_end)):
             hub.on(event, fn)
 
@@ -190,6 +191,17 @@ class DiaryComponent(Component):
             if diary.moment_due(active_total):
                 diary.add("moment", diary.MOMENT_TEXT, level=level, map=map, job=job,
                           shots=self._shots("moment", datetime.now()))
+        self._guard(go)
+
+    def on_challenge_end(self, result, **_):
+        def go():
+            st = self.hub.state
+            won = {True: "Won", False: "Lost", None: "Tied"}[result["won"]]
+            who = result["opponent"] if len(result["names"]) < 2 else f"{len(result['names'])} players"
+            diary.add("challenge", f"{won} a Kills {result['minutes']} min challenge against {who}, "
+                                   f"{result['score'][0]} to {result['score'][1]}.",
+                      level=getattr(st, "level", None), map=getattr(st, "map", None),
+                      job=getattr(st, "job", None))
         self._guard(go)
 
     def on_first_kill(self, mob, map, level, job, shots, caught, text, **_):

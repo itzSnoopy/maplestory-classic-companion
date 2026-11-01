@@ -14,6 +14,11 @@ party.json (partners, partylink.py). Hidden when none of them shows a party. Liv
 process like the skill bar (helper_ui.App, Settings > General "Party panel"); drag to move,
 right-click to lock (click-through) or hide. Position: helper_settings.json "partypanel".
 
+Challenges (components/challenge/): when some member's app says it can ("ch" in its caps) and
+challenge.json (the tracker's, "enabled") is on, a crossed-swords "Challenge" button sits on top; it opens a
+small picker (type, minutes, who) and writes challenge_cmd.json for the tracker. An invitation addressed
+to you (challenge.json "invite") shows as one line with Accept / x. No sound, no popup over the game.
+
   python -m components.party.party_ui --demo [--at=X,Y]      fake data, for trying it out
 """
 import json
@@ -27,6 +32,8 @@ from base.paths import DATA
 from hub.ui.overlay import KEY, font as _font, text as _text
 
 LIVE, STATUS, PARTY = DATA / "live.json", DATA / "status.json", DATA / "party.json"
+CHALLENGE, CMD = DATA / "challenge.json", DATA / "challenge_cmd.json"
+MINUTES = (2, 5, 10, 15)
 W_CARD = 236
 FPS = 4
 BOX_FRESH_S = 6.0           # party box rows in live.json
@@ -107,10 +114,37 @@ def members(live, status, pj, now):
     return cards + friends
 
 
+def challenge_ui(pj, ch, now):
+    """What the challenge strips show: {"able": names that run a build with challenges, "button": bool,
+    "invite": the open invitation to you or None}. Needs challenge.json from the tracker (it says enabled)."""
+    if not ch.get("enabled") or not pj.get("ok"):
+        return {"able": [], "button": False, "invite": None}
+    able = [m["name"] for m in pj.get("members") or []
+            if "ch" in str(m.get("caps") or "").split(",") and (m.get("age_s") or 0) < MATE_FRESH_S * 4]
+    inv = ch.get("invite")
+    if inv and (inv.get("expires") or 0) < now:
+        inv = None
+    return {"able": able, "button": bool(able) and not ch.get("busy"), "invite": inv}
+
+
+def _swords(d, cx, cy, r, k):
+    """Two crossed swords (drawn shapes; the UI fonts have no such glyph)."""
+    for sx in (-1, 1):
+        x0, y0, x1, y1 = cx + sx * r, cy - r, cx - sx * r, cy + r
+        d.line((x0, y0, x1, y1), fill=(215, 220, 232, 255), width=max(2, int(2.4 * k)))
+        gx, gy = cx - sx * r * 0.45, cy + r * 0.45          # the guard, a short bar across the blade
+        d.line((gx - sx * 3.5 * k, gy - 3.5 * k, gx + sx * 3.5 * k, gy + 3.5 * k),
+               fill=(230, 180, 60, 255), width=max(2, int(2 * k)))
+        d.ellipse((x1 - 2 * k, y1 - 2 * k, x1 + 2 * k, y1 + 2 * k), fill=(230, 180, 60, 255))
+
+
 class PartyPanel:
     def __init__(self, root, settings_get, settings_put, k=1.0, demo=False, at=None):
         self.root, self.get, self.put, self.demo, self.k = root, settings_get, settings_put, demo, k
         self.photo, self.shown, self.cards = None, None, []
+        self.hot = []                        # clickable spots of the image: (x0, y0, x1, y1, action)
+        self.picker = None
+        self.ch = {}
         self.f_name, self.f_small = _font(int(13 * k)), _font(int(10 * k))
         self.f_bar = _font(int(10 * k))
         self.w = w = tk.Toplevel(root)
@@ -283,16 +317,61 @@ class PartyPanel:
                   fill=(150, 160, 180, 255), anchor="lm")
         return im
 
-    def render(self, cards):
+    def _strip(self, ch):
+        """The Challenge button and/or the invitation line -> (image, [(x0, y0, x1, y1, action)]) or None."""
+        k = self.k
+        W, pad = int(W_CARD * k), int(6 * k)
+        rows = (1 if ch.get("button") else 0) + (1 if ch.get("invite") else 0)
+        if not rows:
+            return None
+        rh = int(24 * k)
+        im = Image.new("RGBA", (W, rh * rows + pad // 2), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        hot, y = [], 0
+        if ch.get("invite"):
+            inv = ch["invite"]
+            d.rounded_rectangle((0, y, W - 1, y + rh - 2), radius=int(6 * k), fill=(24, 26, 32, 235),
+                                outline=(230, 180, 60, 255))
+            who = {"1v1": "", "map": " (your map)", "all": " (everyone)"}.get(inv.get("mode"), "")
+            _text(d, (pad, y + rh // 2), f"{inv.get('from', '?')}: Kills {inv.get('minutes', '?')} min{who}",
+                  self.f_small, anchor="lm")
+            bw = int(46 * k)
+            ax = W - pad - int(16 * k) - bw
+            d.rounded_rectangle((ax, y + int(3 * k), ax + bw, y + rh - int(5 * k)), radius=int(4 * k),
+                                fill=(40, 120, 60, 255), outline=(120, 220, 150, 255))
+            _text(d, (ax + bw // 2, y + rh // 2 - 1), "Accept", self.f_small)
+            xx = W - pad - int(12 * k)
+            _text(d, (xx + int(6 * k), y + rh // 2 - 1), "x", self.f_name, fill=(190, 195, 205, 255))
+            hot += [(ax, y, ax + bw, y + rh, "accept"), (xx - int(4 * k), y, W, y + rh, "decline")]
+            y += rh
+        if ch.get("button"):
+            d.rounded_rectangle((0, y, W - 1, y + rh - 2), radius=int(6 * k), fill=(24, 26, 32, 235),
+                                outline=(90, 96, 110, 255))
+            _swords(d, pad + int(10 * k), y + rh // 2 - 1, int(7 * k), k)
+            _text(d, (pad + int(24 * k), y + rh // 2 - 1), "Challenge a friend", self.f_small,
+                  fill=(200, 210, 230, 255), anchor="lm")
+            hot.append((0, y, W, y + rh, "new"))
+        return im, hot
+
+    def render(self, cards, ch=None):
+        self.hot = []
         if not cards:
             return None
         full = [c for c in cards if not c.get("friend")]
         friends = [c for c in cards if c.get("friend")]
         if not self.get().get("friends", True):
             friends = []
-        imgs = [self._card(c) for c in full]
+        imgs, hots = [], []
+        strip = self._strip(ch) if ch else None
+        if strip:
+            imgs.append(strip[0])
+            hots.append(strip[1])
+        for c in full:
+            imgs.append(self._card(c))
+            hots.append([])
         if friends:
             imgs.append(self._friends(friends))
+            hots.append([])
         if not imgs:
             return None
         g = int(4 * self.k)
@@ -300,8 +379,9 @@ class PartyPanel:
         H = sum(i.height for i in imgs) + g * (len(imgs) - 1)
         out_a = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         y = 0
-        for i in imgs:
+        for i, hs in zip(imgs, hots):
             out_a.alpha_composite(i, (0, y))
+            self.hot += [(x0, y + y0, x1, y + y1, a) for x0, y0, x1, y1, a in hs]
             y += i.height + g
         key = tuple(int(KEY[i:i + 2], 16) for i in (1, 3, 5))
         out = Image.new("RGB", (W, H), key)
@@ -314,13 +394,16 @@ class PartyPanel:
             now = time.time()
             if self.demo:
                 live, status, pj = demo_data(now)
+                chj = demo_challenge(now)
             else:
                 live, status, pj = _read(LIVE), _read(STATUS), _read(PARTY)
+                chj = _read(CHALLENGE)
             cards = members(live, status, pj, now)
+            self.ch = challenge_ui(pj, chj, now)
             show = bool(self.get().get("enabled", True)) and bool(cards)
             if show:
                 from PIL import ImageTk
-                self.photo = ImageTk.PhotoImage(self.render(cards))
+                self.photo = ImageTk.PhotoImage(self.render(cards, self.ch))
                 self.lbl.configure(image=self.photo)
             if show != self.shown:
                 (self.w.deiconify if show else self.w.withdraw)()
@@ -334,13 +417,78 @@ class PartyPanel:
     # ---------------------------------------------------------------- move / lock
     def _drag_start(self, e):
         self._dx, self._dy = e.x_root - self.w.winfo_x(), e.y_root - self.w.winfo_y()
+        self._press = (e.x_root, e.y_root)
 
     def _drag(self, e):
         self.w.geometry(f"+{e.x_root - self._dx}+{e.y_root - self._dy}")
 
     def _drag_end(self, e):
+        px, py = getattr(self, "_press", (e.x_root, e.y_root))
+        if abs(e.x_root - px) < 4 and abs(e.y_root - py) < 4:        # a click, not a drag
+            for x0, y0, x1, y1, action in self.hot:
+                if x0 <= e.x < x1 and y0 <= e.y < y1:
+                    return self._click(action)
         if not self.dev:
             self.put(x=self.w.winfo_x(), y=self.w.winfo_y())
+
+    # ---------------------------------------------------------------- challenges
+    def _command(self, **cmd):
+        """Hand a command to the tracker's challenge component (it reads and deletes the file)."""
+        if self.demo:
+            print("challenge command:", cmd)
+            return
+        from hub import history as H
+        H.write_json(CMD, {"t": round(time.time(), 2), **cmd}, indent=None)
+
+    def _click(self, action):
+        inv = self.ch.get("invite") or {}
+        if action == "new":
+            self._open_picker()
+        elif action in ("accept", "decline") and inv.get("id"):
+            self._command(action=action, id=inv["id"])
+
+    def _open_picker(self):
+        """A small window next to the panel: type (Kills), minutes, who. Send writes the command."""
+        if self.picker is not None:
+            try:
+                self.picker.lift()
+                return
+            except tk.TclError:
+                self.picker = None
+        k = self.k
+        able = list(self.ch.get("able") or [])
+        p = self.picker = tk.Toplevel(self.root)
+        p.title("Challenge")
+        p.attributes("-topmost", True)
+        p.resizable(False, False)
+        p.geometry(f"+{self.w.winfo_x() + int((W_CARD + 12) * k)}+{self.w.winfo_y()}")
+        pad = dict(padx=int(8 * k), pady=int(2 * k), anchor="w")
+        tk.Label(p, text="Kills: most kills wins", font=("Segoe UI", int(10 * k), "bold")).pack(**pad)
+        mins = tk.IntVar(value=5)
+        row = tk.Frame(p)
+        row.pack(**pad)
+        for m in MINUTES:
+            tk.Radiobutton(row, text=f"{m} min", variable=mins, value=m).pack(side="left")
+        who = tk.StringVar(value=able[0] if able else "map")
+        for val, text in [(n, n) for n in able] + [("map", "Everyone on my map"), ("all", "Everyone online")]:
+            tk.Radiobutton(p, text=text, variable=who, value=val).pack(**pad)
+
+        def close():
+            self.picker = None
+            p.destroy()
+
+        def send():
+            w = who.get()
+            cmd = ({"mode": "map"} if w == "map" else {"mode": "all"} if w == "all"
+                   else {"mode": "1v1", "target": w})
+            self._command(action="create", minutes=mins.get(), **cmd)
+            close()
+
+        row = tk.Frame(p)
+        row.pack(padx=int(8 * k), pady=int(6 * k))
+        tk.Button(row, text="Send", width=8, command=send).pack(side="left", padx=4)
+        tk.Button(row, text="Cancel", width=8, command=close).pack(side="left", padx=4)
+        p.protocol("WM_DELETE_WINDOW", close)
 
     def _menu(self, e):
         m = tk.Menu(self.w, tearoff=0)
@@ -369,6 +517,11 @@ class PartyPanel:
             print(f"party panel lock failed: {e}")
 
     def destroy(self):
+        if self.picker is not None:
+            try:
+                self.picker.destroy()
+            except tk.TclError:
+                pass
         if self.after_tick:
             self.root.after_cancel(self.after_tick)
         self.w.destroy()
@@ -384,7 +537,7 @@ def demo_data(now):
     status = {"state": "playing", "level": 15, "pct": 41.28, "exp_per_hour_recent": 3820,
               "eta_to_level": "1h05m", "map": "L Forest I"}
     pj = {"t": now, "ok": True, "members": [
-        {"name": "DSius", "level": 16, "hp": [101, 460], "mp": [280, 410], "exp_pct": 12.5,
+        {"name": "DSius", "caps": "ch", "level": 16, "hp": [101, 460], "mp": [280, 410], "exp_pct": 12.5,
          "exp_hr": 4100, "eta": "1h40m", "map": "L Forest I", "state": "playing", "age_s": 1.2},
         {"name": "Mapler99", "level": 22, "hp": [600, 700], "exp_pct": 71.0, "map": "L Forest I",
          "channel": 40, "state": "playing", "age_s": 2.0},
@@ -393,6 +546,11 @@ def demo_data(now):
         {"name": "SleepyThief", "level": 18, "exp_pct": 44.4, "map": "Kerning City",
          "state": "idle", "age_s": 5.0}]}
     return live, status, pj
+
+
+def demo_challenge(now):
+    return {"enabled": True, "busy": False,
+            "invite": {"id": "demo", "from": "DSius", "mode": "1v1", "minutes": 5, "expires": now + 3600}}
 
 
 def main():

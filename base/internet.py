@@ -41,6 +41,12 @@ FEATURES = {
                 "monster, once) from NiaMeowDB. Kept on this PC only. Nothing about you is sent.",
         "hosts": ["meowdb.com"],
     },
+    "avatars": {
+        "label": "Character pictures",
+        "what": "Challenge board: fetches your opponent's character picture (one small image, at most once a day) "
+                "from ClassicRank by name. Kept on this PC only. Only the name is sent, to ClassicRank.",
+        "hosts": ["classicrank.com"],
+    },
     "feedback": {
         "label": "Skill feedback",
         "what": "When you press Send on the skill review page, sends your answers and the nickname "

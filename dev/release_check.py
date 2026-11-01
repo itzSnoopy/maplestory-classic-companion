@@ -365,6 +365,9 @@ def check_relay():
     r = run([sys.executable, str(ROOT / "dev" / "feedback_sim.py"), str(TMP / "feedback_sim")],
             env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=180)
     check("skill feedback sim (page -> relay -> dev tool)", r.returncode == 0, (r.stdout or r.stderr)[-300:])
+    r = run([sys.executable, str(ROOT / "dev" / "challenge_sim.py"), str(TMP / "challenge_sim")],
+            env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=180)
+    check("challenge sim (duel: link, kills, result, record, board state)", r.returncode == 0, (r.stdout or r.stderr)[-300:])
 
 
 # ------------------------------------------------------------------ build checks

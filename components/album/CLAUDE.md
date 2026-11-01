@@ -11,7 +11,7 @@ the tracker side keeps the state and takes the photo; the helper side adds the m
 | File | Role |
 |---|---|
 | `component.py` | `AlbumComponent`: events, first-kill flow (photo, record, `first_kill`, journal), `ui(shell)` |
-| `album.py` | Core: catalog (`mobs_classic.json` + `map_mobs.json`), `identify` (which mob an EXP rise means), `party_boss`; `MAX_KILLS`, `MAX_GAP_S`, `BOSS_GREY_LEVELS`), `Album` state per character, `render`, `open_album`, CLI |
+| `album.py` | Core: catalog (`mobs_classic.json` + `map_mobs.json`), `identify` (which mob an EXP rise means; the sums come from `gamedata/kills.py`), `party_boss`; `MAX_KILLS`, `MAX_GAP_S`, `BOSS_GREY_LEVELS`), `Album` state per character, `render`, `open_album`, CLI |
 | `album_html.py` | Builds `album.html` (`page(root, album, live)`, `build`): an open book (two pages of 3x3 slots, arrows, chapter ribbons, entry page per mob at `#mob=<id>`); `SHOWN_REGIONS` hides the other regions (data stays in the JSON); themes = one `[data-book="name"]` CSS variable block each (henesys, ellinia, plain) + the script's `THEMES` list; asks `mobicons.want` for missing pictures of shown mobs |
 | `mobicons.py` | Downloads monster pictures once into `assets/mob_icons/` (0.5 s apart, `index.json`), behind `internet.allowed("mobs")` |
 
