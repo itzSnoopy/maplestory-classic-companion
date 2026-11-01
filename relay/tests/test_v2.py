@@ -420,6 +420,7 @@ class TestSync(Base):
                                                    "exp_pct": 500, "caps": "ch"}})
         self.assertEqual(s, 200)
         self.assertIn("server_t", d)
+        clock.offset += 0.5         # Windows' clock ticks ~15 ms: keep the two syncs apart
         s, d = self.sync(rid, bob, {"presence": {"level": 12}})
         rows = {m["name"]: m for m in d["presence"]["members"]}
         self.assertEqual(set(rows), {"Alice", "Bob"})
