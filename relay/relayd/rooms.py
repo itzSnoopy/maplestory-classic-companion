@@ -6,6 +6,7 @@ import threading
 from . import auth, clock
 from .errors import ApiError
 from .modules import build_registry
+from .feedback import Feedback
 from .store import Store
 
 NAME_RE = re.compile(r"^[A-Za-z0-9]{1,16}$")        # same as v1
@@ -14,7 +15,7 @@ ROOM_ID_RE = re.compile(r"^[a-z0-9]{4}-[a-z0-9]{4}$")
 ID_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"      # no 0 o 1 l i
 KINDS = ("party", "hangout")
 ACCESS = ("open", "approval", "private", "unlisted")
-DEFAULT_MODULES = ["presence"]
+DEFAULT_MODULES = ["presence", "challenge"]
 SEEN_WRITE_S = 600                  # SQLite last_seen / last_active written at most this often
 MEMBER_IDLE_S = 30 * 86400
 ROOM_IDLE_S = 90 * 86400
@@ -49,6 +50,9 @@ class Relay:
         self.cfg = cfg
         self.store = Store(cfg.data_dir)
         self.modules = build_registry()
+        for m in self.modules.values():
+            m.relay = self
+        self.feedback = Feedback(self.store, cfg)
         self.lockouts = auth.Lockouts()
         self.providers = {n: c() for n, c in auth.PROVIDERS.items()}
         self.lock = threading.RLock()       # serialises changes to rooms and members
@@ -105,10 +109,11 @@ class Relay:
             for rid in rooms:
                 self._delete_room(rid)
             for m in self.modules.values():
-                for rid in list(getattr(m, "rows", {})):
+                for rid in m.active_rooms():
                     room = self.store.get_room(rid)
                     if room:
                         m.tick(room, now)
+            self.feedback.prune(now)
         return {"members": len(members), "rooms": len(rooms)}
 
     # ---- helpers

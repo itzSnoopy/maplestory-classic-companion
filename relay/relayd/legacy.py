@@ -20,7 +20,7 @@ class Handler(V2Mixin, party_relay.Handler):
     def _health(self):
         app = self.server.app
         return {"ok": True, "version": VERSION, "source": party_relay.SOURCE_URL,
-                "lobby": app.flag("lobby"), "feedback": bool(party_relay.FEEDBACK_KEY),
+                "lobby": app.flag("lobby"), "feedback": bool(party_relay.FEEDBACK_KEY or app.cfg.feedback_key),
                 "legacy_v1": app.cfg.legacy_v1}
 
     def _dispatch(self, method):

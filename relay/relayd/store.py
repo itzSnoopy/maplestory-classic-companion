@@ -30,6 +30,11 @@ MIGRATIONS = [
     CREATE TABLE module_state(room_id TEXT NOT NULL, module TEXT NOT NULL, json TEXT,
         PRIMARY KEY(room_id, module));
     """,
+    """
+    CREATE TABLE feedback(id TEXT PRIMARY KEY, code TEXT NOT NULL, received_t REAL NOT NULL,
+        item TEXT NOT NULL);
+    CREATE INDEX feedback_code ON feedback(code, received_t);
+    """,
 ]
 
 ROOM_FIELDS = {"name", "kind", "access", "secret_hash", "max_members", "modules"}
@@ -238,6 +243,29 @@ class Store:
         self._w("INSERT INTO module_state(room_id,module,json) VALUES(?,?,?) "
                 "ON CONFLICT(room_id,module) DO UPDATE SET json=excluded.json",
                 (room_id, module, json.dumps(value)))
+
+    # ---- feedback (cleaned items only; no addresses)
+    def add_feedback(self, id, code, received_t, item):
+        self._w("INSERT INTO feedback(id,code,received_t,item) VALUES(?,?,?,?)",
+                (id, code, received_t, json.dumps(item)))
+
+    def list_feedback(self, code):
+        return [json.loads(r["item"]) for r in self._q(
+            "SELECT item FROM feedback WHERE code=? ORDER BY received_t, rowid", (code,))]
+
+    def prune_feedback(self, cutoff_t, max_items):
+        with self.lock:
+            self._w("DELETE FROM feedback WHERE received_t < ?", (cutoff_t,))
+            self._w("DELETE FROM feedback WHERE rowid NOT IN (SELECT rowid FROM feedback "
+                    "ORDER BY received_t DESC, rowid DESC LIMIT ?)", (max(0, max_items),))
+
+    def delete_feedback(self, code, ids=None):
+        if ids is None:
+            return self._w("DELETE FROM feedback WHERE code=?", (code,))[0]
+        n = 0
+        for i in ids:
+            n += self._w("DELETE FROM feedback WHERE code=? AND id=?", (code, i))[0]
+        return n
 
     # ---- cleanup
     def purge_members_before(self, t):

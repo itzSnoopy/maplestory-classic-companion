@@ -43,19 +43,22 @@ side is `components/party/partylink.py`.
 - Owner side: `dev/feedback.py` (`fetch`, `merge`, `suggest`; output in gitignored `dev/local/feedback/`).
 - AGPLv3: the relay is part of this public repo; run the published code so `/health`'s `source` is true.
 
-## v2: rooms (`relayd/`, step 1 of the v2 plan; not deployed yet)
+## v2: rooms (`relayd/`, steps 1-2 of the v2 plan; not deployed yet)
 One server, many rooms. Run `cd relay && python -m relayd` (env `PORT`, `BIND`, `DATA_DIR` (./data, Docker /data),
 `LOBBY`, `ALLOW_ANYONE_CREATE`, `LEGACY_V1` (1), `MAX_ROOMS` (500), `MAX_ROOMS_PER_ACCOUNT` (5),
-`ANON_CREATES_PER_DAY` (3), `MAX_ROOM_MEMBERS` (0)). Tests: `python relay/tests/test_v2.py` (in release_check).
+`ANON_CREATES_PER_DAY` (3), `MAX_ROOM_MEMBERS` (0), `FEEDBACK_KEY`, `FEEDBACK_CODES`, `FEEDBACK_TTL_DAYS` (30), `FEEDBACK_MAX` (300)).
+Tests (all in release_check): `python relay/tests/test_v2.py`, `test_v2_challenge.py`, `test_v2_feedback.py` (shared helpers in `tests/_helpers.py`).
 | File | Role |
 |---|---|
 | `relayd/server.py`, `__main__.py`, `config.py` | `make_server(cfg)`, start from env; `LOBBY`/`ALLOW_ANYONE_CREATE` override the DB `settings` value when set |
 | `relayd/legacy.py` | Handler = v2 routes + `party_relay.Handler`: `/v1/*` runs the v1 code untouched (own memory) while `LEGACY_V1` is on; `/health` = `{ok, version, source, lobby, feedback, legacy_v1}` |
-| `relayd/http.py` | `/v2` router (V2Mixin), 8 KB bodies, per-address bucket 4/s burst 10 |
+| `relayd/http.py` | `/v2` router (V2Mixin), 8 KB bodies (64 KB for feedback POST only: `_json_body(limit)`), per-address bucket 4/s burst 10 |
 | `relayd/rooms.py` | `Relay`: create, join, me, leave, view, patch, delete, member actions, sync dispatch, module actions, lobby, hourly cleanup (members idle 30 d, rooms 90 d) |
-| `relayd/store.py` | SQLite `DATA_DIR/relay.db` (WAL, migrations): settings, accounts, identities, host_keys, rooms, members (token sha256 only), bans, module_state |
+| `relayd/store.py` | SQLite `DATA_DIR/relay.db` (WAL, migrations): settings, accounts, identities, host_keys, rooms, members (token sha256 only), bans, module_state, feedback (migration 2) |
 | `relayd/auth.py` | scrypt secrets, tokens, lockouts (5 wrong per address+room -> 10 min; 30/h per room -> joins paused 15 min), providers `anon`, `hostkey` (later `local`, `discord`) |
 | `relayd/modules/` | `Module` base + registry; `presence.py` = the party data (FIELDS copied from v1: keep both in step with `own_state()`) |
+| `relayd/modules/challenge.py` | Kill races per room, memory only; v1 rules and constants ported. Names come from the token. **Module seam:** `Relay` sets `mod.relay`; a module may use `relay.store` and READ another module through a small public method (challenge uses `presence.live_rows(room_id, now) -> {name: fields}` for map/all invitees). `Module.active_rooms()` lets the hourly cleanup tick live state |
+| `relayd/feedback.py` | Server-wide skill feedback inbox (not a room module), items in SQLite `feedback(id, code, received_t, item)`; `clean_submission` = v1's validation; pruned by TTL/max on write and read |
 | `relayd/clock.py`, `errors.py` | one clock (tests shift `clock.offset`), `ApiError` |
 - API: `GET /v2/lobby`; `POST /v2/rooms` `{name, owner, kind: party|hangout, access: open|approval|private|unlisted, secret?, max_members?, host_key?}` -> `{id, token, room}`;
   `POST /v2/rooms/<id>/join` `{name, secret?}` -> `{token, status, role}`; `GET .../me`; `POST .../sync` `{presence: {...}}` -> `{server_t, presence: {members}}` (1 per s per token);
@@ -64,7 +67,13 @@ One server, many rooms. Run `cd relay && python -m relayd` (env `PORT`, `BIND`, 
 - Rules as built: any room with a secret asks for it on join; wrong secret 403 (unlisted: 404, same as an unknown id);
   mods approve/deny/kick plain members only; deny lets the name ask again; a name already in the room is 409 (no token
   recovery yet: the owner kicks the old one); `members` in the room view = active only, pending in `requests` (owner/mod).
-- Not yet: challenge/feedback/relic modules (step 2+), admin page, Docker packaging of `relayd/` (`make_stack.py` embeds only v1).
+- New rooms get modules `["presence", "challenge"]` (existing rooms keep theirs; owners PATCH `modules`). Challenge: `POST .../challenge/<action>`
+  `create {mode: 1v1|map|all, minutes: 2|5|10|15, target?}`, `accept|decline|cancel {id}`, `kills {id, kills}`, `get {id}` -> view (+ `server_t`; same
+  view shape as v1). 1v1 target = an active room member; map = live presence rows on the creator's map; all = live presence rows. Sync part:
+  `{"challenge": {"id", "kills": [...]}}` -> reply `"challenge": {"challenges": [views I am in or invited to]}` whenever the module is on.
+- Feedback (off unless `FEEDBACK_KEY`; else every `/v2/feedback` path 404): `POST /v2/feedback/<code>` (export, 64 KB, 1 per 30 s per address, in memory) -> `{ok, id}`;
+  `GET` / `DELETE` (optional `{ids}`) `/v2/feedback/<code>` with `X-Feedback-Key`. `/health` `feedback` = v1 or v2 key set. Survives restarts; no addresses stored.
+- Not yet: relic module (step 3+), admin page, Docker packaging of `relayd/` (`make_stack.py` embeds only v1).
 
 ## Test it
 `PORT=8787 python relay/party_relay.py`, then `curl http://127.0.0.1:8787/health`; post with curl or run two trackers/`partylink.exchange`. Docker: `cd relay && docker compose up -d --build`. After editing the relay run `python relay/make_stack.py`. Tests: `python relay/test_relay.py`.

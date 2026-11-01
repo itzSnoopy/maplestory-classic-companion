@@ -1,6 +1,6 @@
 """Settings from the environment. A flag left as None falls back to the value saved in the DB."""
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 
@@ -14,6 +14,13 @@ def _flag(v):
 def _int(env, key, default):
     try:
         return int(env.get(key) or default)
+    except ValueError:
+        return default
+
+
+def _float(env, key, default):
+    try:
+        return float(env.get(key) or default)
     except ValueError:
         return default
 
@@ -33,6 +40,11 @@ class Config:
     rate_per_s: float = 4.0            # per address
     rate_burst: float = 10.0
     sync_gap_s: float = 1.0            # min seconds between syncs of one token
+    feedback_key: str = ""             # empty = the /v2/feedback inbox is off (404)
+    feedback_codes: set = field(default_factory=set)    # allowlist; empty = any code of 6-64 chars
+    feedback_ttl_days: float = 30.0
+    feedback_max: int = 300
+    feedback_gap_s: float = 30.0       # min seconds between feedback posts from one address
 
     @classmethod
     def from_env(cls, env=None):
@@ -49,4 +61,9 @@ class Config:
             max_rooms_per_account=_int(env, "MAX_ROOMS_PER_ACCOUNT", 5),
             anon_creates_per_day=_int(env, "ANON_CREATES_PER_DAY", 3),
             max_room_members=_int(env, "MAX_ROOM_MEMBERS", 0),
+            feedback_key=env.get("FEEDBACK_KEY") or "",
+            feedback_codes={c.strip() for c in (env.get("FEEDBACK_CODES") or "").split(",")
+                            if c.strip()},
+            feedback_ttl_days=_float(env, "FEEDBACK_TTL_DAYS", 30.0),
+            feedback_max=_int(env, "FEEDBACK_MAX", 300),
         )

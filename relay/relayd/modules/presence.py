@@ -59,6 +59,15 @@ class Presence(Module):
             return {"members": [{**f, "name": n, "age_s": round(now - t, 1), "role": role}
                                 for n, (t, f, role) in out]}
 
+    def live_rows(self, room_id, now):
+        """Read seam for other modules: {name: fields} of the members whose row is within TTL."""
+        with self.lock:
+            return {n: dict(r[1]) for n, r in self._live(room_id, now).items()}
+
+    def active_rooms(self):
+        with self.lock:
+            return list(self.rows)
+
     def tick(self, room, now):
         with self.lock:
             self._live(room["id"], now)

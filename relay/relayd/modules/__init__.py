@@ -4,6 +4,9 @@
 class Module:
     name = ""
     persistent = False      # True = keeps state in SQLite (module_state); False = memory only
+    relay = None            # set by Relay: lets a module reach the store and READ other modules
+                            # through a small public method (e.g. presence.live_rows). Never
+                            # import another module's internals.
 
     def on_sync(self, room, member, part, now):
         """Called on every sync of an enabled module. `part` is what the client sent for it (or None).
@@ -16,6 +19,10 @@ class Module:
 
     def tick(self, room, now):
         pass
+
+    def active_rooms(self):
+        """Room ids this module holds live state for (the hourly cleanup ticks them)."""
+        return []
 
     def admin_view(self, room):
         return {}
@@ -45,3 +52,4 @@ def build_registry():
 
 
 from . import presence  # noqa: E402,F401  (registers itself)
+from . import challenge  # noqa: E402,F401

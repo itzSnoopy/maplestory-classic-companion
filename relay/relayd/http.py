@@ -8,20 +8,23 @@ from .errors import ApiError
 from .rooms import ROOM_ID_RE
 
 MAX_BODY = 8192
+FEEDBACK_MAX_BODY = 65536
 
 
 class V2Mixin:
     """Needs `self._send(code, obj)` and `self.server.app` (a rooms.Relay)."""
 
-    def _json_body(self):
+    def _json_body(self, limit=MAX_BODY, required=False):
         try:
             n = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             raise ApiError(400, "bad Content-Length")
-        if n > MAX_BODY:
+        if n > limit:
             self.close_connection = True
             raise ApiError(413, "body too large")
         if n <= 0:
+            if required:
+                raise ApiError(413, "body too large or empty")
             return {}
         try:
             return json.loads(self.rfile.read(n))
@@ -47,6 +50,8 @@ class V2Mixin:
         addr = self.client_address[0]
         if n == 2 and seg[1] == "lobby" and method == "GET":
             return app.lobby()
+        if n == 3 and seg[1] == "feedback":
+            return self._feedback(app, method, seg[2], addr)
         if n >= 2 and seg[1] == "rooms":
             if n == 2 and method == "POST":
                 return app.create(addr, self._json_body(), self.headers.get("X-Host-Key"))
@@ -77,3 +82,19 @@ class V2Mixin:
                 elif n == 6 and method == "POST" and seg[3] == "members":
                     return app.member_action(rid, auth, seg[4], seg[5])
         raise ApiError(404, "not found")
+
+    def _feedback(self, app, method, code, addr):
+        fb = app.feedback
+        if not fb.enabled or method not in ("GET", "POST", "DELETE"):
+            raise ApiError(404, "not found")
+        fb.check_code(code)
+        key = self.headers.get("X-Feedback-Key") or ""
+        if method == "POST":
+            fb.gap_ok(addr)
+            out = fb.post(code, self._json_body(FEEDBACK_MAX_BODY, required=True))
+            fb.mark_sent(addr)
+            return out
+        fb.check_key(key)
+        if method == "GET":
+            return fb.get(code)
+        return fb.delete(code, self._json_body(FEEDBACK_MAX_BODY))
