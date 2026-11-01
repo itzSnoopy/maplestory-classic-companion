@@ -17,6 +17,13 @@ class Module:
         """{action name: fn(room, member, body, now) -> dict} for POST /v2/rooms/<id>/<module>/<action>."""
         return {}
 
+    def reads(self):
+        """{name: fn(room, member, now) -> dict} for GET /v2/rooms/<id>/<module>/<name> (any active member)."""
+        return {}
+
+    offered = False         # True = owner_view is shown to owners even where the module is not enabled yet
+    enable_on = ()          # actions (owner / mod) that switch the module on in a room that lacks it
+
     def tick(self, room, now):
         pass
 
@@ -38,7 +45,7 @@ class Module:
 
     def owner_view(self, room, now):
         """Extra data for the owner / mods in GET /v2/rooms/<id>: {"activities": {kind: {label, minutes}},
-        "current": a view or None} or None."""
+        "current": a view or None, "extra": {key: value merged into the room view}} or None."""
         return None
 
     def on_member_removed(self, room_id, name):
@@ -63,3 +70,4 @@ def build_registry():
 
 from . import presence  # noqa: E402,F401  (registers itself)
 from . import challenge  # noqa: E402,F401
+from . import relic  # noqa: E402,F401

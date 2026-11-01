@@ -313,7 +313,7 @@ class TestChallengeModule(ChBase):
 
     def test_new_rooms_get_both_modules(self):
         s, d = self.call("GET", f"/v2/rooms/{self.rid}", token=self.alice)
-        self.assertEqual(d["modules"], ["presence", "challenge"])
+        self.assertEqual(d["modules"], ["presence", "challenge", "relic"])
 
     def test_kicked_creator_cancels(self):
         for n in ("Alice", "Bob", "Cy"):

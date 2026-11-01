@@ -302,6 +302,31 @@
           ? memberBtn(m.name, "kick", "Kick", "danger", "Remove " + m.name + " from the room?") : null));
     });
     renderActivity(d);
+    renderRelic(d);
+  }
+  function renderRelic(d) {
+    var rel = (d.activities || {}).relic, cur = d.relic, box = $("mRelic"), sel = $("mDiff");
+    clear(box);
+    $("mRelicControls").hidden = !rel;
+    if (!rel) return;
+    if (sel.options.length !== rel.difficulties.length) {
+      clear(sel);
+      rel.difficulties.forEach(function (x) {
+        sel.appendChild(h("option", { value: x.key }, x.label + " (" + x.pieces + " pieces, about " + x.hours + " h, " + x.people + " people)"));
+      });
+    }
+    var running = !!cur && cur.state === "running";
+    sel.parentNode.hidden = running;
+    $("mRelicStart").hidden = running;
+    $("mRelicStop").hidden = !running;
+    $("mRelicOpen").hidden = !cur;
+    $("mRelicOpen").setAttribute("href", "/rooms/" + d.id + "/relic");
+    if (!cur) { box.appendChild(h("p", { class: "muted" }, "No relic hunt yet.")); return; }
+    var head = cur.state === "finished"
+      ? "Relic hunt complete (" + cur.label + "): most found " + cur.most_found + ", last piece by " + cur.last_placed_by
+      : "Relic hunt " + cur.found + "/" + cur.pieces + " found, " + cur.placed + " placed (" + cur.label + ")" +
+        (cur.next_chance_pct == null ? "" : ", next piece " + cur.next_chance_pct.toFixed(2) + " % per kill");
+    box.appendChild(h("div", { class: "live" }, h("b", {}, head)));
   }
   function renderActivity(d) {
     var race = (d.activities || {}).race, a = d.activity;
@@ -350,6 +375,12 @@
   });
   $("mStop").addEventListener("click", function () {
     if (managed && window.confirm("Stop the race now?")) act("/challenge/stop", {});
+  });
+  $("mRelicStart").addEventListener("click", function () {
+    if (managed) act("/relic/start", { difficulty: $("mDiff").value });
+  });
+  $("mRelicStop").addEventListener("click", function () {
+    if (managed && window.confirm("Stop the relic hunt? The board is thrown away.")) act("/relic/stop", {});
   });
   $("mClose").addEventListener("click", closeManage);
   $("mForget").addEventListener("click", function () { if (managed) forgetRoom(managed.id); });

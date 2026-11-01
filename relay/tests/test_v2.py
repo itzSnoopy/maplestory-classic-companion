@@ -65,7 +65,7 @@ class TestCreate(Base):
         key = self.app.store.create_host_key("friend", 2, None)
         s, d = self.call("POST", "/v2/rooms", self.body(host_key=key))
         self.assertEqual(s, 200)
-        self.assertEqual(d["room"]["modules"], ["presence", "challenge"])
+        self.assertEqual(d["room"]["modules"], ["presence", "challenge", "relic"])
         s, d = self.call("POST", "/v2/rooms", self.body(name="Two"), headers={"X-Host-Key": key})
         self.assertEqual(s, 200)
 
@@ -387,7 +387,7 @@ class TestSync(Base):
         rid, alice = self.mk()
         s, d = self.sync(rid, alice, {"nosuchmodule": {"x": 1}, "presence": {"level": 5}})
         self.assertEqual(s, 200)
-        self.assertEqual(set(d), {"server_t", "presence", "challenge"})
+        self.assertEqual(set(d), {"server_t", "presence", "challenge", "relic"})
         self.call("PATCH", f"/v2/rooms/{rid}", {"modules": []}, alice)
         d = self.sync(rid, alice, {"presence": {"level": 5}})[1]
         self.assertEqual(set(d), {"server_t"})

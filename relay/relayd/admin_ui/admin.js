@@ -212,7 +212,7 @@
     loadList();
   }
 
-  var MODULES = ["presence", "challenge"];
+  var MODULES = ["presence", "challenge", "relic"];
   function pageRoom(rid) {
     showError("");
     api("GET", "rooms/" + id(rid)).then(function (r) {

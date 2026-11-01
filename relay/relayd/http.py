@@ -68,6 +68,8 @@ class V2Mixin:
                         return app.delete(rid, auth, addr)
                 elif n == 4 and method == "GET" and seg[3] == "me":
                     return app.me(rid, auth, addr)
+                elif n == 5 and method == "GET" and seg[3] != "members":
+                    return app.module_read(rid, auth, seg[3], seg[4], addr)
                 elif n == 4 and method == "POST":
                     if seg[3] == "join":
                         return app.join(addr, rid, self._json_body())

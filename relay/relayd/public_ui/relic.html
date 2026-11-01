@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Relic hunt</title>
+<link rel="stylesheet" href="/rooms/relic.css">
+</head>
+<body>
+<header>
+  <h1>Relic hunt</h1>
+  <span id="sub" class="sub"></span>
+</header>
+<main>
+  <p id="msg" class="msg" role="status">Loading...</p>
+  <form id="tokenForm" class="msg" hidden>
+    <label>Paste your member token (the app opens this page with it)
+      <input id="tokenInput" type="password" autocomplete="off" required>
+    </label>
+    <button type="submit">Open the table</button>
+  </form>
+  <section id="game" hidden>
+    <div class="frame">
+      <div id="table" class="table"></div>
+    </div>
+    <div class="foot">
+      <div class="count"><b id="count">0 / 0 pieces</b> <span id="detail" class="dim"></span></div>
+      <div class="bar" aria-hidden="true"><div id="barFound" class="found"></div><div id="barPlaced" class="placed"></div></div>
+      <div class="stats">
+        <span>Next piece <b id="chance">-</b> per kill</span>
+        <span>Together <b id="together">-</b></span>
+      </div>
+      <p id="done" class="done" hidden></p>
+      <div id="finders" class="finders"></div>
+    </div>
+  </section>
+</main>
+<script src="/rooms/relic.js"></script>
+</body>
+</html>

@@ -16,7 +16,7 @@ ROOM_ID_RE = re.compile(r"^[a-z0-9]{4}-[a-z0-9]{4}$")
 ID_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"      # no 0 o 1 l i
 KINDS = ("party", "hangout")
 ACCESS = ("open", "approval", "private", "unlisted")
-DEFAULT_MODULES = ["presence", "challenge"]
+DEFAULT_MODULES = ["presence", "challenge", "relic"]
 SEEN_WRITE_S = 600                  # SQLite last_seen / last_active written at most this often
 MEMBER_IDLE_S = 30 * 86400
 ROOM_IDLE_S = 90 * 86400
@@ -361,12 +361,14 @@ class Relay:
                                "state": (live.get(x["name"]) or {}).get("state")}
                               for x in out["members"]]
             acts, current = {}, None
-            for mod_name in room["modules"]:
+            offered = [n for n, mo in self.modules.items() if mo.offered and n not in room["modules"]]
+            for mod_name in list(room["modules"]) + offered:
                 mod = self.modules.get(mod_name)
                 v = mod.owner_view(room, now) if mod else None
                 if v:
                     acts.update(v.get("activities") or {})
                     current = current or v.get("current")
+                    out.update(v.get("extra") or {})
             out["activities"] = acts
             out["activity"] = current
             out["requests"] = [x["name"] for x in members if x["status"] == "pending"]
@@ -513,7 +515,25 @@ class Relay:
     def module_action(self, room_id, header, module, action, body, addr=None):
         room, m = self.member_auth(room_id, header, addr=addr)
         mod = self.modules.get(module) if module in room["modules"] else None
+        if mod is None:                          # an older room: the host's "start" switches the module on
+            cand = self.modules.get(module)
+            if cand and action in cand.enable_on and m["role"] in ("owner", "mod"):
+                with self.lock:
+                    mods = list(room["modules"])
+                    if module not in mods:
+                        mods.append(module)
+                        self.store.update_room(room_id, modules=mods)
+                    room = self.store.get_room(room_id)
+                mod = cand
         fn = mod.actions().get(action) if mod else None
         if not fn:
             raise ApiError(404, "not found")
         return fn(room, m, _obj(body), clock.now())
+
+    def module_read(self, room_id, header, module, name, addr=None):
+        room, m = self.member_auth(room_id, header, addr=addr)
+        mod = self.modules.get(module) if module in room["modules"] else None
+        fn = mod.reads().get(name) if mod else None
+        if not fn:
+            raise ApiError(404, "not found")
+        return fn(room, m, clock.now())

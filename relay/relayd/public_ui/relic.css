@@ -1,0 +1,50 @@
+:root {
+  --bg: #15120f; --stone: #26211b; --stone2: #302a22; --bronze: #b0814a; --bronze2: #7d5a31;
+  --fg: #eadfca; --dim: #a39580; --gold: #f2c35a; --line: #4a3f31;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg);
+  font: 15px/1.4 Palatino, "Palatino Linotype", Georgia, serif; }
+[hidden] { display: none !important; }
+header { display: flex; align-items: baseline; gap: 12px; padding: 10px 16px;
+  border-bottom: 2px solid var(--bronze2); background: var(--stone); }
+h1 { margin: 0; font-size: 18px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); }
+.sub { color: var(--dim); }
+main { max-width: 1000px; margin: 0 auto; padding: 16px; }
+.msg { background: var(--stone); border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; }
+.msg input { display: block; width: 100%; margin: 6px 0; padding: 8px; color: var(--fg);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 4px; font: inherit; }
+button { font: inherit; color: var(--fg); background: var(--stone2); border: 1px solid var(--bronze2);
+  border-radius: 4px; padding: 6px 12px; cursor: pointer; }
+.frame { padding: 10px; background: linear-gradient(145deg, var(--bronze), var(--bronze2));
+  border-radius: 10px; box-shadow: 0 4px 18px rgba(0, 0, 0, .6); }
+.table { position: relative; width: 100%; aspect-ratio: 16 / 10; overflow: hidden; border-radius: 4px;
+  background: radial-gradient(ellipse at center, #3a3228 0%, #26211b 80%); touch-action: none;
+  user-select: none; -webkit-user-select: none; }
+.boardbox { position: absolute; border: 2px solid var(--bronze); background: rgba(0, 0, 0, .25); }
+.slot { position: absolute; border: 1px dashed #6a5c48; }
+.tile { position: absolute; cursor: grab; touch-action: none; transition: left .45s ease, top .45s ease;
+  border: 1px solid rgba(0, 0, 0, .7); box-shadow: 0 2px 5px rgba(0, 0, 0, .55); z-index: 2; }
+.tile canvas { display: block; width: 100%; height: 100%; pointer-events: none; }
+.tile.drag { cursor: grabbing; transition: none; z-index: 9; outline: 2px solid var(--gold);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, .7); }
+.tile.placed { cursor: default; box-shadow: none; z-index: 1; border-color: rgba(0, 0, 0, .35); }
+.tile.pop { animation: pop .3s ease-out; }
+.tile .dot { position: absolute; left: 3px; top: 3px; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--dotc, #fff); border: 1px solid rgba(0, 0, 0, .6); }
+@keyframes pop { 0% { transform: scale(1.25); } 100% { transform: scale(1); } }
+.foot { margin-top: 12px; padding: 12px 14px; background: var(--stone); border: 1px solid var(--line);
+  border-radius: 6px; }
+.count { font-size: 17px; }
+.dim { color: var(--dim); font-size: 13px; }
+.bar { position: relative; height: 10px; margin: 8px 0; background: #14110d; border: 1px solid var(--line);
+  border-radius: 5px; overflow: hidden; }
+.bar .found { position: absolute; inset: 0 auto 0 0; background: var(--bronze2); }
+.bar .placed { position: absolute; inset: 0 auto 0 0; background: var(--gold); }
+.stats { display: flex; flex-wrap: wrap; gap: 6px 22px; color: var(--dim); }
+.stats b { color: var(--fg); }
+.done { margin: 10px 0 0; color: var(--gold); font-size: 16px; }
+.finders { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; color: var(--dim); font-size: 13px; }
+.finders i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px;
+  background: var(--dotc, #fff); }
+@media (max-width: 600px) { main { padding: 8px; } header { padding: 8px 10px; } }

@@ -4,6 +4,7 @@ Not behind the admin gate: anyone who can reach the relay can open it. It holds 
 no cookies; the buttons call the ordinary /v2 API (host key or tokens, no cookies, so no CSRF).
 """
 import os
+import re
 import sys
 import traceback
 
@@ -16,7 +17,10 @@ PAGES = {                       # explicit allowlist: URL path -> (file in UI_DI
     "/rooms/": ("index.html", "text/html; charset=utf-8"),
     "/rooms/rooms.js": ("rooms.js", "text/javascript; charset=utf-8"),
     "/rooms/rooms.css": ("rooms.css", "text/css; charset=utf-8"),
+    "/rooms/relic.js": ("relic.js", "text/javascript; charset=utf-8"),
+    "/rooms/relic.css": ("relic.css", "text/css; charset=utf-8"),
 }
+RELIC_PAGE = re.compile(r"^/rooms/[a-z0-9]{4}-[a-z0-9]{4}/relic/?$")      # the shared table of one room
 
 
 class PublicMixin:
@@ -25,11 +29,11 @@ class PublicMixin:
     def handle_public(self, method, path):
         app = self.server.app
         try:
-            if method != "GET" or path not in PAGES:
+            if method != "GET" or not (path in PAGES or RELIC_PAGE.match(path)):
                 raise ApiError(404, "not found")
             if not app.rate_ok(self.cinfo.ip):
                 raise ApiError(429, "slow down")
-            name, ctype = PAGES[path]
+            name, ctype = PAGES.get(path) or ("relic.html", "text/html; charset=utf-8")
             with open(os.path.join(UI_DIR, name), "rb") as f:
                 self._admin_send(200, f.read(), ctype)
         except ApiError as e:
