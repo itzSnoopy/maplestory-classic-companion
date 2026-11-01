@@ -29,7 +29,14 @@ sys.path.insert(0, str(CODE))
 sys.path.insert(0, str(CODE / "relay"))
 args = [a for a in sys.argv[1:] if not a.startswith("--")]
 OUT = Path(args[0] if args else "challenge_sim_out").resolve()
+MARK = ".challenge_sim"                 # the sim starts clean, but only wipes a folder it made itself
+if OUT.exists() and any(OUT.iterdir()):
+    if not (OUT / MARK).exists():
+        sys.exit(f"{OUT} is not empty and was not made by this sim; pick an empty or new folder")
+    import shutil
+    shutil.rmtree(OUT)
 OUT.mkdir(parents=True, exist_ok=True)
+(OUT / MARK).write_text("output of dev/challenge_sim.py; wiped on the next run\n", encoding="utf-8")
 os.environ["MAPLE_COMPANION_DATA"] = str(OUT)
 from base import lean  # noqa: F401,E402,I001
 from base import internet  # noqa: E402
@@ -146,7 +153,7 @@ try:
     check(wait(lambda: any(p["name"] == "Rival" for v in R.challenges.get(CODE_STR, {}).values() for p in [{"name": n} for n in v["invited"]])),
           "create command reaches the relay")
     cid = next(iter(R.challenges[CODE_STR]))
-    check(snap().get("busy"), "I am busy while my invitation is open")
+    check(wait(lambda: snap().get("busy")), "I am busy while my invitation is open")   # the app writes just after the relay answers
     r = rival_post()
     inv = [c for c in r["challenges"] if "Rival" in c["invited"]]
     check(len(inv) == 1 and inv[0]["creator"] == "Snoopy", "Rival sees the invitation")
