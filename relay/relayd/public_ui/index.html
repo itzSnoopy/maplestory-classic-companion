@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rooms</title>
+<link rel="stylesheet" href="/rooms/rooms.css">
+</head>
+<body>
+<header>
+  <h1>Rooms</h1>
+</header>
+<main>
+  <section class="panel">
+    <h2>Create a room</h2>
+    <p id="closed" class="muted" hidden>Creating rooms is not open to everyone on this server. You need a host key from the server's owner.</p>
+    <form id="createForm">
+      <label>Room name
+        <input id="name" type="text" maxlength="40" required>
+      </label>
+      <label>Your name (shown in the room; letters and digits, up to 16)
+        <input id="owner" type="text" maxlength="16" pattern="[A-Za-z0-9]{1,16}" autocomplete="off" required>
+      </label>
+      <label>Kind
+        <select id="kind">
+          <option value="party">party</option>
+          <option value="hangout">hangout</option>
+        </select>
+      </label>
+      <label>Who can join
+        <select id="access">
+          <option value="open">open: anyone with the room id</option>
+          <option value="approval">approval: you accept each person</option>
+          <option value="private">private: needs the PIN or password</option>
+          <option value="unlisted">unlisted: needs the PIN or password, hidden from the lobby</option>
+        </select>
+      </label>
+      <label>PIN (4-12 digits) or password (8+ characters)
+        <input id="secret" type="text" autocomplete="off">
+      </label>
+      <label>Max members (optional)
+        <input id="max" type="number" min="0" placeholder="default">
+      </label>
+      <label>Host key (only if the server asks for one)
+        <input id="hostkey" type="password" autocomplete="off">
+      </label>
+      <button class="primary" type="submit">Create room</button>
+    </form>
+    <p id="err" class="error" role="alert" hidden></p>
+    <div id="result"></div>
+  </section>
+
+  <section class="panel" id="mine" hidden>
+    <h2>Rooms you made on this device</h2>
+    <p class="muted">The owner token is the key to manage the room. It is kept only in this browser.</p>
+    <div id="mineList"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Lobby</h2>
+    <div class="row"><button id="reload" type="button">Reload</button></div>
+    <div id="lobby" class="muted">Loading...</div>
+  </section>
+</main>
+<script src="/rooms/rooms.js"></script>
+</body>
+</html>

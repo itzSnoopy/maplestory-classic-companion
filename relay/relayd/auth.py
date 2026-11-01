@@ -1,6 +1,6 @@
 """Secrets, tokens, lockouts and account providers.
 
-Providers turn credentials into an account. Today: `anon` and `hostkey`. Later providers
+Providers turn credentials into an account. Today: `anon`, `hostkey` and `admin` (the account of rooms made on the admin page). Later providers
 (`local` = username + password without email, `discord`) plug into PROVIDERS the same way:
 authenticate(store, cfg, now, cred) -> Account or raise ApiError.
 """
@@ -147,4 +147,28 @@ class HostKeyProvider:
         pass
 
 
-PROVIDERS = {"anon": AnonProvider, "hostkey": HostKeyProvider}     # later: local, discord
+class AdminProvider:
+    """One shared account that owns the rooms made from the admin page (no secret, never logs in).
+
+    It is an ordinary accounts row with identity (admin, admin), made on first use; no migration.
+    Disabling it on the Accounts tab stops admin room creation too.
+    """
+    name = "admin"
+
+    def authenticate(self, store, cfg, now, cred):
+        ident = store.find_identity("admin", "admin")
+        if ident:
+            acct = ident["account_id"]
+            if store.account_disabled(acct):
+                raise ApiError(403, "account disabled")
+        else:
+            acct = store.create_account("admin", now)
+            store.add_identity(acct, "admin", "admin")
+        return Account(acct, 0, self.name)
+
+    def created(self, now, cred):
+        pass
+
+
+PROVIDERS = {"anon": AnonProvider, "hostkey": HostKeyProvider,
+             "admin": AdminProvider}     # later: local, discord

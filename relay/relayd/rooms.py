@@ -22,6 +22,7 @@ MEMBER_IDLE_S = 30 * 86400
 ROOM_IDLE_S = 90 * 86400
 MEMBER_ACTIONS = ("approve", "deny", "kick", "ban", "unban", "promote", "demote")
 MOD_ACTIONS = ("approve", "deny", "kick")
+HOSTKEY_LOCK = "!hostkey"           # Lockouts key for wrong host keys (not a valid room id)
 
 
 def _obj(body):
@@ -187,11 +188,9 @@ class Relay:
         return {"enabled": True, "rooms": out}
 
     # ---- create
-    def create(self, addr, body, header_key):
+    def _room_spec(self, body):
+        """Validate the fields of a new room. Shared by the public API and the admin page."""
         body = _obj(body)
-        key = body.get("host_key") or header_key
-        if not key and not self.flag("allow_anyone_create"):
-            raise ApiError(403, "creating rooms is not open to everyone; a host key is needed")
         name = _room_name(body.get("name"))
         owner = _check_name(body.get("owner"))
         kind, access = body.get("kind"), body.get("access")
@@ -209,16 +208,48 @@ class Relay:
             mm = 6 if kind == "party" else 0
         if isinstance(mm, bool) or not isinstance(mm, int) or not 0 <= mm <= 100000:
             raise ApiError(400, "bad max_members")
-        mm = self._cap(mm)
-        secret_hash = auth.hash_secret(secret) if secret is not None else None
+        return {"name": name, "owner": owner, "kind": kind, "access": access,
+                "secret_hash": auth.hash_secret(secret) if secret is not None else None,
+                "max_members": self._cap(mm)}
 
+    def _check_capacity(self):
+        if self.store.count_rooms() >= self.cfg.max_rooms:
+            raise ApiError(503, "the server has no room for more rooms")
+
+    def _store_room(self, spec, account_id, now):
+        """Insert the room and its owner (call with self.lock held). -> the create reply."""
+        for _ in range(20):
+            rid = "".join(secrets.choice(ID_ALPHABET) for _ in range(8))
+            rid = rid[:4] + "-" + rid[4:]
+            if not self.store.get_room(rid):
+                break
+        token = auth.new_token()
+        self.store.insert_room(rid, spec["name"], spec["kind"], spec["access"], spec["secret_hash"],
+                               account_id, spec["max_members"], list(DEFAULT_MODULES), now)
+        self.store.add_member(rid, spec["owner"], auth.sha256hex(token), "owner", "active", now)
+        return {"id": rid, "token": token, "room": self.public(self.store.get_room(rid))}
+
+    def create(self, addr, body, header_key):
+        body = _obj(body)
+        key = body.get("host_key") or header_key
+        if not key and not self.flag("allow_anyone_create"):
+            raise ApiError(403, "creating rooms is not open to everyone; a host key is needed")
+        spec = self._room_spec(body)
         now = clock.now()
         cred = {"addr": addr, "host_key": key}
         provider = self.providers["hostkey" if key else "anon"]
+        if key:                                  # wrong host keys are guessed per address, like room secrets
+            self.lockouts.check(addr, HOSTKEY_LOCK, now)
         with self.lock:
-            acct = provider.authenticate(self.store, self.cfg, now, cred)
-            if self.store.count_rooms() >= self.cfg.max_rooms:
-                raise ApiError(503, "the server has no room for more rooms")
+            try:
+                acct = provider.authenticate(self.store, self.cfg, now, cred)
+            except ApiError as e:
+                if key and e.msg == "bad host key":
+                    self.lockouts.fail(addr, HOSTKEY_LOCK, now, track=False)
+                raise
+            if key:
+                self.lockouts.ok(addr, HOSTKEY_LOCK)
+            self._check_capacity()
             if acct.id is not None:
                 owned = self.store.count_rooms_owned(acct.id)
                 if owned >= self.cfg.max_rooms_per_account:
@@ -228,17 +259,16 @@ class Relay:
             if acct.id is None:
                 acct.id = self.store.create_account("anon", now)
             provider.created(now, cred)
-            for _ in range(20):
-                rid = "".join(secrets.choice(ID_ALPHABET) for _ in range(8))
-                rid = rid[:4] + "-" + rid[4:]
-                if not self.store.get_room(rid):
-                    break
-            token = auth.new_token()
-            self.store.insert_room(rid, name, kind, access, secret_hash, acct.id, mm,
-                                   list(DEFAULT_MODULES), now)
-            self.store.add_member(rid, owner, auth.sha256hex(token), "owner", "active", now)
-            room = self.store.get_room(rid)
-        return {"id": rid, "token": token, "room": self.public(room)}
+            return self._store_room(spec, acct.id, now)
+
+    def create_admin(self, body):
+        """Admin page: no host key / anyone-can-create check, no per-account limits; MAX_ROOMS still applies."""
+        spec = self._room_spec(body)
+        now = clock.now()
+        with self.lock:
+            acct = self.providers["admin"].authenticate(self.store, self.cfg, now, {})
+            self._check_capacity()
+            return self._store_room(spec, acct.id, now)
 
     # ---- join / me / leave
     def join(self, addr, room_id, body):

@@ -86,6 +86,24 @@ A request through the proxy to `/health` before setting it shows `"you": "<addre
 Note: the app checks certificates, so a self-made certificate (e.g. for a `.home` name) works in
 the browser but not in the app. Point the app at `http://<box LAN address>:8788` on the home network.
 
+## Creating rooms
+
+Two ways, both on the relay itself:
+
+- **Admin page > Rooms tab > Create room.** Fill the form and press Create. You get the room id and the
+  *owner token* once; the token is the owner's key to manage the room from the app later, so copy it.
+  The admin page ignores the "anyone can create" switch and the host-key limits (only `MAX_ROOMS` applies).
+- **The public page `http://<relay address>/rooms`** (same address and port as the relay). Anyone who can
+  reach the relay can open it, so friends can make their own rooms. It shows the room id, how friends join,
+  and the owner token (once; the page also keeps it in that browser until they press Forget).
+
+Who may create from the public page: if **Anyone can create rooms** is on (Overview > Switches, or
+`ALLOW_ANYONE_CREATE=1`), everybody, with a small daily limit per address. If it is off, only people with a
+**host key**: make one on the Host keys tab, give it to the friend, and they paste it in the "Host key" field.
+Wrong host keys are limited too: 5 wrong tries from one address block creating from it for 10 minutes.
+`/health` shows `"create_open": true/false` for the switch. The page is plain HTTP unless you put TLS in front,
+so PINs and tokens travel unencrypted until then.
+
 ## Settings reference
 
 | Variable | Default | What |

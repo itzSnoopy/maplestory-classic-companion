@@ -370,6 +370,8 @@ def check_relay():
     check("relay v2 feedback tests pass (relay/tests/test_v2_feedback.py)", r.returncode == 0, (r.stderr or r.stdout)[-300:])
     r = run([sys.executable, str(ROOT / "relay" / "tests" / "test_v2_admin.py")], env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=300)
     check("relay v2 admin tests pass (relay/tests/test_v2_admin.py)", r.returncode == 0, (r.stderr or r.stdout)[-300:])
+    r = run([sys.executable, str(ROOT / "relay" / "tests" / "test_v2_public.py")], env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=300)
+    check("relay v2 public page / room creation tests pass (relay/tests/test_v2_public.py)", r.returncode == 0, (r.stderr or r.stdout)[-300:])
     r = run([sys.executable, str(ROOT / "dev" / "feedback_sim.py"), str(TMP / "feedback_sim")],
             env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=180)
     check("skill feedback sim (page -> relay -> dev tool)", r.returncode == 0, (r.stdout or r.stderr)[-300:])

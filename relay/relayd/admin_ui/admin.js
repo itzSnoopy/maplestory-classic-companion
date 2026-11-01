@@ -152,15 +152,59 @@
 
   // ---- Rooms
   function pageRooms() {
-    api("GET", "rooms").then(function (d) {
-      clear(viewEl);
-      add(viewEl, h("p", { class: "muted" }, d.rooms.length + " rooms (unlisted ones included). Click one to manage it."));
-      add(viewEl, table(["Id", "Name", "Kind", "Access", "Members", "Online", "Owner"],
-        d.rooms.map(function (r) {
-          return { id: r.id, cells: [r.id, r.name, r.kind, r.access + (r.has_secret ? " (secret)" : ""),
-            r.members + (r.pending ? " +" + r.pending + " asking" : ""), r.online, r.owner_name || "-"] };
-        }), function (r) { pageRoom(r.id); }));
-    }, function (e) { showError(e.error); });
+    var listBox = h("div");
+    var shown = h("div");
+    function loadList() {                 // refresh only the list, so a just-shown owner token stays visible
+      api("GET", "rooms").then(function (d) {
+        clear(listBox);
+        add(listBox, h("p", { class: "muted" }, d.rooms.length + " rooms (unlisted ones included). Click one to manage it."));
+        add(listBox, table(["Id", "Name", "Kind", "Access", "Members", "Online", "Owner"],
+          d.rooms.map(function (r) {
+            return { id: r.id, cells: [r.id, r.name, r.kind, r.access + (r.has_secret ? " (secret)" : ""),
+              r.members + (r.pending ? " +" + r.pending + " asking" : ""), r.online, r.owner_name || "-"] };
+          }), function (r) { pageRoom(r.id); }));
+      }, function (e) { showError(e.error); });
+    }
+    clear(viewEl);
+    var name = h("input", { type: "text", maxlength: "40" });
+    var owner = h("input", { type: "text", maxlength: "16", autocomplete: "off" });
+    var kind = h("select", {}, ["party", "hangout"].map(function (a) { return h("option", { value: a }, a); }));
+    var access = h("select", {}, ["open", "approval", "private", "unlisted"].map(function (a) { return h("option", { value: a }, a); }));
+    var secret = h("input", { type: "text", autocomplete: "off", placeholder: "needed for private and unlisted" });
+    var max = h("input", { type: "number", min: "0", placeholder: "default (party 6, hangout none)" });
+    add(viewEl, h("div", { class: "panel" }, h("h2", {}, "Create room"),
+      h("label", {}, "Room name", name),
+      h("label", {}, "Owner name (the owner's name in the room, letters and digits, up to 16)", owner),
+      h("label", {}, "Kind", kind), h("label", {}, "Access", access),
+      h("label", {}, "PIN (4-12 digits) or password (8+ characters)", secret),
+      h("label", {}, "Max members (0 = no limit)", max),
+      btn("Create", function () {
+        var b = { name: name.value, owner: owner.value, kind: kind.value, access: access.value };
+        if (secret.value) b.secret = secret.value;
+        if (max.value !== "") b.max_members = parseInt(max.value, 10);
+        showError("");
+        api("POST", "rooms", b).then(function (r) {
+          clear(shown);
+          var code = h("code", { class: "keybox" }, r.token);
+          shown.appendChild(h("div", { class: "panel" },
+            h("b", {}, "Room created: " + r.id),
+            h("p", {}, r.room.name + ", " + r.room.kind + ", " + r.room.access +
+              (secret.value ? ", secret: " + secret.value : ", no secret") +
+              ", max " + (r.room.max_members || "no limit") + ". Friends join with the room id" +
+              (secret.value ? " and the secret." : ".")),
+            h("b", {}, "Owner token (it won't be shown again)"), code,
+            h("p", { class: "muted" }, "The owner token is the owner's key to manage this room from the app later. Save it now."),
+            btn("Copy", function () {
+              if (navigator.clipboard) navigator.clipboard.writeText(r.token).catch(function () {});
+              var rng = document.createRange(); rng.selectNodeContents(code);
+              var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(rng);
+            })));
+          name.value = ""; owner.value = ""; secret.value = ""; max.value = "";
+          loadList();
+        }, function (e) { showError(e.error); });
+      }, "primary"), shown));
+    add(viewEl, listBox);
+    loadList();
   }
 
   var MODULES = ["presence", "challenge"];

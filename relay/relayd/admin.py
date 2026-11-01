@@ -220,6 +220,11 @@ class Admin:
     def _rooms(self, method, seg, body, via, now):
         app, store = self.app, self.app.store
         n = len(seg)
+        if n == 1 and method == "POST":
+            out = app.create_admin(body)
+            self.audit(via, "room create", f"created room '{out['room']['name']}' ({out['id']}), "
+                       f"{out['room']['kind']}, {out['room']['access']}")
+            return out
         if n == 1 and method == "GET":
             rows = store.admin_rooms()
             for r in rows:
