@@ -438,7 +438,7 @@ class Board:
 def demo_state(now, imgs, phase=None):
     """A looping fake duel: start 5 s, live 30 s (scores climbing, a 5:00 clock run fast), winner 10 s, a short live
     stretch, tie 10 s. phase freezes one of them."""
-    names = ("DSius", "SnoopySparda")
+    names = ("Robin", "MagicianAlex")
     t = now % 60
     if phase is None:
         phase = "start" if t < 5 else "live" if t < 35 else "winner" if t < 45 else "live" if t < 50 else "tie"

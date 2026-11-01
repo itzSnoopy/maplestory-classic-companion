@@ -15,7 +15,7 @@ size; it's *found* by its outline anywhere in the top-left area, not at a fixed 
 HP % comes from the fill (1 px = 1.6 %); names from Tesseract once per row, snapped to names we
 know (your own from the Stat window, partners' from the party link: components/party/partylink.py).
 
-  python -m engine.party FRAME [FRAME...]     print the rows of saved frames (dev check)
+  python -m engine.party FRAME [FRAME...] [--known=A,B]   print the rows of saved frames (dev check)
 """
 import difflib
 import sys
@@ -250,13 +250,15 @@ if __name__ == "__main__":
     from base.paths import load_config
     ocr.setup(load_config().get("tesseract"))
     names = Names()
-    for p in sys.argv[1:]:
+    # names to snap to (the tracker passes your own and your partners' at runtime): --known=Name1,Name2
+    known = next((a.split("=", 1)[1].split(",") for a in sys.argv[1:] if a.startswith("--known=")), [])
+    for p in (a for a in sys.argv[1:] if not a.startswith("--")):
         im = Image.open(p)
         box = search_box(im.size)
         rows = read(im.crop(box), box[:2])
         print(p)
         for i, r in enumerate(rows):
-            nm = names.name(i, r["mask"], known=["SnoopySparda", "DSius"])
+            nm = names.name(i, r["mask"], known=known)
             print(f"  {nm or '?':16} hp={r['hp']} on_map={r['on_map']} leader={r['leader']} "
                   f"at=({r['x']},{r['y']})")
         if not rows:

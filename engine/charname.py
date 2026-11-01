@@ -1,7 +1,7 @@
 """charname.py - which character is playing, from the name on the status bar.
 
 The name sits one text line (14 px; the UI doesn't scale) below the job name, in the same crisp
-white pixel font. Tesseract garbles it ("SnoopySparda" -> "SsnhoopySparda") and names can't be
+white pixel font. Tesseract garbles it (extra and swapped letters) and names can't be
 snapped to a list, so the character is identified by the exact pixel pattern of that text instead:
 a short hash of the white-pixel mask, trimmed to the text. The same character gives the same
 fingerprint every frame; another character gives another one. The readable name comes from the
@@ -28,7 +28,7 @@ def name_box(frame, res=(1920, 1080), rc=None):
     return x0, y0 + LINE, x1, y1 + LINE
 
 
-MAX_TEXT_H = 11      # tallest name text (letters with descenders: "p", "y" in SnoopySparda = 10)
+MAX_TEXT_H = 11      # tallest name text (letters with descenders: "p", "y" = 10)
 
 
 def fingerprint(frame, res=(1920, 1080), rc=None):
