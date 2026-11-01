@@ -114,7 +114,12 @@ class Duel:
             if v is not None:
                 self._switch(v["id"])
                 p = self._mine(v)
-                self.events = [e for e in self.events if e["s"] > p.get("ack", 0)]
+                ack = p.get("ack", 0)
+                self.events = [e for e in self.events if e["s"] > ack]
+                # after a restart mid-duel our numbering starts at 0 again, but the relay ignores
+                # numbers it has seen: carry on from its ack so new kills still count
+                if self.seq < ack:
+                    self.seq = ack
             out = []
             for v in self.views:
                 if v["state"] != "done" or v["id"] in self.done or not v.get("result"):
