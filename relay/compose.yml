@@ -1,0 +1,78 @@
+# Relay v2 stack for Portainer (Stacks > Add stack > Repository, compose path: relay/compose.yml).
+# Every ${...} below is set in Portainer's "Environment variables" box; nothing secret lives in git.
+#
+# Without a domain: only the relay runs, on RELAY_PORT (LAN admin page at http://<box>:RELAY_PORT/admin).
+# With a domain: set RELAY_DOMAIN and TLS=1, then "Pull and redeploy". Caddy gets a Let's Encrypt
+# certificate and serves https://RELAY_DOMAIN (app traffic + admin page from the internet).
+# See relay/DEPLOY.md.
+
+services:
+  relay:
+    build:
+      context: .
+      dockerfile: Dockerfile.v2
+    image: classic-relay:v2
+    restart: unless-stopped
+    ports:
+      - "${RELAY_PORT:-8788}:8787"
+    environment:
+      DATA_DIR: /data
+      # admin page: plain pass, at least 12 characters (empty = admin page off)
+      ADMIN_PASS: "${ADMIN_PASS:-}"
+      # Caddy's fixed address below; requests from it carry the real client address
+      TRUSTED_PROXIES: "${PROXY_IP:-172.29.87.10}"
+      # who may open the admin page over plain http: home LAN only. Docker's own 172.16/12 range is
+      # left out on purpose: traffic Docker forwards itself (e.g. over IPv6) shows up from it.
+      ADMIN_NETS: "${ADMIN_NETS:-192.168.0.0/16,10.0.0.0/8}"
+      LOBBY: "${LOBBY:-}"
+      ALLOW_ANYONE_CREATE: "${ALLOW_ANYONE_CREATE:-}"
+      LEGACY_V1: "${LEGACY_V1:-1}"
+      MAX_ROOMS: "${MAX_ROOMS:-500}"
+      MAX_ROOMS_PER_ACCOUNT: "${MAX_ROOMS_PER_ACCOUNT:-5}"
+      MAX_ROOM_MEMBERS: "${MAX_ROOM_MEMBERS:-0}"
+      # skill feedback inbox (v1 and v2 paths); empty key = off
+      FEEDBACK_KEY: "${FEEDBACK_KEY:-}"
+      FEEDBACK_CODES: "${FEEDBACK_CODES:-}"
+      # old /v1 party paths (for app builds before v2)
+      PARTY_CODES: "${PARTY_CODES:-}"
+      MAX_MEMBERS: "${MAX_MEMBERS:-0}"
+    volumes:
+      - relay-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      relaynet: {}
+
+  caddy:
+    image: caddy:2.8.4-alpine
+    restart: unless-stopped
+    # 0 = off until there is a domain; TLS=1 turns it on
+    deploy:
+      replicas: ${TLS:-0}
+    command: ["caddy", "reverse-proxy", "--from", "${RELAY_DOMAIN:-localhost}", "--to", "relay:8787"]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - relay
+    networks:
+      relaynet:
+        ipv4_address: "${PROXY_IP:-172.29.87.10}"
+
+networks:
+  relaynet:
+    ipam:
+      config:
+        - subnet: "${RELAY_SUBNET:-172.29.87.0/24}"
+
+volumes:
+  relay-data:
+  caddy-data:
+  caddy-config:

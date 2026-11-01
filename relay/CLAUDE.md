@@ -43,7 +43,7 @@ side is `components/party/partylink.py`.
 - Owner side: `dev/feedback.py` (`fetch`, `merge`, `suggest`; output in gitignored `dev/local/feedback/`).
 - AGPLv3: the relay is part of this public repo; run the published code so `/health`'s `source` is true.
 
-## v2: rooms (`relayd/`, steps 1-3 of the v2 plan; not deployed yet)
+## v2: rooms (`relayd/`, steps 1-4 of the v2 plan; deploy files ready, not deployed yet)
 One server, many rooms. Run `cd relay && python -m relayd` (env `PORT`, `BIND`, `DATA_DIR` (./data, Docker /data),
 `LOBBY`, `ALLOW_ANYONE_CREATE`, `LEGACY_V1` (1), `MAX_ROOMS` (500), `MAX_ROOMS_PER_ACCOUNT` (5),
 `ANON_CREATES_PER_DAY` (3), `MAX_ROOM_MEMBERS` (0), `FEEDBACK_KEY`, `FEEDBACK_CODES`, `FEEDBACK_TTL_DAYS` (30), `FEEDBACK_MAX` (300),
@@ -78,7 +78,13 @@ Tests (all in release_check): `python relay/tests/test_v2.py`, `test_v2_challeng
   `GET` / `DELETE` (optional `{ids}`) `/v2/feedback/<code>` with `X-Feedback-Key`. `/health` `feedback` = v1 or v2 key set. Survives restarts; no addresses stored.
 - Admin (off unless `ADMIN_PASS`/`ADMIN_PASS_HASH`; then `/admin` page + `/v2/admin/*`, else 404). Cookie `relay_admin` (HttpOnly, SameSite=Strict, Secure over https), every non-GET needs header `X-Relay-Admin: 1` and a matching `Origin` if sent. Endpoints: `POST login|logout`, `GET me|status|rooms|rooms/<id>|hostkeys|accounts|feedback|feedback/<code>|audit?limit=|backup`, `PATCH settings` (409 when env-locked) and `rooms/<id>`, `DELETE rooms/<id>|feedback/<code>`, `POST rooms/<id>/members/<name>/<action>` (owner actions + `make_owner`), `POST hostkeys` (key shown once) / `hostkeys/<id>/revoke` / `accounts/<id>/disable|enable`. Audit table `admin_audit` (last 2000, no addresses, no secrets). Admin edits reuse `Relay._patch` / `_member_action` (actor role `admin`).
 - **TRUSTED_PROXIES:** a proxy container on the same Docker host has a private address, so without `TRUSTED_PROXIES` its requests count as LAN and the admin page would be open to the internet through it. Set `TRUSTED_PROXIES` to the proxy's address/network as soon as one is in front. The proxy must pass `Host`, `X-Forwarded-For`, `X-Forwarded-Proto` (NPM and Caddy do by default).
-- Not yet: relic module, Docker packaging of `relayd/` (step 4; `make_stack.py` embeds only v1), optional TOTP.
+- **Deploy (step 4):** `Dockerfile.v2` (python:3.12-slim, copies `party_relay.py` + `relayd/`, uid 10001, `/data` volume, healthcheck on `/health`),
+  `compose.yml` (Portainer git stack, compose path `relay/compose.yml`; service `relay` read-only rootfs, tmpfs /tmp, cap_drop ALL; port `RELAY_PORT` (8788) -> 8787;
+  `ADMIN_NETS` defaults to `192.168.0.0/16,10.0.0.0/8` here, leaving out Docker's 172.16/12 so traffic Docker forwards itself never counts as LAN;
+  service `caddy` (`caddy reverse-proxy --from $RELAY_DOMAIN --to relay:8787`, off while `TLS=0` via `deploy.replicas`), fixed address `PROXY_IP` 172.29.87.10 on
+  `RELAY_SUBNET` 172.29.87.0/24 = the relay's `TRUSTED_PROXIES`), `.dockerignore`, `DEPLOY.md` (Portainer steps, v1 -> v2 switch, DuckDNS + TLS, settings table).
+  No bind mounts (Portainer git stacks don't resolve relative ones). Use plain `ADMIN_PASS` in Portainer (a `$` in a variable gets eaten).
+- Not yet: relic module, optional TOTP. v1's `Dockerfile` / `docker-compose.yml` / `portainer-stack.yml` / `make_stack.py` stay until the switch to v2.
 
 ## Test it
 `PORT=8787 python relay/party_relay.py`, then `curl http://127.0.0.1:8787/health`; post with curl or run two trackers/`partylink.exchange`. Docker: `cd relay && docker compose up -d --build`. After editing the relay run `python relay/make_stack.py`. Tests: `python relay/test_relay.py`.

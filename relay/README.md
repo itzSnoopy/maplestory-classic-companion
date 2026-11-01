@@ -1,5 +1,8 @@
 # Party relay
 
+> **Relay v2** (rooms, admin page, HTTPS via Caddy) lives in `relayd/`; deploy it with [DEPLOY.md](DEPLOY.md).
+> The rest of this file is about the original single-file relay (`party_relay.py`), which v2 still serves under `/v1`.
+
 A tiny server that lets the trackers in one group see each other's EXP, HP, MP and maps.
 Each app posts its own numbers every few seconds under a shared **party code** and gets back
 everyone else's. A code is a group: your in-game party, or a hangout of friends on any maps, with
