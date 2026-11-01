@@ -27,7 +27,10 @@ small SQLite file on a Docker volume. An optional Caddy container adds HTTPS onc
 
 The old v1 stack keeps running on 8787 meanwhile. Both can run side by side.
 
-**Updating:** push to GitHub, then the stack's **Pull and redeploy** (tick "Re-pull image and redeploy").
+**Updating:** push to GitHub, then the stack's **Pull and redeploy**. Leave "Re-pull image" unticked:
+the relay image is built from the repo on every deploy (`pull_policy: build`), not downloaded.
+(If an older copy of the stack without that line fails with "pull access denied for classic-relay",
+untick "Re-pull image" once; the redeploy then picks up the new compose file.)
 The volume `classic-relay_relay-data` keeps the rooms. **Backup:** admin page > Overview > Download backup.
 
 ## 2. Switching from v1 to v2

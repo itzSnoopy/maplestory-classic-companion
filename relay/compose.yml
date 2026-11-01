@@ -12,6 +12,8 @@ services:
       context: .
       dockerfile: Dockerfile.v2
     image: classic-relay:v2
+    # built from this repo on every deploy, never pulled (there is no such image on Docker Hub)
+    pull_policy: build
     restart: unless-stopped
     ports:
       - "${RELAY_PORT:-8788}:8787"
