@@ -51,6 +51,8 @@ HIDDEN = ["launcher.setup_ui", "hub.settings_ui", "engine.calibrate", "component
           "components.album.component", "components.party.component", "components.training.component", "components.kpq.kpq", "components.kpq.component",
           "components.discord.component", "components.discord.settings_page", "components.discord.text",
           "components.feedback.component", "components.feedback.review_page",
+          "components.hangout.component", "components.hangout.lobby", "components.hangout.hangout_ui",
+          "components.hangout.join", "hub.relay_room",
           "components.challenge.component", "components.challenge.duel", "components.challenge.board",
           "components.challenge.bulbs", "components.challenge.sprites", "components.challenge.settings_page",
           "gamedata.kills",

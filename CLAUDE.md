@@ -105,6 +105,7 @@ unless the map sends you there. Template for both: `.claude/handoff/components/_
 | Killer guess | `components/killers/CLAUDE.md` | `killers.md` |
 | Discord presence | `components/discord/CLAUDE.md` | `discord.md` |
 | Party box, link, panel (+ relay server) | `components/party/CLAUDE.md` (+ `relay/CLAUDE.md`) | `party.md` |
+| Rooms panel (relay lobby list) | `components/hangout/CLAUDE.md` | `hangout.md` |
 | Skill feedback page (review + Send to the relay) | `components/feedback/CLAUDE.md` | `feedback.md` |
 | Skill bar (regen, casts, HP/MP usage) | `components/skillbar/CLAUDE.md` | `skillbar.md` |
 | Training cost panel, EXP/hr | `components/training/CLAUDE.md` | `training.md` |

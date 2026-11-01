@@ -101,7 +101,7 @@ def shift(cid, seconds):
 
 
 # the tracker side -------------------------------------------------------------------------------
-(OUT / "helper_settings.json").write_text(json.dumps({"party": {"server": base, "code": CODE_STR},
+(OUT / "helper_settings.json").write_text(json.dumps({"relay": {"server": base}, "party": {"code": CODE_STR},
                                                       "challenge": {"enabled": True, "dnd": False}}), encoding="utf-8")
 H.write_json(OUT / "status.json", {"state": "playing", "level": 22, "map": MAP, "pct": 12.0}, indent=None)
 H.write_json(OUT / "live.json", {"t": time.time(), "character": "Snoopy"}, indent=None)

@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 
 from base.paths import DATA as ROOT
+from hub import relay_addr
 SETTINGS = ROOT / "helper_settings.json"
 
 # Discord's own "MapleStory" entry (detectable-games list, matches maplestory.exe). Sending
@@ -52,9 +53,10 @@ DEFAULTS = {
     "internet": {                       # Settings > Internet; internet.py (one toggle per feature)
         "allowed": True,                # master switch: off = no internet connections at all
         "features": {"updates": True,   # automatic updates (updater.py, packaged app only)
-                     "party": True,     # party link (partylink.py; needs server + code below)
+                     "party": True,     # party link (partylink.py; needs the relay server + code)
                      "icons": True,     # item pictures for the training panel (itemicons.py)
-                     "feedback": True}, # skill review "Send" (components/feedback; needs server + code)
+                     "feedback": True,  # skill review "Send" (components/feedback; needs server + code)
+                     "hangout": True},  # rooms panel list (components/hangout; needs the relay server)
     },
     "updates": {                        # Settings > Internet > Automatic updates; updater.py
         "min_s": 30,                    # first check 30 s after start, then doubling while
@@ -68,9 +70,12 @@ DEFAULTS = {
         "show": "casts",                # skill corner: casts (left) | mp (per cast) | mesos (per cast)
         "guard_show": "ehp",            # Magic Guard slot: ehp (HP + what MP covers) | absorb | last (MP of the last hit)
     },
+    "relay": {                          # Settings > Internet > Relay; hub/relay_addr.py (hub-owned)
+        "server": "",                   # your relay: a domain or IP, port 8787 is added (relay/README.md).
+        "room": None,                   # the joined v2 room (hub/relay_room.py; the helper writes it, the tracker reads it)
+    },                                  # Party link, duels and the rooms panel all use it
     "party": {                          # Settings > Internet > Party link; partylink.py (tracker)
-        "server": "",                   # your relay, e.g. http://203.0.113.5:8787 (relay/README.md)
-        "code": "",                     # same code on every PC in the party
+        "code": "",                     # same code on every PC in the party (v1 link; rooms replace it)
     },
     "feedback": {                       # Settings > Internet > Skill feedback; components/feedback
         "server": "",                   # the owner's relay (relay/README.md); no fallback to the party server
@@ -80,6 +85,11 @@ DEFAULTS = {
         "enabled": False,               # what training on this map costs (optional, user 2026-10-25)
         "locked": False,
         "x": None, "y": None,           # None = left side, under the party panel
+    },
+    "hangout": {                        # Settings > General / Internet > Hangout rooms; components/hangout
+        "enabled": False,               # the rooms panel over the game (off until the player turns it on)
+        "locked": False,
+        "x": None, "y": None,           # None = left side, below the party panel
     },
     "partypanel": {                     # Settings > General / tray; party_ui.py over the game
         "enabled": True,                # shows only while a party box or partner is seen
@@ -136,6 +146,7 @@ def load():
         data = json.loads(SETTINGS.read_text(encoding="utf-8"))
     except Exception:
         data = {}
+    relay_addr.migrate(data)        # old party.server / hangout.server -> relay.server (the file is rewritten on the next Save)
     s = _merge(DEFAULTS, data)
     if s["window"].get("icon_size") == 60:                  # test builds 0.8.94-0.8.98 default -> 90
         s["window"]["icon_size"] = DEFAULTS["window"]["icon_size"]

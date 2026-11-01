@@ -151,8 +151,7 @@ class FeedbackComponent(Component):
         win.s.setdefault("feedback", {})
         for k, v in self.settings_defaults["feedback"].items():
             win.s["feedback"].setdefault(k, v)
-        party = str((win.s.get("party") or {}).get("server") or "").strip()
-        for key, cap, hint in (("feedback.server", "Server", "e.g. " + (party or "http://1.2.3.4:8787")),
+        for key, cap, hint in (("feedback.server", "Server", "e.g. http://192.0.2.10:8787"),
                                ("feedback.code", "Code", "from the person who runs the server")):
             row = tk.Frame(f, bg=win.w["bg"])
             row.pack(anchor="w", pady=(px(4), 0), padx=(px(22), 0))

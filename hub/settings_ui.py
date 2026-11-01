@@ -347,6 +347,8 @@ class SettingsWindow:
             anchor="w", padx=(self.px(22), 0), pady=(0, self.px(12)))
         boxes = []
         for name, spec in internet.FEATURES.items():
+            if name == "party":             # the one relay address, above everything that uses it
+                boxes.append(self.relay_section(f))
             box = tk.Frame(f, bg=BG)
             box.pack(fill="x", padx=(self.px(22), 0), pady=(0, self.px(10)))
             c = self.check(box, f"internet.features.{name}", spec["label"])
@@ -376,6 +378,27 @@ class SettingsWindow:
         self.vars["internet.allowed"].trace_add("write", sync)
         sync()
         return f
+
+    def relay_section(self, f):
+        """Relay: the one server address the party link, duels and the rooms panel use (hub/relay_addr.py)."""
+        from hub import relay_addr
+        self.s.setdefault("relay", {})
+        for k, v in HS.DEFAULTS["relay"].items():
+            self.s["relay"].setdefault(k, v)
+        box = tk.Frame(f, bg=BG)
+        box.pack(fill="x", padx=(self.px(22), 0), pady=(0, self.px(10)))
+        tk.Label(box, text="Relay", font=(F, 10, "bold"), fg=TEXT, bg=BG, anchor="w").pack(anchor="w")
+        self.label(box, "Used by the party link, duels and the rooms panel.", muted=True, size=8,
+                   wrap=self.px(540)).pack(anchor="w", padx=(self.px(22), 0))
+        row = tk.Frame(box, bg=BG)
+        row.pack(anchor="w", pady=(self.px(4), 0), padx=(self.px(22), 0))
+        lb = self.label(row, "Server")
+        lb.configure(width=10)
+        lb.pack(side="left")
+        self.entry(row, "relay.server", width=32).pack(side="left", padx=(self.px(6), self.px(8)))
+        self.label(row, f"domain or IP, e.g. relay.example.com or 192.0.2.10 (port {relay_addr.DEFAULT_PORT} is added)",
+                   muted=True, size=8).pack(side="left")
+        return box
 
     def internet_updates_extra(self, f):
         """Under "Automatic updates" on the Internet page: how often, and what's happening."""
@@ -505,6 +528,14 @@ class SettingsWindow:
         for fn in self.shell.save_hooks:        # the components keep or tidy their own settings
             fn(self)
         self.s["character"]["channel"] = str(self.s["character"]["channel"]).strip()
+        if "relay" in self.s:
+            from hub import relay_addr
+            self.s["relay"]["server"] = str(self.s["relay"].get("server") or "").strip()
+            live = (self.app.settings.get("relay") or {})
+            # the joined room is the rooms panel's: keep the live one (it may have changed while this window was open),
+            # and drop it when the relay address changed (its token belongs to the old server)
+            same = relay_addr.normalize(live.get("server")) == relay_addr.normalize(self.s["relay"]["server"])
+            self.s["relay"]["room"] = live.get("room") if same else None
         try:
             HS.save(self.s)
         except Exception as e:

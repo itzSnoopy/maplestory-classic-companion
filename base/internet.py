@@ -26,8 +26,8 @@ FEATURES = {
         "what": "Every few seconds, sends your name, level, job, map, channel, EXP, HP and MP "
                 "to your group's server and shows everyone else's. Everyone with the same code "
                 "is in the group: your in-game party or friends anywhere, no player limit. "
-                "Needs a server and code below.",
-        "hosts": ["the party server set below"],
+                "In a joined room (rooms panel) it syncs that room instead. Needs the relay server above and a room or a code below.",
+        "hosts": ["the relay server set in Relay above"],
     },
     "icons": {
         "label": "Item pictures",
@@ -53,6 +53,13 @@ FEATURES = {
                 "you typed to the feedback server set below. While that page is open it also checks "
                 "every minute whether the server is up (nothing about you is sent then).",
         "hosts": ["the feedback server set below"],
+    },
+    "hangout": {
+        "label": "Hangout rooms",
+        "what": "While the rooms panel is shown, asks your relay for its public room list every 30 seconds "
+                "(room names, who is online, what they are doing). Joining a room sends the character name you "
+                "join with (and the PIN or password you type) to your relay. Nothing else about you is sent.",
+        "hosts": ["the relay server set in Relay above"],
     },
 }
 DEFAULTS = {"allowed": True, "features": {name: True for name in FEATURES}}

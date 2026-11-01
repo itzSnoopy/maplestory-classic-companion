@@ -7,6 +7,9 @@ create / accept / decline), writes challenge.json for the helper's board and the
 loss record per opponent (history/challenges.json) and emits `challenge_end` when a duel is over.
 Helper side: the versus board (board.py) over the game, its Settings extras and a `--demo`.
 
+In a joined v2 room (relay_link mode "v2") the kills ride the room's `challenge` sync part and the commands go to
+POST /v2/rooms/<id>/challenge/<action> (link["call"]); with only a party code it is the v1 endpoints, as before.
+
 Subscribes: service_start (worker thread), service_stop, exp_rise, relay_post, relay_reply, challenge_end (journal).
 Emits: challenge_end (result dict).
 Asks: relay_link (party).
@@ -122,13 +125,19 @@ class ChallengeComponent(Component):
             d.error = ("Not connected to the party relay", time.time())
             return self._write()
         action = cmd.get("action")
+        v2 = link.get("mode") == "v2"           # a joined room (v2 challenge module) or the party code (v1)
         try:
             if action == "create":
-                body = {"name": d.me, "mode": cmd.get("mode"), "minutes": cmd.get("minutes"),
-                        "target": cmd.get("target")}
-                status, res = link["request"]("challenge", "", body)
+                body = {"mode": cmd.get("mode"), "minutes": cmd.get("minutes"), "target": cmd.get("target")}
+                if v2:
+                    status, res = link["call"]("challenge", "create", body)     # the name comes from the member token
+                else:
+                    status, res = link["request"]("challenge", "", {"name": d.me, **body})
             elif action in ("accept", "decline", "cancel") and isinstance(cmd.get("id"), str):
-                status, res = link["request"]("challenge", "/" + cmd["id"], {"name": d.me, "action": action})
+                if v2:
+                    status, res = link["call"]("challenge", action, {"id": cmd["id"]})
+                else:
+                    status, res = link["request"]("challenge", "/" + cmd["id"], {"name": d.me, "action": action})
             else:
                 return
         except Exception as e:

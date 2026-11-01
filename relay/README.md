@@ -29,8 +29,9 @@ PORT=8787 PARTY_CODES=maple-duo-7f3k python3 party_relay.py
 
 ## In the app
 
-Settings > Internet > **Party & friends link**: server address (e.g. `http://203.0.113.5:8787` or
-`https://party.example.com`) and the same party code on both PCs.
+Settings > Internet > **Relay**: the relay's domain or IP (e.g. `203.0.113.5` or `relay.example.com`;
+port 8787 is added, or type `https://relay.example.com` behind TLS). The party link, duels and the
+rooms panel all use it. Under **Party link**, the same party code on both PCs.
 
 The connection is plain HTTP unless you put the relay behind a reverse proxy with TLS
 (Caddy: `party.example.com { reverse_proxy localhost:8787 }`). Over plain HTTP the party code and

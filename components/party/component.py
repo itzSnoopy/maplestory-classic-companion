@@ -9,7 +9,8 @@ Offers: hub.ask("party_on_map") (another member is on your map, so EXP rises are
 (the link's server / code / state and a request() for other relay calls).
 Names come from the source (hub.source.party_name / party_reset, an optional Source hook).
 Helper side (ui): the party panel over the game (party_ui.py), its menu toggles, its line in Settings >
-General and the server / code fields under Settings > Internet > Party link.
+General and the party code field under Settings > Internet > Party link (the server is the shared relay
+address, hub/relay_addr.py, Settings > Internet > Relay).
 """
 import copy
 import time
@@ -44,7 +45,7 @@ class PartyComponent(Component):
                   wrap=win.px(380)).pack(anchor="w", pady=(0, win.px(6)))
 
     def internet_extra(self, win, f):
-        """Under "Party link" on the Internet page: your relay's address and the party code."""
+        """Under "Party link" on the Internet page: the party code (the relay address is the Relay section)."""
         import json
         import tkinter as tk
         from base.paths import DATA
@@ -52,8 +53,7 @@ class PartyComponent(Component):
         win.s.setdefault("party", {})
         for k, v in self.settings_defaults["party"].items():
             win.s["party"].setdefault(k, v)
-        for key, cap, hint in (("party.server", "Server", "e.g. http://1.2.3.4:8787"),
-                               ("party.code", "Party code", "same on every PC")):
+        for key, cap, hint in (("party.code", "Party code", "same on every PC"),):
             row = tk.Frame(f, bg=win.w["bg"])
             row.pack(anchor="w", pady=(px(4), 0), padx=(px(22), 0))
             lb = win.label(row, cap)
@@ -65,14 +65,21 @@ class PartyComponent(Component):
             pj = json.loads((DATA / "party.json").read_text(encoding="utf-8"))
         except (OSError, ValueError):
             pj = {}
-        if pj.get("ok"):
+        if pj.get("room_lost"):
+            note = f"You're no longer in the room {pj.get('room_lost_name') or ''}. Pick another in the rooms panel."
+        elif pj.get("pending"):
+            note = "Waiting for the room owner to approve you."
+        elif pj.get("ok") and pj.get("mode") == "v2":
+            names = ", ".join(m.get("name", "?") for m in pj.get("members") or []) or "nobody else yet"
+            note = f"Connected through your room. Also in it: {names}. (The party code below is not used while you are in a room.)"
+        elif pj.get("ok"):
             names = ", ".join(m.get("name", "?") for m in pj.get("members") or []) or "nobody yet"
             note = f"Connected. Online with your code: {names}."
         elif pj.get("error") and pj.get("error") != "off":
             note = f"Last try failed: {pj['error']}"
         else:
-            note = ("The tracker connects within a few seconds of saving. Server setup: the "
-                    "relay/ folder (README).")
+            note = ("Old party link; rooms replace this soon. The tracker connects within a few seconds "
+                    "of saving (needs the Relay server above).")
         win.label(f, note, muted=True, size=8, wrap=px(540)).pack(
             anchor="w", padx=(px(22), 0), pady=(px(4), 0))
 
@@ -80,8 +87,7 @@ class PartyComponent(Component):
         pan = win.shell.settings("partypanel")      # moved / locked while the window was open: keep that
         win.s.setdefault("partypanel", {}).update({k: pan[k] for k in ("x", "y", "locked") if k in pan})
         if "party" in win.s:
-            for k in ("server", "code"):
-                win.s["party"][k] = str(win.s["party"].get(k) or "").strip()
+            win.s["party"]["code"] = str(win.s["party"].get("code") or "").strip()
 
     def attach(self, hub):
         self.hub = hub
@@ -99,13 +105,14 @@ class PartyComponent(Component):
         self.link.start()                       # party.json: partners' numbers (relay/, opt-in)
 
     def relay_link(self):
-        """Service: {server, code, ok, server_off, request(kind, suffix, body, method) -> (status, json)} or None before the link exists."""
+        """Service: {server, code, ok, server_off, mode ("v1" | "v2" | "off"), room (v2 room id), request(kind, suffix,
+        body, method) -> (status, json) for v1, call(module, action, body) -> (status, json) for v2} or None before the link exists."""
         return self.link.info() if self.link is not None else None
 
-    def relay_post(self, me):
+    def relay_post(self, me, mode="v1"):
         """Link thread, before each post: let components add fields to it (event relay_post)."""
         extra = {}
-        self.hub.emit("relay_post", extra=extra, me=me)
+        self.hub.emit("relay_post", extra=extra, me=me, mode=mode)
         return extra
 
     def relay_reply(self, reply, server_off):

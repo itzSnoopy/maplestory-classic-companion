@@ -377,6 +377,12 @@ def check_relay():
     r = run([sys.executable, str(ROOT / "dev" / "feedback_sim.py"), str(TMP / "feedback_sim")],
             env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=180)
     check("skill feedback sim (page -> relay -> dev tool)", r.returncode == 0, (r.stdout or r.stderr)[-300:])
+    for sim in ("relay_addr_sim.py", "hangout_sim.py"):
+        r = run([sys.executable, str(ROOT / "dev" / sim)], env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=120)
+        check(f"{sim} (relay address, migration, rooms panel data side)", r.returncode == 0, (r.stdout or r.stderr)[-300:])
+    r = run([sys.executable, str(ROOT / "dev" / "rooms_sim.py"), str(TMP / "rooms_sim")],
+            env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=240)
+    check("rooms sim (join from the panel, party link v2, kick -> room_lost, duel over a room)", r.returncode == 0, (r.stdout or r.stderr)[-300:])
     r = run([sys.executable, str(ROOT / "dev" / "challenge_sim.py"), str(TMP / "challenge_sim")],
             env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=180)
     check("challenge sim (duel: link, kills, result, record, board state)", r.returncode == 0, (r.stdout or r.stderr)[-300:])

@@ -17,6 +17,7 @@ COMPONENTS = [
     "components.skillbar.component:SkillbarComponent",   # live.json hp/mp/regen/skills/usage, "usage" service
     "components.album.component:AlbumComponent",         # monster album (after the live feed's exp_rise)
     "components.party.component:PartyComponent",         # party box names, live.json "party", party link thread
+    "components.hangout.component:HangoutComponent",    # rooms panel from the relay's lobby (helper only)
     "components.training.component:TrainingComponent",  # EXP/hr per visit, exp_rise, live.json "training", cost panel
     "components.kpq.component:KpqComponent",           # KPQ run summaries: stages / bonus EXP per run, live PQ view in the helper
     "components.challenge.component:ChallengeComponent",  # duels over the party relay (after party / training): board over the game
