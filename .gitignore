@@ -64,3 +64,6 @@ venv/
 
 # downloaded game art (item pictures from MeowDB): local only, never commit
 assets/
+
+# relay v2 local database (rooms, members)
+/relay/data/

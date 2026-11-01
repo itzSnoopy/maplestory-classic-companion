@@ -362,6 +362,8 @@ def check_kpq_best():
 def check_relay():
     r = run([sys.executable, str(ROOT / "relay" / "test_relay.py")], env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=120)
     check("relay tests pass (relay/test_relay.py)", r.returncode == 0, (r.stderr or r.stdout)[-300:])
+    r = run([sys.executable, str(ROOT / "relay" / "tests" / "test_v2.py")], env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=180)
+    check("relay v2 tests pass (relay/tests/test_v2.py)", r.returncode == 0, (r.stderr or r.stdout)[-300:])
     r = run([sys.executable, str(ROOT / "dev" / "feedback_sim.py"), str(TMP / "feedback_sim")],
             env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=180)
     check("skill feedback sim (page -> relay -> dev tool)", r.returncode == 0, (r.stdout or r.stderr)[-300:])

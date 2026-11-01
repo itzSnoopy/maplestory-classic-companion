@@ -43,9 +43,32 @@ side is `components/party/partylink.py`.
 - Owner side: `dev/feedback.py` (`fetch`, `merge`, `suggest`; output in gitignored `dev/local/feedback/`).
 - AGPLv3: the relay is part of this public repo; run the published code so `/health`'s `source` is true.
 
+## v2: rooms (`relayd/`, step 1 of the v2 plan; not deployed yet)
+One server, many rooms. Run `cd relay && python -m relayd` (env `PORT`, `BIND`, `DATA_DIR` (./data, Docker /data),
+`LOBBY`, `ALLOW_ANYONE_CREATE`, `LEGACY_V1` (1), `MAX_ROOMS` (500), `MAX_ROOMS_PER_ACCOUNT` (5),
+`ANON_CREATES_PER_DAY` (3), `MAX_ROOM_MEMBERS` (0)). Tests: `python relay/tests/test_v2.py` (in release_check).
+| File | Role |
+|---|---|
+| `relayd/server.py`, `__main__.py`, `config.py` | `make_server(cfg)`, start from env; `LOBBY`/`ALLOW_ANYONE_CREATE` override the DB `settings` value when set |
+| `relayd/legacy.py` | Handler = v2 routes + `party_relay.Handler`: `/v1/*` runs the v1 code untouched (own memory) while `LEGACY_V1` is on; `/health` = `{ok, version, source, lobby, feedback, legacy_v1}` |
+| `relayd/http.py` | `/v2` router (V2Mixin), 8 KB bodies, per-address bucket 4/s burst 10 |
+| `relayd/rooms.py` | `Relay`: create, join, me, leave, view, patch, delete, member actions, sync dispatch, module actions, lobby, hourly cleanup (members idle 30 d, rooms 90 d) |
+| `relayd/store.py` | SQLite `DATA_DIR/relay.db` (WAL, migrations): settings, accounts, identities, host_keys, rooms, members (token sha256 only), bans, module_state |
+| `relayd/auth.py` | scrypt secrets, tokens, lockouts (5 wrong per address+room -> 10 min; 30/h per room -> joins paused 15 min), providers `anon`, `hostkey` (later `local`, `discord`) |
+| `relayd/modules/` | `Module` base + registry; `presence.py` = the party data (FIELDS copied from v1: keep both in step with `own_state()`) |
+| `relayd/clock.py`, `errors.py` | one clock (tests shift `clock.offset`), `ApiError` |
+- API: `GET /v2/lobby`; `POST /v2/rooms` `{name, owner, kind: party|hangout, access: open|approval|private|unlisted, secret?, max_members?, host_key?}` -> `{id, token, room}`;
+  `POST /v2/rooms/<id>/join` `{name, secret?}` -> `{token, status, role}`; `GET .../me`; `POST .../sync` `{presence: {...}}` -> `{server_t, presence: {members}}` (1 per s per token);
+  `POST .../leave`; `GET/PATCH/DELETE /v2/rooms/<id>`; `POST .../members/<name>/approve|deny|kick|ban|unban|promote|demote`; `POST .../<module>/<action>`.
+  Auth `Authorization: Bearer <token>`. Room ids `xxxx-xxxx` (no 0/o/1/l/i).
+- Rules as built: any room with a secret asks for it on join; wrong secret 403 (unlisted: 404, same as an unknown id);
+  mods approve/deny/kick plain members only; deny lets the name ask again; a name already in the room is 409 (no token
+  recovery yet: the owner kicks the old one); `members` in the room view = active only, pending in `requests` (owner/mod).
+- Not yet: challenge/feedback/relic modules (step 2+), admin page, Docker packaging of `relayd/` (`make_stack.py` embeds only v1).
+
 ## Test it
 `PORT=8787 python relay/party_relay.py`, then `curl http://127.0.0.1:8787/health`; post with curl or run two trackers/`partylink.exchange`. Docker: `cd relay && docker compose up -d --build`. After editing the relay run `python relay/make_stack.py`. Tests: `python relay/test_relay.py`.
 
 ## Rules that bite here
 - Public repo: no real address, IP or party code in any file (`PARTY_CODES` stays empty in git).
-- Nothing is written to disk; keep it that way (the relic hunt's puzzle file will be the one exception, see the plan).
+- v1 (`party_relay.py`) writes nothing to disk. v2 (`relayd/`) keeps rooms/members/accounts in SQLite under `DATA_DIR` (player's decision 2026-11-01); live data (presence, rate buckets, lockouts) stays in memory and no addresses are stored.
