@@ -32,7 +32,7 @@ Passive only: frames of the game window. Never game memory, network traffic or i
 | `vitals.py` | Exact HP/MP numbers from the status bar (own digit table `glyphs_hud.json`); the regen model is NOT here (`components/skillbar/meter.py`) |
 | `panels.py` | Character Stat, Skill, Change Channel windows: `scan` on the overview, `read`/`read_at` at full size; digits `glyphs_ui.json` |
 | `jobread.py`, `charname.py` | Job from the status bar (`JobWatcher`, reads only when due) / who is playing (pixel fingerprint of the status-bar name) |
-| `msgcorner.py` | `MsgCorner.feed(t, img)`: the gain lines in the bottom-right corner (`You received EXP (+N)`, `Bonus EXP for PARTY (+N)`, `You have gained mesos (+N)`) -> facts `exp_gain`/`meso_gain`, each line exactly once (tracked stack, run-time learned digit/label templates, Tesseract only to bootstrap); `python -m engine.msgcorner test DIR` |
+| `msgcorner.py` | `MsgCorner.feed(t, img)`: the gain lines in the bottom-right corner (`You received EXP (+N)`, `Bonus EXP for PARTY (+N)`, `You have gained mesos (+N)`) -> facts `exp_gain` {base, party_bonus, overflow, own}/`meso_gain`, each line exactly once (`own` = first-look colour of the EXP line: white = your kill, yellow = a teammate's) (tracked stack, run-time learned digit/label templates, Tesseract only to bootstrap); `python -m engine.msgcorner test DIR` (prints `own` per gain and the own count; folders without vitals.csv just list the gains) |
 | `party.py` | Party box under the minimap: `Finder` (remembers the spot), `read`, `Names` (Tesseract once per row) |
 | `portrait.py` | Character close-up: `NameTag` finds the tag by correlation with the status-bar name |
 | `levelup_shot.py` | `Timer`: level-up picture at EXP reset + 1.75 s |
@@ -54,7 +54,7 @@ Passive only: frames of the game window. Never game memory, network traffic or i
 | Party box | `party.search_box` top-left, found by the bar outline | fact `party` rows | `party` | `Names` caches Tesseract per row mask | NOTES 23:50; 05 |
 | Name tag | whole frame, template = status-bar name | `snapshot()` close-up | `nametag` | `templates/nametag.png` (exact tag learned from matches >= 0.80) | NOTES 23:40, 23:59, 00:05 |
 | Level-up shot | EXP % drop >= 40 points | picture 1.75 s after the reset | - | - | NOTES 22:55 |
-| Message corner | [1600,790,1920,932] anchored bottom-right (`layout.place` anchor `bottom-right`), 10 slots x 14 px | facts `exp_gain` {base, party_bonus, overflow}, `meso_gain` {mesos, overflow} (overflow = whole 6-line corner new: kills may be missed); `item_gain` hook (format unconfirmed, empty) | `msgcorner` | digit/label templates learned at run time (Tesseract bootstraps, 2 agreeing reads), kept in DATA `glyphs_msg.json` (never shipped) | NOTES 2026-10-31 |
+| Message corner | [1600,790,1920,932] anchored bottom-right (`layout.place` anchor `bottom-right`), 10 slots x 14 px | facts `exp_gain` {base, party_bonus, overflow, own (white line = own kill)}, `meso_gain` {mesos, overflow} (overflow = whole 6-line corner new: kills may be missed); `item_gain` hook (format unconfirmed, empty) | `msgcorner` | digit/label templates learned at run time (Tesseract bootstraps, 2 agreeing reads), kept in DATA `glyphs_msg.json` (never shipped) | NOTES 2026-10-31, 2026-11-01 (EXP line colour) |
 | Album keeper | middle 720x720 of the last looks | `album_shot()` | `album` | - | NOTES 03:40 |
 
 Cost rules: new readers go on the frame the tracker already grabs, never a second capture session;

@@ -132,6 +132,11 @@ def snap():
     return H.read_json(CH, {})
 
 
+def gain(own, bonus=0, t=None, base=10):
+    """An EXP line pair from the game's message corner (white = own kill)."""
+    hub.emit("exp_gain", t=t or time.time(), base=base, party_bonus=bonus, overflow=False, own=own)
+
+
 def rise(d, t=None, party=False):
     hub.emit("exp_rise", t=t or time.time(), map=MAP, d=d, party=party, gap=1.0)
 
@@ -180,22 +185,22 @@ try:
     rise(148)                                               # Mano
     rise(296)                                               # 2 Manos in one look
     rise(7)                                                 # no mob/pair of this map: a share, a quest
+    wait(lambda: chal.duel.mine == 3, 6.0)                  # no EXP line covers them: the bar fallback counts after ~2.5 s
     RIVAL_MAP[0] = MAP
     rival_post()                                            # fresh presence: Rival is on my map right now
     wait(lambda: any(m.get("name") == "Rival" and (m.get("age_s") or 99) < 2 and m.get("map") == MAP
                      for m in H.read_json(OUT / "party.json", {}).get("members", [])))
-    # partied (Rival, Lv 20, is on my map; I am Lv 22; bonus not learned yet): shares are read by kills.party_kills
-    # Mano (148 EXP): my own kill = ceil(148*(0.2+0.8*22/42)) = 92, a teammate's = ceil(148*0.8*22/42) = 63
-    rise(92, party=True)                                    # my own Mano kill (bonus not seen yet): counts 1
-    rise(120, party=True)                                   # my own Mano kill with the party bonus (92 + ceil(92*0.3)): counts 1
-    rise(63, party=True)                                    # Rival's Mano kill as my share: counts nothing
-    rise(400, party=True)                                   # explained by nothing (no whole mob is a share): counts nothing
+    # partied (Rival is on my map): kills come from the game's EXP lines, white = mine, yellow = a teammate's share
+    rise(92, party=True); gain(True, 28)                    # my own kill: counts 1
+    rise(120, party=True); gain(True, 36)                   # my own kill: counts 1
+    rise(63, party=True); gain(False, 19)                   # a teammate's share: counts nothing
+    rise(400, party=True)                                   # no EXP line covers it, partied: fallback counts nothing
     time.sleep(0.05)
 
     def mine():
         return {p["name"]: p["score"] for p in (snap().get("active") or {}).get("players", [])}.get("Snoopy")
-    check(wait(lambda: mine() == 1 + 2 + 1 + 1), "relay score = 5 kills (1 + 2, a 7 EXP rise counts nothing, party: only my own two shares count, a teammate's / unexplained one not)")
-    check(snap().get("party") is True and "bonus" in snap().get("party_note", ""), f"challenge.json says party: {snap().get('party_note')}")
+    check(wait(lambda: mine() == 1 + 2 + 1 + 1), "relay score = 5 kills (1 + 2, a 7 EXP rise counts nothing, party: only my two white EXP lines count, a teammate's / uncovered one not)")
+    check(snap().get("party") is True and "EXP lines" in snap().get("party_note", ""), f"challenge.json says party: {snap().get('party_note')}")
     check(chal.duel.events == [], "all events acknowledged")
     for i in range(3):
         rival_post(id=cid, kills=[{"s": i + 1, "n": 1, "t": time.time()}])
@@ -210,8 +215,8 @@ try:
 
     partylink.exchange = down
     time.sleep(0.5)
-    rise(148)                                               # (no party data while the link is down: solo reading)
-    rise(148)
+    rise(148); gain(True, 40)                               # two own kills while the link is down
+    rise(148); gain(True, 40)
     check(chal.duel.mine == 7 and len(chal.duel.events) == 2, "kills made while the link is down are kept (2 events waiting)")
     partylink.exchange = real
     check(wait(lambda: mine() == 7 and chal.duel.events == []), "...and arrive when it is back (score 7)")
@@ -250,7 +255,7 @@ try:
     wait(lambda: (snap().get("active") or {}).get("phase") == "live")
     wait(lambda: any(m.get("name") == "Rival" and m.get("map") == RIVAL_MAP[0]
                      for m in H.read_json(OUT / "party.json", {}).get("members", [])))
-    rise(148)
+    rise(148); gain(True)
     rival_post(id=cid, kills=[{"s": 1, "n": 1, "t": time.time()}])
     wait(lambda: mine() == 1)
     shift(cid, 200)

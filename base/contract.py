@@ -142,12 +142,12 @@ EVENTS = (
     ("facts_begin", "facts [(t, kind, value)], prof (character.Profile), now. A batch of facts is about to be dealt out "
                     "(prof already holds it): per-batch work (skillbar: another character starts over)"),
     ("fact", "t, kind, value, prof. Each fact of the batch in order: 'vitals' {hp, mp: [cur, max]}, 'away', 'map' "
-             "(name), 'exp' {cur, pct}, 'party' (box rows), 'buffs' {on: [skill ids whose buff icon shows; only ids asked for with Source.watch_buffs]}, 'exp_gain' {base, party_bonus, overflow} / 'meso_gain' {mesos, overflow} / "
+             "(name), 'exp' {cur, pct}, 'party' (box rows), 'buffs' {on: [skill ids whose buff icon shows; only ids asked for with Source.watch_buffs]}, 'exp_gain' {base, party_bonus, overflow, own} / 'meso_gain' {mesos, overflow} / "
              "'item_gain' {name, count} (message corner, engine/msgcorner.py), plus the Profile's who / stat / skills / channel. "
              "Components that share state through the facts see them interleaved exactly as the source made them"),
     ("facts", "facts [(t, kind, value)], prof (character.Profile). The whole batch, after every fact event and the "
               "live.json write; prof is updated"),
-    ("exp_gain", "t, base, party_bonus, overflow. One EXP message line pair from the message corner (engine/msgcorner.py): exact, counted once. overflow=True: the whole 6-line corner was new in that look, so more kills may have been missed; trust the bar total, not the sum of gains"),
+    ("exp_gain", "t, base, party_bonus, overflow, own. One EXP message line pair from the message corner (engine/msgcorner.py): exact, counted once. own=True: the EXP line was WHITE on its first look = your own kill; False (yellow) = a teammate's share (bonus lines are always yellow, only the EXP line decides). overflow=True: the whole 6-line corner was new in that look, so more kills may have been missed; trust the bar total, not the sum of gains"),
     ("meso_gain", "t, mesos, overflow. One 'You have gained mesos (+N)' line from the message corner: exact, counted once; overflow as for exp_gain"),
     ("item_gain", "t, name, count. One item pickup line from the message corner (format unconfirmed: not emitted yet)"),
     # -- session

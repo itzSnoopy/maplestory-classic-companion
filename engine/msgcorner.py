@@ -3,7 +3,9 @@
 `You received EXP (+755)` then (in a party) `Bonus EXP for PARTY (+227)`, `You have gained mesos (+3)`:
 each line is read exactly once and emitted as a fact
 
-    (t, "exp_gain",  {"base": 755, "party_bonus": 227})   # party_bonus 0 without a bonus line
+    (t, "exp_gain",  {"base": 755, "party_bonus": 227, "overflow": False, "own": True})
+        # party_bonus 0 without a bonus line; own = the EXP line's first look was WHITE (your own kill),
+        # yellow = a teammate's share (bonus lines are always yellow, only the EXP line decides)
     (t, "meso_gain", {"mesos": 3})
     (t, "item_gain", {"name": ..., "count": ...})         # format NOT KNOWN yet: ITEM_PATTERNS is empty
 
@@ -58,6 +60,7 @@ PUSH_SLACK = 6                        # new lines may push a bright line off the
 MAX_LINES = 6                         # the game shows at most 6 lines; older ones are pushed out at once (more
                                       # than 6 kills in one tick are partly never shown)
 B_GONE = 160                          # below this a line may vanish
+OWN_RATIO = 0.73                      # first-look blue/red of the brightest 30% of the line: white 0.87-0.96, yellow 0.54-0.59
 B_READ = 150                          # still readable
 GAP_S = 5.0                           # no look for this long: every old line is gone
 KEEP_S = 6.0                          # a tracked line older than this can't still be on screen
@@ -118,7 +121,7 @@ class _Slot:
 
 class _Line:
     """One message line being tracked (follows its text up the stack)."""
-    __slots__ = ("t", "frames", "state", "kind", "num", "votes", "emitted", "slot", "last_bright", "t_last", "tries", "overflow")
+    __slots__ = ("t", "frames", "state", "kind", "num", "votes", "emitted", "slot", "last_bright", "t_last", "tries", "overflow", "own")
 
     def __init__(self, t, state):
         self.t, self.t_last, self.frames = t, t, 1
@@ -130,6 +133,7 @@ class _Line:
         self.last_bright = 0.0
         self.tries = 0
         self.overflow = False       # born in a frame whose whole stack was new: more lines may have been missed
+        self.own = None             # colour of the first look: True = white (your own kill), False = yellow (a teammate's)
 
 
 class MsgCorner:
@@ -375,6 +379,8 @@ class MsgCorner:
                 continue
             y1 = SLOT0 - PITCH * j
             gs = g[y1:y1 + H]
+            if ln.own is None:                      # the first look: white = own kill, yellow = a teammate's
+                ln.own = _is_white(a16[y1:y1 + H], gs, m[y1:y1 + H])
             tess_budget = self._try_read(t, ln, gs, m[y1:y1 + H], tess_budget)
 
     @staticmethod
@@ -539,12 +545,14 @@ class MsgCorner:
                     if nxt is not None and nxt.state == "read" and nxt.kind == "bonus" and not nxt.emitted:
                         ln.emitted = nxt.emitted = True
                         self.out.append((ln.t, "exp_gain", {"base": ln.num, "party_bonus": nxt.num,
-                                                                  "overflow": ln.overflow or nxt.overflow}))
+                                                                  "overflow": ln.overflow or nxt.overflow,
+                                                                  "own": bool(ln.own)}))
                     elif nxt is None and ln.frames < 2:
                         continue                                    # nothing below yet: wait one more look
                     else:
                         ln.emitted = True
-                        self.out.append((ln.t, "exp_gain", {"base": ln.num, "party_bonus": 0, "overflow": ln.overflow}))
+                        self.out.append((ln.t, "exp_gain", {"base": ln.num, "party_bonus": 0, "overflow": ln.overflow,
+                                                                  "own": bool(ln.own)}))
                 elif ln.kind == "bonus":
                     older = self.lines[j + 1] if j + 1 < SLOTS else None
                     if older is not None and older.state == "pending":
@@ -563,13 +571,24 @@ class MsgCorner:
             return
         if ln.state == "read" and ln.kind == "exp":
             ln.emitted = True
-            self.out.append((ln.t, "exp_gain", {"base": ln.num, "party_bonus": 0, "overflow": ln.overflow}))
+            self.out.append((ln.t, "exp_gain", {"base": ln.num, "party_bonus": 0, "overflow": ln.overflow,
+                                                                  "own": bool(ln.own)}))
         elif ln.state == "read" and ln.kind == "meso":
             ln.emitted = True
             self.out.append((ln.t, "meso_gain", {"mesos": ln.num, "overflow": ln.overflow}))
         elif ln.state == "pending":
             self.stats["unread"] += 1
         ln.emitted = True
+
+
+def _is_white(rgb, gs, ms):
+    """First look of an EXP line: white (True) or yellow (False). Blue/red over the brightest 30% of the mask
+    pixels (G at or above the 70th percentile): white 0.87-0.96, yellow 0.54-0.59 (NOTES.md 2026-11-01)."""
+    if not ms.any():
+        return False
+    sel = ms & (gs >= np.percentile(gs[ms], 70))
+    red = float(rgb[..., 0][sel].sum())
+    return red > 0 and float(rgb[..., 2][sel].sum()) / red >= OWN_RATIO
 
 
 # ====================================================================== Tesseract (bootstrap only)
@@ -645,9 +664,12 @@ def _test(folder, store, cold):
     if cold and os.path.exists(store):
         os.remove(store)
     frames = sorted(p for p in d.glob("*.jpg") if re.match(r"\d{4}\.\d\d_", p.name))
-    rows = list(csv.DictReader(open(d / "vitals.csv", newline="")))
-    t0 = float(rows[0]["t"])
-    vit = [(float(r["t"]) - t0, int(r["exp"]), float(r["exp_pct"])) for r in rows]
+    has_vitals = (d / "vitals.csv").exists()          # without it the gains are only listed (no EXP-bar comparison)
+    rows = list(csv.DictReader(open(d / "vitals.csv", newline=""))) if has_vitals else []
+    vit = []
+    if rows:
+        t0 = float(rows[0]["t"])
+        vit = [(float(r["t"]) - t0, int(r["exp"]), float(r["exp_pct"])) for r in rows]
 
     mc = MsgCorner(store)
     facts, ms = [], []
@@ -660,6 +682,12 @@ def _test(folder, store, cold):
     gains = [(t, v["base"] + v["party_bonus"], v) for t, k, v in facts if k == "exp_gain"]
     mesos = [(t, v["mesos"], v["overflow"]) for t, k, v in facts if k == "meso_gain"]
 
+    if not vit:
+        print(f"{d.name}: {len(frames)} frames, no vitals.csv; {len(gains)} exp_gain, {len(mesos)} meso_gain")
+        for t, tot, v in gains:
+            print(f"  {t:6.2f}s +{v['base']}/{v['party_bonus']}{' own' if v['own'] else ''}{' (overflow)' if v['overflow'] else ''}")
+        print(f"own {sum(1 for g in gains if g[2]['own'])} of {len(gains)} gains")
+        return 0, 0, 0, 0
     # EXP rises (consecutive increasing rows merge into one event); a level-up (exp drops) is flagged
     events, prev, cur = [], vit[0], None
     for row in vit[1:]:
@@ -691,7 +719,7 @@ def _test(folder, store, cold):
             for i in pick:
                 free.remove(i)
             lines.append(f"  {ev['t0']:6.2f}s +{ev['d']:<5d} ok       <- " + " + ".join(
-                f"{gains[i][2]['base']}/{gains[i][2]['party_bonus']}@{gains[i][0]:.2f}" for i in pick))
+                f"{gains[i][2]['base']}/{gains[i][2]['party_bonus']}{' own' if gains[i][2]['own'] else ''}@{gains[i][0]:.2f}" for i in pick))
     # unmatched rises next to overflow gains form one overflow group (the corner holds 6 lines: kills were missed)
     groups, free_over = [], list(over)
     for ev in unmatched:
@@ -716,6 +744,9 @@ def _test(folder, store, cold):
     print(f"{d.name} [{'cold' if cold else 'warm'}]: {len(frames)} frames, {len(gains)} exp_gain "
           f"({len(over)} flagged overflow), {len(mesos)} meso_gain")
     print("\n".join(lines))
+    own_n = sum(1 for g in gains if g[2]["own"])
+    print("own gains (white lines):", ", ".join(f"{g[2]['base']}/{g[2]['party_bonus']} own@{g[0]:.2f}" for g in gains if g[2]["own"]) or "none")
+    print(f"own {own_n} of {len(gains)} gains")
     print(f"matched {matched}  missed {missed}  overflow groups {len(groups)}  extra {len(extras)}")
     for i in extras:
         print(f"  EXTRA exp_gain {gains[i][2]} at {gains[i][0]:.2f}s")

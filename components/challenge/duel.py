@@ -1,7 +1,7 @@
 """duel.py - the tracker side of a kill-race duel, as plain state (no threads, no files, no bus).
 
 The relay (relay/party_relay.py) keeps the score and decides the winner. This object follows the relay's
-challenge views for you, turns EXP rises into kill events (whole-mob matches only, gamedata/kills.py), keeps
+challenge views for you, turns the game's EXP lines (own = white = my kill; the EXP bar only as a fallback, gamedata/kills.py) into kill events, keeps
 the events the relay has not acknowledged yet, and builds what the helper's board and the party panel read
 (challenge.json).
 
@@ -17,7 +17,14 @@ PENDING_S = 60              # an invitation lives this long (relay CH_PENDING_S)
 MAX_KILLS = 2               # kills that may share one rise (album's number: looks are ~1 s apart)
 MAX_SEND = 20               # events in one post (relay CH_MAX_EVENTS)
 RESULT_KEEP_S = 30          # how long the finished board stays in challenge.json
-PARTY_NOTE_S = 60           # challenge.json says "party: true" this long after a rise read as a party share
+PARTY_NOTE_S = 60           # challenge.json says "party: true" this long after the last party hint
+SETTLE_S = 2.5              # an EXP bar rise waits this long for the corner's EXP line before the fallback
+COVER_BEFORE_S = 1.0        # an EXP line covers a rise when its time is in [rise - 1.0, rise + 2.5]
+COVER_AFTER_S = 2.5
+PARTY_LOOK_S = 10.0         # a party bonus line seen within this before a rise: the rise is partied
+GAINS_KEEP = 40
+LINES_NOTE = "kills from the game's EXP lines"
+NOT_SEEN_NOTE = "party: EXP lines not seen, kills not counted"
 STALE_S = 15                # challenge.json older than this: the helper stops showing the board
 
 
@@ -36,7 +43,9 @@ class Duel:
         self.last = None        # the last result (dict) and when it was seen
         self.last_t = 0.0
         self.error = None       # (text, local time) of the last failed command
-        self.party_seen = None  # (note, local time) of the last rise read as a party share
+        self.party_seen = None  # (note, local time) of the last party hint for challenge.json (see snapshot)
+        self.gains = []         # [(t, party bonus seen)] of the latest EXP lines (they cover EXP bar rises)
+        self.pending = []       # EXP bar rises held until the corner has had its say: {t, map, d, partied}
 
     # ---- helpers
     def to_server(self, t):
@@ -71,35 +80,81 @@ class Duel:
         return None
 
     # ---- kills
-    def on_rise(self, t, map_name, d, party=None):
-        """An EXP rise d on a look at time t: count the kills in it while a challenge is live.
+    # The game's EXP lines (exp_gain, engine/msgcorner.py) are the source of kills: a WHITE line (own=True) is
+    # my kill, a yellow one a teammate's share. The EXP bar (exp_rise) is only a fallback for a rise the corner
+    # did not cover (corner hidden, line missed): solo -> whole-mob match, partied -> nothing (never guess).
+    def _live_ts(self, t):
+        """The relay-clock time of t while a challenge I play is running and t is inside its window, else None."""
+        v = self.active()
+        if v is None:
+            return None
+        ts = self.to_server(t)
+        return ts if v["start_t"] <= ts <= v["end_t"] else None
 
-        Solo: whole-mob matches (kills.whole_kills). `party` = {me_level, levels (other members on my map),
-        bonus (a kills.BonusFit or None), estimating} while partied: the rise is a party share, read by kills.party_kills; only MY kills
-        count (a teammate's kill or an unknown share counts nothing)."""
+    def _kill(self, ts, n=1):
+        self.seq += 1
+        self.events.append({"s": self.seq, "n": n, "t": round(ts, 3)})
+        self.mine += n
+
+    def on_gain(self, t, base=0, party_bonus=0, own=False, overflow=False, now=None):
+        """One EXP line pair from the message corner at time t. Always remembered (it covers EXP rises); while a
+        challenge is live an own (white) line is one kill stamped at t, a teammate's (yellow) counts 0.
+        Returns the kills counted."""
+        now = now if now is not None else time.time()
         with self.lock:
-            v = self.active()
-            if v is None:
-                return 0
-            ts = self.to_server(t)
-            if not v["start_t"] <= ts <= v["end_t"]:
-                return 0
-            if party:
-                n = kills.party_kills(map_name, d, party["me_level"], party["levels"], party["bonus"], MAX_KILLS)[0]
-                bon = party.get("bonus")
-                self.party_seen = (("party share, bonus %s" % (bon if bon is not None else "not learned yet")
-                                    + (" (estimating)" if party.get("estimating") else "")), time.time())
-            else:
-                n = kills.whole_kills(map_name, d, MAX_KILLS)
-            if n:
-                self.seq += 1
-                self.events.append({"s": self.seq, "n": n, "t": round(ts, 3)})
-                self.mine += n
+            self.gains.append((t, bool(party_bonus)))
+            del self.gains[:-GAINS_KEEP]
+            n = 0
+            if self._live_ts(t) is not None:
+                if party_bonus:
+                    self.party_seen = (LINES_NOTE, time.time())
+                if own:
+                    self._kill(self._live_ts(t))
+                    n = 1
+            self._settle(now)
             return n
+
+    def on_rise(self, t, map_name, d, partied=False, now=None):
+        """An EXP bar rise d on a look at time t: held until the corner has had its say (SETTLE_S), then, if no
+        EXP line covered it, counted by the fallback. `partied` = the player is in a party with someone on the
+        map (then the fallback counts nothing). Returns nothing yet (the kill, if any, is sent when it settles)."""
+        now = now if now is not None else time.time()
+        with self.lock:
+            if self._live_ts(t) is not None and d and d > 0:
+                self.pending.append({"t": t, "map": map_name, "d": d, "partied": bool(partied)})
+            self._settle(now)
+
+    def settle(self, now=None):
+        """Decide the held rises that are old enough (called from every hook, also the relay post)."""
+        with self.lock:
+            self._settle(time.time() if now is None else now)
+
+    def _settle(self, now):
+        if not self.pending:
+            return
+        keep = []
+        for r in self.pending:
+            if now - r["t"] <= SETTLE_S:
+                keep.append(r)
+                continue
+            if any(r["t"] - COVER_BEFORE_S <= gt <= r["t"] + COVER_AFTER_S for gt, _ in self.gains):
+                continue                                    # the EXP lines cover it (they counted my kills)
+            ts = self._live_ts(r["t"])
+            if ts is None:
+                continue
+            partied = r["partied"] or any(bonus and r["t"] - PARTY_LOOK_S <= gt <= r["t"] + COVER_AFTER_S for gt, bonus in self.gains)
+            if partied:
+                self.party_seen = (NOT_SEEN_NOTE, time.time())
+                continue                                    # a party share by the bar alone: never guess
+            n = kills.whole_kills(r["map"], r["d"], MAX_KILLS)
+            if n:
+                self._kill(ts, n)
+        self.pending = keep
 
     def _switch(self, cid):
         if cid != self.cid:
             self.cid, self.seq, self.events, self.mine = cid, 0, [], 0
+            self.pending = []
 
     # ---- the party link hooks
     def post_fields(self, enabled, dnd):
@@ -109,6 +164,7 @@ class Duel:
             extra["caps"] = ""                  # friends' Challenge buttons stay off
             return extra
         with self.lock:
+            self._settle(time.time())           # held EXP bar rises that nothing covered count now
             v = self.active()
             if v is not None:
                 self._switch(v["id"])

@@ -1,6 +1,9 @@
 """challenge component: friendly kill-race duels between members of one party-relay code.
 
-Tracker side: counts individual kills from `exp_rise` (whole-mob EXP matches, gamedata/kills.py), rides the
+Tracker side: counts individual kills from the game's EXP lines (`exp_gain`, engine/msgcorner.py: a WHITE line =
+my own kill, yellow = a teammate's share, solo and party alike); the EXP bar (`exp_rise`) is only a fallback for a
+rise no EXP line covered within 2.5 s (solo: whole-mob match, gamedata/kills.py; partied: nothing, never guess).
+Every gain is also appended to history/exp_gains.csv. Rides the
 party link (events relay_post / relay_reply, service relay_link: no import of the party component) to send
 each kill and follow the relay's score, runs the commands the party panel writes (challenge_cmd.json:
 create / accept / decline), writes challenge.json for the helper's board and the panel, keeps the win /
@@ -13,7 +16,7 @@ Helper side: the versus board (board.py) over the game, its Settings extras and 
 In a joined v2 room (relay_link mode "v2") the kills ride the room's `challenge` sync part and the commands go to
 POST /v2/rooms/<id>/challenge/<action> (link["call"]); with only a party code it is the v1 endpoints, as before.
 
-Subscribes: service_start (worker thread), service_stop, exp_rise, relay_post, relay_reply, challenge_end (journal).
+Subscribes: service_start (worker thread), service_stop, exp_gain, exp_rise, relay_post, relay_reply, challenge_end (journal).
 Emits: challenge_end (result dict).
 Asks: relay_link (party).
 """
@@ -28,11 +31,7 @@ from hub import history as H
 
 CMD_POLL_S = 0.5
 LOG_MAX = 50
-
-
-def kills_maps():
-    from gamedata import kills
-    return kills.map_mobs()
+GAINS_LOG_MAX = 5_000_000       # history/exp_gains.csv rotates to .old at this size
 
 
 class ChallengeComponent(Component):
@@ -44,12 +43,12 @@ class ChallengeComponent(Component):
         from components.challenge import duel
         self.hub = hub
         self.duel = duel.Duel()
-        self.pb = None                                  # PartyBonus (party EXP shares), made on service_start
         self.worker = None
         self.stop_ev = threading.Event()
         hub.on("service_start", self.on_start)
         hub.on("service_stop", self.on_stop)
         hub.on("exp_rise", self.on_rise)
+        hub.on("exp_gain", self.on_gain)
         hub.on("relay_post", self.on_post)
         hub.on("relay_reply", self.on_reply)
         hub.on("challenge_end", self.on_end)
@@ -63,8 +62,6 @@ class ChallengeComponent(Component):
         H.write_json(self.hub.root / "challenge.json", self.duel.snapshot(enabled, dnd), indent=None)
 
     def on_start(self, **_):
-        from components.challenge import partyexp
-        self.pb = partyexp.PartyBonus(self.hub.root)
         self.stop_ev.clear()
         self.duel.done = {r.get("id") for r in H.read_json(self.hub.root / "history" / "challenges.json",
                                                             {}).get("log", [])}
@@ -74,38 +71,46 @@ class ChallengeComponent(Component):
 
     def on_stop(self, **_):
         self.stop_ev.set()
-        if self.pb is not None:
-            self.pb.save()
 
-    def _party(self, map, d, party):
-        """The party read of a rise: {me_level, levels, bonus, estimating, size} or None when solo. Also feeds the
-        calibration (every rise while partied, duel or not)."""
+    def _partied(self, map, party):
+        """Is a party member on my map right now? (exp_rise's `party` flag, or fresh party.json / party box rows)"""
+        if party:
+            return True
         from components.challenge import partyexp
-        me_level = self.hub.state.level
-        if self.pb is None or not me_level:
-            return {"unknown": True} if party else None
-        levels = partyexp.party_levels(self.hub.root, me_level, map)
-        if levels is None and party:
-            levels = partyexp.Levels([me_level])   # the tracker says a member is on the map; who is unknown
-            levels.guessed = 1                     # a stand-in level: party_kills allows +-1
-        if levels is None:
-            return None
-        size = len(levels) + 1
-        b, est = self.pb.bonus(size)
-        if 0 < d < 3000 and map in kills_maps():
-            self.pb.add(size, map, d, me_level, levels)
-        return {"me_level": me_level, "levels": levels, "bonus": b, "estimating": est, "size": size}
+        return partyexp.party_levels(self.hub.root, self.hub.state.level or 1, map) is not None
 
     def on_rise(self, t, map, d, party=False, **_):
         with perf.timed("challenge"):
             enabled, _dnd = self._cfg()
             if not enabled:
                 return
-            pc = self._party(map, d, party)
-            if pc is not None and pc.get("unknown"):
-                return                          # partied but my level is unknown: count nothing, never guess
-            if self.duel.active():
-                self.duel.on_rise(t, map, d, pc)
+            if self.duel.active():                  # held until the EXP lines had their say (Duel.settle)
+                self.duel.on_rise(t, map, d, self._partied(map, party))
+
+    def on_gain(self, t, base=0, party_bonus=0, own=False, overflow=False, **_):
+        """One EXP line pair from the game's message corner: logged (history/exp_gains.csv), and while a duel is
+        live a white line (own) is one kill."""
+        with perf.timed("challenge"):
+            self._log_gain(t, base, party_bonus, own, overflow)
+            enabled, _dnd = self._cfg()
+            if enabled:
+                self.duel.on_gain(t, base, party_bonus, own, overflow)
+
+    def _log_gain(self, t, base, party_bonus, own, overflow):
+        """history/exp_gains.csv: t, map, base, party_bonus, own, overflow (for checking a party session later)."""
+        try:
+            path = self.hub.root / "history" / "exp_gains.csv"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if path.exists() and path.stat().st_size > GAINS_LOG_MAX:
+                path.replace(path.with_suffix(".csv.old"))
+            new = not path.exists()
+            with open(path, "a", encoding="utf-8", newline="") as f:
+                if new:
+                    f.write("t,map,base,party_bonus,own,overflow\n")
+                m = str(self.hub.state.map or "").replace('"', "'")
+                f.write(f'{t:.2f},"{m}",{base},{party_bonus},{int(bool(own))},{int(bool(overflow))}\n')
+        except OSError:
+            pass
 
     def on_post(self, extra, me, **_):                  # link thread
         self.duel.me = me.get("name")

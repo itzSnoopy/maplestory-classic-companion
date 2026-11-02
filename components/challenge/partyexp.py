@@ -1,5 +1,9 @@
 """partyexp.py - party EXP shares for the duel: who is in my party on this map, and the learned party bonus.
 
+SUPERSEDED (2026-11-01) for counting: duel kills now come from the game's EXP lines (white = own kill, see
+components/challenge/CLAUDE.md). Only `party_levels` is still used (is a member on my map?). `PartyBonus`, the
+formula (gamedata/kills.party_kills) and dev/party_kills_sim.py stay for reference and are no longer fed.
+
 Plain state + two small file readers (no bus, no relay). `gamedata/kills.py` holds the model (own kill =
 ceil(E*(0.2+0.8*L/sumL)), teammate's = ceil(E*0.8*L/sumL), the party bonus a separate amount b*base);
 this module collects the player's own rises while partied and fits b and the rounding mode per eligible party

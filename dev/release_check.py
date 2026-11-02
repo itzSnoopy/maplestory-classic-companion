@@ -396,6 +396,9 @@ def check_relay():
     r = run([sys.executable, str(ROOT / "dev" / "party_kills_sim.py"), str(TMP / "party_kills_sim")],
             env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=180)
     check("party kills sim (party EXP shares, learned bonus, calibration)", r.returncode == 0, (r.stdout or r.stderr)[-300:])
+    r = run([sys.executable, str(ROOT / "dev" / "gain_kills_sim.py"), str(TMP / "no_fixtures")],
+            env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=240)
+    check("gain kills sim (duel kills from the EXP lines; replay skips without fixtures)", r.returncode == 0, (r.stdout or r.stderr)[-300:])
     r = run([sys.executable, "-m", "components.challenge.invite_ui", "--selftest"],
             env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=60)
     check("duel invite popup state (show / answer / dnd / expiry)", r.returncode == 0, (r.stdout or r.stderr)[-300:])

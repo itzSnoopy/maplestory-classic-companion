@@ -953,3 +953,18 @@ Cold start costs ~25 Tesseract calls (8 digit patterns), the second folder only 
 - **Numbers:** 222236: 16 rises, 16 matched, 0 missed, 0 overflow, 0 extra. 230602: 5 rises, 3 matched, 1 overflow group (read 9 of 27), 0 missed, 0 extra.
   Cold: median 0.8 ms, p95 190-270 ms, max 570-765 ms (first Tesseract), 25 / 15 Tesseract calls. Warm (store on disk): median 0.7-0.9, busy 1.0-1.1,
   p95 1.8-1.9, max 6-8 ms, 0 calls.
+
+
+## 2026-11-01: EXP line colour = whose kill
+- **Fact (main session, three fixtures):** the FIRST look at each `You received EXP` line is either WHITE or YELLOW, nothing in between. Measured as
+  blue/red over the brightest 30% of the line's colour-mask pixels (G >= 70th percentile of G over the mask): **white 0.87-0.96, yellow 0.54-0.59**.
+  Threshold **0.73** (`msgcorner.OWN_RATIO`, `_is_white`; decided at the line's birth, stored per line, `own` in every `exp_gain`). Bonus lines are always yellow, meso lines white.
+- **Meaning:** white EXP line = the player's own kill, yellow = a teammate's kill (the share). On one map white +6 and yellow +3 alternate (own 0.4E vs a teammate's
+  0.2E in a 4 party); the boss kill the player made himself (20261101_012726, 82.2 s, +596/238) is white, others' boss kills are yellow.
+- **Expected / read first-look colours:** 20261030_222236 white at 46.07(6), 46.58(6), 47.58(4), 48.58(4), 49.08(6), 50.08(6), 50.58(6), 51.58(6), 53.09(6) = 9 own of 19 gains;
+  yellow: the +3 lines (32.55, 36.56, 50.58, 51.08, 53.09), 755 at 42.57, 22 at 53.59/56.59/58.09/60.09. 20261030_230602: all 6 EXP lines yellow (579 and the +2s), 0 own.
+  20261101_012726: white 5 at 77.53 and 596 at 82.20 (2 own of 8); yellow +2 (67.83, 68.50) and +15 (92.57, 93.24, 94.57, 98.59). `python -m engine.msgcorner test DIR` prints all of it.
+- **Duel kills (components/challenge):** every own gain during a live duel = 1 kill at the gain's t, solo and party alike; teammate shares and bonus lines count 0.
+  The EXP bar is a fallback only: a rise is held 2.5 s; if any gain has t in [rise-1.0, rise+2.5] it is covered, else solo -> whole-mob match, partied -> 0.
+  The party formula (`gamedata/kills.party_kills`, `partyexp.PartyBonus`) is superseded and no longer fed. Every gain is logged to `history/exp_gains.csv`
+  (t, map, base, party_bonus, own, overflow) so the next party session can be checked against the bar.
