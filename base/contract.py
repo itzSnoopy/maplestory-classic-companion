@@ -196,6 +196,9 @@ SERVICES = (
     ("mp_price", "training. (potion name, mesos per MP point, MP per potion): what one MP costs you (skills list)"),
     ("price_of", "training. Returns fn(item name) -> mesos or None: the player's price, else the shop's"),
     ("party_on_map", "party. True while another party member is on your map (so EXP rises are shares)"),
+    ("rise_kills", "challenge. Returns fn(map, d, party) -> how many whole kills of MINE an EXP rise is, read the duel's "
+                   "way (solo: the map's mob EXP; partied: kills.party_kills with the learned party bonus, which never "
+                   "counts: white EXP only). 0 = a share, a bonus, a quest / stage clear, unknown. No calibration side effects"),
     ("relay_link", "party. {server, code, ok, server_off, mode ('v1'|'v2'|'off'), room (v2 room id or None), "
                    "request(kind, suffix, body, method) -> (status, json) [v1 party code], call(module, action, body) -> "
                    "(status, json) [v2 room: POST /v2/rooms/<id>/<module>/<action>]} of the "

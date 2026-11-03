@@ -1,4 +1,9 @@
 {
+ "0.11.0": [
+  "Relic hunt: finding a piece now pops a \"Relic piece found!\" notice with the piece, and the rooms panel shows the hunt's progress next to it (the - button hides it).",
+  "Relic pieces now come from your own kills only, like duels, and party quest maps count even when their monsters are far below your level.",
+  "Room owners and mods can start a kill race or a relic hunt (pick the difficulty) or stop it from the rooms panel's right-click menu."
+ ],
  "0.10.1": [
   "Relic hunt: the room owner starts a hunt, and your kills (monsters near your level) can drop puzzle pieces, more often with friends on the same map. Tray > Open relic hunt shows the shared puzzle; drag pieces into place together.",
   "Duels: click the sword next to a friend on the party panel to challenge them; an invite pops up with Accept / Decline. The versus board is half the size (Settings: 50 / 75 / 100 %). Room owners can start a kill race for everyone.",

@@ -58,15 +58,20 @@ class RelicComponent(Component):
     def on_stop(self, **_):
         self.stop_ev.set()
 
-    def on_rise(self, t, map, d, **_):
+    def on_rise(self, t, map, d, party=False, **_):
         with perf.timed("relic"):
             if not self._enabled():
                 return
             level = self.hub.state.level
             if not level:
                 return
-            from gamedata import relic
-            self.hunt.add(relic.eligible_kills(map, d, level))
+            from gamedata import kills, relic
+            read = self.hub.ask("rise_kills")              # the duel's reading: my whole kills, white EXP only
+            if read is not None:
+                n = read(map, d, party)
+            else:                                           # no challenge component: solo whole kills only
+                n = 0 if party else kills.whole_kills(map, d, 2)
+            self.hunt.add(relic.eligible(map, n, level))
 
     def on_post(self, extra, mode="v1", **_):           # link thread
         if mode != "v2" or not self._enabled():

@@ -837,6 +837,10 @@ King Slime (800003, Lv 32, boss) is listed at **2,400 EXP** (`mobs_classic.json`
 |---|---|---|---|---|---|---|
 | 3 | 755 | 31.5% | 800 | 94.4% | 227 | 30.1% |
 | 4 | 579 | 24.1% | 600 | 96.5% | 232 | 40.1% |
+| 4 | 596 | 24.8% | 600 | 99.3% | 238 | 39.9% |
+
+Third row: `dev/fixtures/burst/20261101_012726` (2026-11-01, 3 fps, 100 s, Lv 27, player fighting again: MP 916 -> 102, HP down to 47).
+Kill at 82.2 s, bar 38,567 -> 39,401 (+834 = 596 + 238). Stage clear before it: +318 at 38 s (same as 2026-10-31). The boss drops a Pass.
 
 Small summoned slimes: +3/+1 and +6/+1 (not in `map_mobs.json`; the boss table needs their summons).
 
@@ -892,3 +896,9 @@ of several icons (the whole band is searched), other UI sizes (boxes/icon scale 
 above max regular-mob EXP x 1.6 and at most boss EXP x 1.6 = that boss (how "party_boss"). Open-world bosses (Mano: ceiling
 24, Stumpy 110) are left out: a few mixed kills pass their ceilings, and crowds hit them. Live 2026-10-31 14:51 run:
 stage clears are **318 at Lv 27** (274 at Lv 26), so they scale with level.
+
+## Party EXP shares for duels (2026-11-01)
+- Model (older GMS fan formula, unconfirmed for Classic): share_i = E*B*0.8*L_i/sumL, killer +E*B*0.2, B by eligible size (guides: 1.2/1.3/1.4/1.5/1.6 for 2-6). `gamedata/kills.party_kills` reads a rise with it; B is learned per size in `history/party_bonus.json` (`components/challenge/partyexp.py`).
+- No per-rise data existed for the 2026-11-01 4-party duel (exp_log.csv is 30 s deltas; the 14 min window = 9.5k EXP on a map of 26/41 EXP mobs = hundreds of shares): B could not be fitted from it. Mass-kill party maps put many shares in one look; the classifier refuses them.
+
+Party EXP in Classic (player, 2026-11-01): own kill = ceil(E*(0.2+0.8*L/sumL)), bonus shown separately. Supersedes the fan-formula model above (E*B*0.8*L/sumL, killer +20%, B 1.2-1.6). Measured in a 4-person party, everyone about Lv 28, on a map with Horny Mushroom (41 EXP) and Green Mushroom (26 EXP): the player's own kills gave 17 and 11 EXP, and "the additional party xp" appeared as its own number on top. 17 = ceil(41*0.4) and 11 = ceil(26*0.4), so own kill = ceil(E*(0.2+0.8*L_me/sumL)) and a teammate's kill gives ceil(E*0.8*L_me/sumL) (9 and 6 here), exact integer ceil. The party bonus is NOT folded into the share; its rule is unknown, modelled as mode(base*b) with mode in ceil/floor/round and b learned per eligible party size from the player's own rises (grid 0.10-0.60). The EXP bar can show base+bonus in one rise or base and bonus as two rises, so `gamedata/kills.party_kills` accepts base, base+bonus and a lone bonus (counts 0, not an unknown rise). Stand-in levels (members not in the room get my level) allow +-1 on the base, that case only. Before b is learned the bare base amounts count exactly; base + a grid bonus counts only when nothing else fits and the reading is unique. Anything explainable both as my kill and as something else is refused. To refine: log a few dozen real party rises (map, d, levels) and look at which rise values follow a kill (the bonus amounts) to pin b and the rounding.

@@ -53,6 +53,7 @@ class ChallengeComponent(Component):
         hub.on("relay_post", self.on_post)
         hub.on("relay_reply", self.on_reply)
         hub.on("challenge_end", self.on_end)
+        hub.provide("rise_kills", lambda: self.read_kills)
 
     def _cfg(self):
         c = self.hub.settings("challenge")
@@ -77,7 +78,18 @@ class ChallengeComponent(Component):
         if self.pb is not None:
             self.pb.save()
 
-    def _party(self, map, d, party):
+    def read_kills(self, map, d, party=False):
+        """My whole kills in a rise, the duel's reading (the rise_kills service; the relic hunt uses it)."""
+        from components.challenge import duel
+        from gamedata import kills
+        pc = self._party(map, d, party, learn=False)
+        if pc is not None and pc.get("unknown"):
+            return 0
+        if pc:
+            return kills.party_kills(map, d, pc["me_level"], pc["levels"], pc["bonus"], duel.MAX_KILLS)[0]
+        return kills.whole_kills(map, d, duel.MAX_KILLS)
+
+    def _party(self, map, d, party, learn=True):
         """The party read of a rise: {me_level, levels, bonus, estimating, size} or None when solo. Also feeds the
         calibration (every rise while partied, duel or not)."""
         from components.challenge import partyexp
@@ -92,7 +104,7 @@ class ChallengeComponent(Component):
             return None
         size = len(levels) + 1
         b, est = self.pb.bonus(size)
-        if 0 < d < 3000 and map in kills_maps():
+        if learn and 0 < d < 3000 and map in kills_maps():
             self.pb.add(size, map, d, me_level, levels)
         return {"me_level": me_level, "levels": levels, "bonus": b, "estimating": est, "size": size}
 
