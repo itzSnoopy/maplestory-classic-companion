@@ -57,7 +57,7 @@ HIDDEN = ["launcher.setup_ui", "hub.settings_ui", "engine.calibrate", "component
           "components.challenge.bulbs", "components.challenge.sprites", "components.challenge.partyexp", "components.challenge.settings_page", "components.challenge.invite_ui",
           "components.relic.component", "components.relic.hunt", "components.relic.toast", "gamedata.relic",
           "gamedata.kills",
-          "hub.pages", "hub.ui.shell", "hub.ui.overlay", "hub.ui.theme", "hub.ui.layered",
+          "hub.pages", "hub.ui.shell", "hub.ui.overlay", "hub.ui.theme", "hub.ui.layered", "hub.ui.art",
           "engine.hudtext", "engine.levelup_shot", "gamedata.translate", "gamedata.parse", "gamedata.maplist",
           "engine.sources.wgc", "engine.sources.screen", "engine.sources.csv_replay", "windows_capture",
           "win32gui", "pystray._win32"]

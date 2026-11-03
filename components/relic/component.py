@@ -147,4 +147,4 @@ class RelicComponent(Component):
         import copy
         win.s.setdefault("relic", copy.deepcopy(self.settings_defaults["relic"]))
         win.check(f, "relic.enabled", "Relic hunt: count my kills for the room's hunt").pack(anchor="w", pady=(0, win.px(2)))
-        win.check(f, "relic.toast", "Show \"+ Relic piece\" over the game when I find one").pack(anchor="w", pady=(0, win.px(4)))
+        win.check(f, "relic.toast", "Show \"Relic piece found!\" over the game when I find one").pack(anchor="w", pady=(0, win.px(4)))

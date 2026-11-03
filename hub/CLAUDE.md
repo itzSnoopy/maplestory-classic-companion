@@ -28,6 +28,7 @@ The hub sees the engine only through `base/contract.py` (`Observation`, `Source`
 | `ui/overlay.py` | `PanelHost` (create/remove/toggle/lock for panels over the game), `font`, `text` |
 | `ui/layered.py` | `set_image(toplevel, pil_rgba)`: per-pixel-alpha window (Win32 UpdateLayeredWindow, own WinDLL copies with 64-bit argtypes) for smooth round edges; the minimized icon uses it, colour key as fallback |
 | `ui/theme.py` | Colours and font |
+| `ui/art.py` | Shared small pictures: `piece(size)` (relic piece; `<data>/assets/art/relic_piece.png|gif` if present, git-ignored, never packaged; else drawn) |
 | `pages.py` | Local page registry (`register_page/page/paths/open_page/serve`, `register_api/api` = local POST endpoints, `set_host`); the diary server (127.0.0.1:8737) hosts the pages |
 | `tools.py` | `portrait_maker()` hook, loaded by name from the launcher |
 

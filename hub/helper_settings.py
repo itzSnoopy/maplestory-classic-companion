@@ -90,6 +90,7 @@ DEFAULTS = {
         "enabled": False,               # the rooms panel over the game (off until the player turns it on)
         "locked": False,
         "x": None, "y": None,           # None = left side, below the party panel
+        "side_min": False,              # the panel's "-": hide the side tags (relic hunt progress)
     },
     "partypanel": {                     # Settings > General / tray; party_ui.py over the game
         "enabled": True,                # shows only while a party box or partner is seen

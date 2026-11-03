@@ -177,7 +177,7 @@ try:
     toaster = toast_mod.Toaster(type("Sh", (), {"root": None, "settings": lambda s, n: {"toast": True, "enabled": True},
                                                   "at": None, "px": lambda s, n: n})())
     shown = []
-    toaster.show = lambda text, now: shown.append(text)
+    toaster.show = lambda text, now, found=None, total=None: shown.append((text, found, total))
     toaster.tick()                                           # first look only syncs the sequence number
     rise(5)
     check(wait(lambda: state()[1]["found_count"] == 5), "5 mobs' worth in band: 5 pieces (every roll succeeds in this sim)", state()[1]["found_count"])
@@ -187,7 +187,10 @@ try:
     check(found_events and sum(len(e["ids"]) for e in found_events) == 5, "relic_found events carry the ids", found_events[:1])
     toaster.last_check = 0
     toaster.tick()
-    check(shown and shown[-1].startswith("+ Relic piece"), "the toast fires on the new sequence number", shown)
+    check(shown and shown[-1][0].startswith("+ Relic piece") and shown[-1][1] == 5 and shown[-1][2],
+          "the toast fires on the new sequence number, with found / total", shown)
+    pic = toast_mod.Toaster.image(type("T", (), {"shell": None})(), shown[-1][1], shown[-1][2])
+    check(pic.mode == "RGBA" and pic.width > 150, "the notice draws (piece + two lines)", pic.size)
     rise(0.5)
     time.sleep(0.8)
     rise(0.5)
