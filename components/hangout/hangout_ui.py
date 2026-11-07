@@ -14,6 +14,10 @@ top ("In: <room> · <kind>" + Leave; owners and mods also get a Start button for
 with the current activity on a second line). All requests run on worker threads (components/hangout/join.py); the
 Tk thread only draws, prompts and stores results. Polling (lobby.Poller) starts only while the panel is shown.
 
+Side tags: while a relic hunt runs in the joined room, "1/32 <piece>" over "Relic Hunt" sits just right of the
+panel, drawn into the same window so it moves with it (relic.json, written by the tracker's relic component:
+join.read_relic). The header's "-" hides the side tags ("+" brings them back; hangout.side_min).
+
 Drag to move (saved in helper_settings.json "hangout"), right-click for refresh / lock / hide.
 
   python -m components.hangout.hangout_ui --server http://127.0.0.1:8787 --at=-2400,40
@@ -43,6 +47,8 @@ PENDING_POLL_S = 10.0           # waiting for approval: ask the relay this often
 ACTIVE_POLL_S = 60.0            # joined: a slow check that the token still works (the tracker usually notices first)
 STATUS_FILE_S = 2.0             # how often challenge.json is looked at (the activity line, command errors)
 LOST_FILE_S = 2.0               # how often party.json is looked at for room_lost
+RELIC_FILE_S = 2.0              # how often relic.json is looked at (the side tag)
+SIDE_GAP = 8                    # space between the panel and its side tags
 HANGOUT_COL = (70, 190, 110)
 PARTY_COL = (150, 100, 220)
 JOINED_COL = (60, 110, 80)
@@ -126,6 +132,8 @@ class HangoutPanel:
         self.prompt = None
         self.next_check, self.lost_t, self.checking = 0.0, 0.0, False
         self.status, self.status_t = {"error": None, "activity": None}, 0.0
+        self.relic, self.relic_t = None, 0.0
+        self.piece_img = None
         self.last_err = None
         self.photo, self.shown, self.drawn = None, None, None
         self.toast, self.toast_until = "", 0.0
@@ -260,6 +268,16 @@ class HangoutPanel:
                             radius=int(4 * k), fill=(40, 44, 54, 255), outline=(90, 96, 110, 255))
         self._refresh_icon(d, bx + int(9 * k), y + head_h // 2)
         self.hot.append((bx, y, bx + int(20 * k), y + head_h, "refresh", None))
+        if self.side_tags():                            # "-" / "+": hide or show the side tags
+            mx = bx - int(4 * k) - int(20 * k)
+            d.rounded_rectangle((mx, y + int(2 * k), mx + int(20 * k), y + head_h - int(2 * k)),
+                                radius=int(4 * k), fill=(40, 44, 54, 255), outline=(90, 96, 110, 255))
+            cx, cy, r = mx + int(10 * k), y + head_h // 2, int(5 * k)
+            lw = max(2, int(1.6 * k))
+            d.line((cx - r, cy, cx + r, cy), fill=(200, 210, 230, 255), width=lw)
+            if self.side_min():
+                d.line((cx, cy - r, cx, cy + r), fill=(200, 210, 230, 255), width=lw)
+            self.hot.append((mx, y, mx + int(20 * k), y + head_h, "side", None))
         y += head_h
         if cur:
             self._in_strip(d, W, pad, y, in_h, cur, act)
@@ -296,10 +314,47 @@ class HangoutPanel:
         if toast_on:
             _text(d, (pad, y + int(10 * k)), _fit(d, self.toast, self.f_small, W - 2 * pad), self.f_small,
                   fill=(150, 235, 175, 255), anchor="lm")
+        tags = [] if self.side_min() else self.side_tags()
+        if tags:                                        # side tags: same window, right of the panel
+            side = self._side_image(tags)
+            full = Image.new("RGBA", (W + int(SIDE_GAP * k) + side.width, max(H, side.height)), (0, 0, 0, 0))
+            full.alpha_composite(im, (0, 0))
+            full.alpha_composite(side, (W + int(SIDE_GAP * k), int(4 * k)))
+            im = full
         key = tuple(int(KEY[i:i + 2], 16) for i in (1, 3, 5))
-        out = Image.new("RGB", (W, H), key)
+        out = Image.new("RGB", im.size, key)
         out.paste(im.convert("RGB"), (0, 0), im.getchannel("A").point(lambda v: 255 if v > 100 else 0))
         return out
+
+    # ---------------------------------------------------------------- side tags
+    def side_min(self):
+        return bool(self.get().get("side_min", False))
+
+    def side_tags(self):
+        """What sits next to the panel: [(big, small)] (today only the relic hunt: "1/32", "Relic Hunt")."""
+        if not self.current() or not self.relic:
+            return []
+        return [(f"{self.relic['found']}/{self.relic['total']}", "Relic Hunt")]
+
+    def _side_image(self, tags):
+        from hub.ui import art
+        k = self.k
+        icon = int(20 * k)
+        if self.piece_img is None or self.piece_img.width != icon:
+            self.piece_img = art.piece(icon)
+        tmp = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+        w = int(max(max(tmp.textlength(a, font=self.f_head) + int(4 * k) + icon,
+                        tmp.textlength(b, font=self.f_name)) for a, b in tags)) + int(4 * k)
+        line = int(40 * k)
+        im = Image.new("RGBA", (w, line * len(tags)), (0, 0, 0, 0))
+        d = ImageDraw.Draw(im)
+        for i, (big, small) in enumerate(tags):
+            y = i * line
+            _text(d, (int(1 * k), y + int(10 * k)), big, self.f_head, fill=(255, 214, 96, 255), anchor="lm")
+            ix = int(1 * k + d.textlength(big, font=self.f_head) + 4 * k)
+            im.alpha_composite(self.piece_img, (ix, y + int(10 * k) - icon // 2))
+            _text(d, (int(1 * k), y + int(29 * k)), small, self.f_name, anchor="lm")
+        return im
 
     # ---------------------------------------------------------------- loop
     def _tick(self):
@@ -311,7 +366,7 @@ class HangoutPanel:
                 self._room_tick()
                 cur = self.room_get() or {}
                 sig = (ver, state, time.time() < self.toast_until, cur.get("id"), cur.get("status"), self.joining,
-                       cur.get("role"), self.activity(rooms))
+                       cur.get("role"), self.activity(rooms), str(self.relic), self.side_min())
                 if sig != self.drawn:
                     from PIL import ImageTk
                     self.photo = ImageTk.PhotoImage(self.render(rooms, state))
@@ -437,6 +492,7 @@ class HangoutPanel:
             return
         self._read_lost(cur, now)
         self._read_status(now)
+        self._read_relic(now)
         cur = self.current()
         if not cur or self.joining or now < self.next_check or self.checking:
             return
@@ -470,6 +526,15 @@ class HangoutPanel:
         if st["error"] and st["error"] != self.last_err:
             self.say(st["error"], LONG_TOAST_S)
         self.last_err = st["error"]
+
+    def _read_relic(self, now):
+        """relic.json (the tracker's): the side tag's numbers while a hunt runs in my room."""
+        if now - self.relic_t < RELIC_FILE_S:
+            return
+        self.relic_t = now
+        r = J.read_relic(self.party_path.parent, now)
+        if r != self.relic:
+            self.relic, self.drawn = r, None
 
     def _read_lost(self, cur, now):
         """The tracker reports a refused token in party.json (room_lost): clear the room and say so."""
@@ -506,6 +571,9 @@ class HangoutPanel:
             self.on_leave()
         elif action == "start":
             self.on_start()
+        elif action == "side":
+            self.put(side_min=not self.side_min())
+            self.drawn = None
 
     # ---- the Start button (owner / mod): pick an activity + minutes, hand it to the tracker
     def on_start(self):
@@ -513,17 +581,28 @@ class HangoutPanel:
         if not cur or not relay_room.can_host(cur):
             return
         m = tk.Menu(self.w, tearoff=0)
+        self._fill_activity_menu(m)
+        m.tk_popup(self.w.winfo_pointerx(), self.w.winfo_pointery())
+
+    def _fill_activity_menu(self, m):
+        """The activities an owner / mod can start (Start button and right-click > Start activity): Kill race
+        (minutes), Relic hunt (difficulty, a submenu), and "Stop the current activity" while one is on."""
         for minutes in J.RACE_MINUTES:
             m.add_command(label=f"Kill race · {minutes} min", command=lambda mi=minutes: self.start_race(mi))
-        m.add_separator()
+        relic = tk.Menu(m, tearoff=0)
         for key, label in J.RELIC_LEVELS:
-            m.add_command(label="Relic hunt · " + label, command=lambda k=key: self.start_relic(k))
-        if "Relic hunt" in self.activity():
-            m.add_command(label="Stop the relic hunt", command=self.stop_relic)
-        if self.activity() and "Relic hunt" not in self.activity():
-            m.add_separator()
-            m.add_command(label="Stop the current activity", command=self.stop_activity)
-        m.tk_popup(self.w.winfo_pointerx(), self.w.winfo_pointery())
+            relic.add_command(label=label, command=lambda k=key: self.start_relic(k))
+        m.add_cascade(label="Relic hunt", menu=relic)
+        m.add_separator()
+        m.add_command(label="Stop the current activity", command=self.stop_current,
+                      state="normal" if self.activity() else "disabled")
+
+    def stop_current(self):
+        """Stop whatever runs: the relic hunt (relic component) or the kill race (challenge component)."""
+        if "Relic hunt" in self.activity() or self.relic:
+            self.stop_relic()
+        else:
+            self.stop_activity()
 
     def _send(self, cmd, msg):
         if self.demo:
@@ -577,6 +656,13 @@ class HangoutPanel:
     def _menu(self, e):
         m = tk.Menu(self.w, tearoff=0)
         m.add_command(label="Refresh", command=lambda: self._click("refresh", None))
+        cur = self.current()
+        if cur and cur.get("status") != "pending" and relay_room.can_host(cur):
+            act = tk.Menu(m, tearoff=0)
+            self._fill_activity_menu(act)
+            m.add_cascade(label="Start activity", menu=act)
+        else:
+            m.add_command(label="Start activity (room owner or mod)", state="disabled")
         m.add_command(label="Lock (click-through)", command=lambda: self.set_locked(True))
         m.add_command(label="Hide rooms panel", command=lambda: self.put(enabled=False))
         m.tk_popup(e.x_root, e.y_root)

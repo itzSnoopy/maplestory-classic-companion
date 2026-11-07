@@ -145,6 +145,28 @@ RELIC_LEVELS = (("easy", "Easy · 12 pieces"), ("medium", "Medium · 24 pieces")
 RELIC_CMD_FILE = "relic_cmd.json"   # read by the tracker's relic component (components/relic/CLAUDE.md)
 
 
+RELIC_STALE_S = 60.0       # relic.json is rewritten on every relay reply; older = the tracker isn't linked
+
+
+def read_relic(root=None, now=None):
+    """The tracker's relic.json -> {"found", "total", "placed"} while a hunt runs in my room, else None.
+    For the rooms panel's side tag ("1/32" + piece + "Relic Hunt"). The file is the contract; no import of
+    that component."""
+    root = root or H.ROOT
+    now = now or time.time()
+    st = H.read_json(root / "relic.json", {})
+    if not isinstance(st, dict) or now - (st.get("t") or 0) > RELIC_STALE_S:
+        return None
+    if not st.get("enabled", True) or not st.get("room") or not st.get("active") or st.get("finished"):
+        return None
+    total = st.get("pieces_total")
+    if not isinstance(total, int) or total <= 0:
+        return None
+    found = st.get("found_count") if isinstance(st.get("found_count"), int) else 0
+    placed = st.get("placed_count") if isinstance(st.get("placed_count"), int) else 0
+    return {"found": found, "total": total, "placed": placed}
+
+
 def write_relic_command(cmd, root=None):
     """Hand a relic hunt command to the tracker's relic component: {"action": "start", "difficulty": "easy"} or
     {"action": "stop"}. The file is the contract; no import of that component."""

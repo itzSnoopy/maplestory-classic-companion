@@ -34,6 +34,11 @@ LOG_MAX = 50
 GAINS_LOG_MAX = 5_000_000       # history/exp_gains.csv rotates to .old at this size
 
 
+def kills_maps():
+    from gamedata import kills
+    return kills.map_mobs()
+
+
 class ChallengeComponent(Component):
     name = "challenge"
     settings_defaults = {"challenge": HS.DEFAULTS["challenge"]}
@@ -43,6 +48,7 @@ class ChallengeComponent(Component):
         from components.challenge import duel
         self.hub = hub
         self.duel = duel.Duel()
+        self.pb = None                                  # PartyBonus (party EXP shares for the relic hunt's rise_kills), made on service_start
         self.worker = None
         self.stop_ev = threading.Event()
         hub.on("service_start", self.on_start)
@@ -52,6 +58,7 @@ class ChallengeComponent(Component):
         hub.on("relay_post", self.on_post)
         hub.on("relay_reply", self.on_reply)
         hub.on("challenge_end", self.on_end)
+        hub.provide("rise_kills", lambda: self.read_kills)
 
     def _cfg(self):
         c = self.hub.settings("challenge")
@@ -62,6 +69,8 @@ class ChallengeComponent(Component):
         H.write_json(self.hub.root / "challenge.json", self.duel.snapshot(enabled, dnd), indent=None)
 
     def on_start(self, **_):
+        from components.challenge import partyexp
+        self.pb = partyexp.PartyBonus(self.hub.root)
         self.stop_ev.clear()
         self.duel.done = {r.get("id") for r in H.read_json(self.hub.root / "history" / "challenges.json",
                                                             {}).get("log", [])}
@@ -71,6 +80,8 @@ class ChallengeComponent(Component):
 
     def on_stop(self, **_):
         self.stop_ev.set()
+        if self.pb is not None:
+            self.pb.save()
 
     def _partied(self, map, party):
         """Is a party member on my map right now? (exp_rise's `party` flag, or fresh party.json / party box rows)"""
@@ -78,6 +89,36 @@ class ChallengeComponent(Component):
             return True
         from components.challenge import partyexp
         return partyexp.party_levels(self.hub.root, self.hub.state.level or 1, map) is not None
+
+    def read_kills(self, map, d, party=False):
+        """My whole kills in a rise, the duel's reading (the rise_kills service; the relic hunt uses it)."""
+        from components.challenge import duel
+        from gamedata import kills
+        pc = self._party(map, d, party, learn=False)
+        if pc is not None and pc.get("unknown"):
+            return 0
+        if pc:
+            return kills.party_kills(map, d, pc["me_level"], pc["levels"], pc["bonus"], duel.MAX_KILLS)[0]
+        return kills.whole_kills(map, d, duel.MAX_KILLS)
+
+    def _party(self, map, d, party, learn=True):
+        """The party read of a rise: {me_level, levels, bonus, estimating, size} or None when solo. Also feeds the
+        calibration (every rise while partied, duel or not)."""
+        from components.challenge import partyexp
+        me_level = self.hub.state.level
+        if self.pb is None or not me_level:
+            return {"unknown": True} if party else None
+        levels = partyexp.party_levels(self.hub.root, me_level, map)
+        if levels is None and party:
+            levels = partyexp.Levels([me_level])   # the tracker says a member is on the map; who is unknown
+            levels.guessed = 1                     # a stand-in level: party_kills allows +-1
+        if levels is None:
+            return None
+        size = len(levels) + 1
+        b, est = self.pb.bonus(size)
+        if learn and 0 < d < 3000 and map in kills_maps():
+            self.pb.add(size, map, d, me_level, levels)
+        return {"me_level": me_level, "levels": levels, "bonus": b, "estimating": est, "size": size}
 
     def on_rise(self, t, map, d, party=False, **_):
         with perf.timed("challenge"):

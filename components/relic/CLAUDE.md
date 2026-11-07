@@ -12,14 +12,14 @@ sync, shows a toast when a piece drops, and opens the group's table page. Tracke
 |---|---|
 | `component.py` | `RelicComponent`: tracker side (exp_rise -> `Hunt.add`, relay_post adds `extra["_parts"]["relic"]`, relay_reply feeds `Hunt.on_reply`, emits `relic_found`, writes `relic.json`, worker thread for `relic_cmd.json`); helper side `ui(shell)` (menu "Open relic hunt", toast, Settings > General) |
 | `hunt.py` | `Hunt`: plain state, no threads / files: pending eligible kills (sent / acknowledged by the next reply), relay answer, found ids, toast sequence, `snapshot` = relic.json |
-| `toast.py` | `Toaster`: reads relic.json about once a second, shows `+ Relic piece 17/48` in a corner for 3 s (no sound) |
-| `gamedata/relic.py` | `mobs_worth`, `in_band_share`, `eligible_kills` (pure, from `map_mobs.json`) |
+| `toast.py` | `Toaster`: reads relic.json about once a second, shows a Maple-style notice (navy box, gold frame, the piece picture, "Relic piece found!" / "17 / 48 found") in a corner for 3 s (no sound); `image(found, total)` draws it; per-pixel alpha via `hub/ui/layered`, colour key fallback |
+| `gamedata/relic.py` | `in_band_share`, `pq_maps`, `weight`, `eligible(map, kills, level)`; old fractional `mobs_worth` / `eligible_kills` kept for tools (pure, from `map_mobs.json` + `pq_classic.json`) |
 
 ## Interfaces
 - **Listens to:** `service_start` / `service_stop`, `exp_rise` (`map`, `d`; level from `hub.state.level`), `relay_post` (v2 only), `relay_reply` (`reply["parts"]["relic"]`).
 - **Emits:** `relic_found` (`ids, found, total, placed, difficulty, t`; the diary may add a line later).
-- **Asks:** service `relay_link` (`mode` must be "v2"; `call("relic", "start"|"stop", body)`).
-- **Eligible kills:** rise / the map's spawn-weighted average mob EXP (training's formula, so party shares still count) x the share of the map's mobs within +-10 levels of yours. Unknown map or level = 0. Only counted while the relay said a hunt is running.
+- **Asks:** service `rise_kills` (challenge), service `relay_link` (`mode` must be "v2"; `call("relic", "start"|"stop", body)`).
+- **Eligible kills (2026-11-02):** my whole kills in the rise, read the duel's way through the challenge component's `rise_kills` service (white EXP only: party bonus, teammates' shares, quest EXP and PQ stage clears count 0; without that component: solo whole kills, partied 0), x weight: **1 on a party quest map** (`pq_classic.json`, any mob level), else the share of the map's mobs within +-10 levels of yours. Unknown map or level = 0. Only counted while the relay said a hunt is running.
 - **Settings:** `relic` {enabled (True), toast (True)}; DEFAULTS in `hub/helper_settings.py`.
 - **Writes (data folder):** `relic.json` `{t, enabled, room, active, finished, difficulty, pieces_total, found_count, placed_count, next_chance_pct, together {n, bonus_pct}, found_ids, pending, toast {seq, t, text}, error}`. Reads `relic_cmd.json` (`{action: start, difficulty, pieces?, hours?, people?}` / `{action: stop}`; written by the rooms panel's Start menu via `components/hangout/join.write_relic_command`, deleted after use).
 - **Helper side:** "Open relic hunt" opens `<server>/rooms/<room>/relic#t=<member token>` in the browser (the fragment is never sent to the server and never logged; behind `internet.allowed("party")`).
@@ -33,5 +33,5 @@ Live (the player): join a room, owner starts a hunt (rooms panel Start menu or t
 
 ## Rules that bite here
 - Online only through the party link (`internet.allowed("party")`). No relay address, room id or token in tracked files or logs.
-- Placeholder art is code-drawn (relay page); no game imagery, no AI art.
+- Placeholder art is code-drawn (relay page); no AI art. The toast's piece is `hub/ui/art.piece()`: a placeholder picture the player chose (a game item icon) in `<data>/assets/art/relic_piece.gif`, git-ignored and never packaged; without it a drawn piece. Replace with the artist's piece when it comes.
 - Per-rise work is wrapped in `perf.timed("relic")`; `relay_post` / `relay_reply` run on the link thread (`Hunt` has its own lock).

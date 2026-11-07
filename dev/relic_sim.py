@@ -5,7 +5,9 @@ REAL relic component (tracker side), three members (the tracker's player + two s
 
 OUT_DIR is made fresh (only wiped when this sim made it). The internet gate is opened for this process only.
 Checks: Start from the rooms panel's command file (a plain member is refused, a promoted mod starts an Easy hunt);
-eligible kills from synthetic exp_rise events (out-of-band level = 0, unknown map = 0, in band = counted);
+eligible kills from synthetic exp_rise events, read as whole kills the duel's way (out-of-band level = 0, unknown
+map = 0, a rise that is no kill = 0, in band = counted, a party quest map counts whatever the mobs' level; the
+challenge component's rise_kills service on its own hub);
 together bonus tiers from presence; pieces dropping, no duplicates, the deck finishing; the shared table through the
 HTTP API (a conflict, snapping, the board completing, gallery, lobby text); relic.json and the toast trigger; a relay
 restart on the same DATA_DIR keeps the finished board. Fictional names only.
@@ -148,8 +150,14 @@ def state(tok=OWNER):
     return call("GET", f"/v2/rooms/{RID}/relic/state", token=tok)
 
 
-def rise(mobs, map=MAP):
-    hub.emit("exp_rise", t=time.time(), map=map, d=mobs * AVG, party=False, gap=1.0)
+def rise(kills, map=MAP, exp=15):
+    """`kills` whole kills, one rise each (Orange Mushroom = 15 EXP on MAP)."""
+    for _ in range(kills):
+        hub.emit("exp_rise", t=time.time(), map=map, d=exp, party=False, gap=1.0)
+
+
+def raw_rise(d, map=MAP, party=False):
+    hub.emit("exp_rise", t=time.time(), map=map, d=d, party=party, gap=1.0)
 
 
 try:
@@ -169,15 +177,17 @@ try:
     FakeTracker.level = 40                                   # Lv 40 farming Lv 2-14 mobs: nothing counts
     rise(50)
     rise(30, "No Such Map")                                  # an unknown map counts 0
+    FakeTracker.level = 8
+    raw_rise(7)                                              # 7 EXP: no mob or pair of mobs here (a quest, a share)
+    raw_rise(15, party=True)                                 # partied, no challenge component: never guessed
     time.sleep(1.0)
-    check(rc.hunt.acc == 0 and state()[1]["found_count"] == 0, "out-of-band level and unknown map: 0 kills", (rc.hunt.acc, state()[1]["found_count"]))
-    FakeTracker.level = 8                                    # in band for every mob of the map
+    check(rc.hunt.acc == 0 and state()[1]["found_count"] == 0, "out-of-band level, unknown map, no-kill rise, party share: 0 kills", (rc.hunt.acc, state()[1]["found_count"]))                                    # in band for every mob of the map
     presence(tok2, MAP, 3)                                   # Tester2 stands with me (same map and channel)
     presence(tok3, "Ellinia", 3)                             # Tester3 is elsewhere
     toaster = toast_mod.Toaster(type("Sh", (), {"root": None, "settings": lambda s, n: {"toast": True, "enabled": True},
                                                   "at": None, "px": lambda s, n: n})())
     shown = []
-    toaster.show = lambda text, now: shown.append(text)
+    toaster.show = lambda text, now, found=None, total=None: shown.append((text, found, total))
     toaster.tick()                                           # first look only syncs the sequence number
     rise(5)
     check(wait(lambda: state()[1]["found_count"] == 5), "5 mobs' worth in band: 5 pieces (every roll succeeds in this sim)", state()[1]["found_count"])
@@ -187,11 +197,14 @@ try:
     check(found_events and sum(len(e["ids"]) for e in found_events) == 5, "relic_found events carry the ids", found_events[:1])
     toaster.last_check = 0
     toaster.tick()
-    check(shown and shown[-1].startswith("+ Relic piece"), "the toast fires on the new sequence number", shown)
-    rise(0.5)
-    time.sleep(0.8)
-    rise(0.5)
-    check(wait(lambda: state()[1]["found_count"] == 6), "fractional mobs add up (0.5 + 0.5 = one more piece)", state()[1]["found_count"])
+    check(shown and shown[-1][0].startswith("+ Relic piece") and shown[-1][1] == 5 and shown[-1][2],
+          "the toast fires on the new sequence number, with found / total", shown)
+    pic = toast_mod.Toaster.image(type("T", (), {"shell": None})(), shown[-1][1], shown[-1][2])
+    check(pic.mode == "RGBA" and pic.width > 150, "the notice draws (piece + two lines)", pic.size)
+    FakeTracker.level = 40                                   # a PQ map: its mobs are far below Lv 40, still counted
+    rise(1, "1st Accompaniment <Bonus>", exp=26)
+    check(wait(lambda: state()[1]["found_count"] == 6), "a party quest map counts my kill whatever the mobs' level", state()[1]["found_count"])
+    FakeTracker.level = 8
     rise(6)
     check(wait(lambda: state()[1]["found_count"] == 12), "the deck finishes after exactly 12 drops", state()[1]["found_count"])
     st = state()[1]
@@ -199,6 +212,19 @@ try:
     rise(5)
     time.sleep(0.8)
     check(state()[1]["found_count"] == 12 and rj().get("pending") == 0, "...and nothing more drops", rj().get("pending"))
+
+    # 2b: the rise_kills service (challenge component, its own hub) ------------------------------------------
+    from components.challenge.component import ChallengeComponent  # noqa: E402
+    from gamedata import relic as relic_data  # noqa: E402
+    ch_root = OUT / "challenge_hub"
+    ch_root.mkdir(exist_ok=True)
+    chub = compose.make_hub(ch_root, components=[ChallengeComponent])
+    read = chub.ask("rise_kills")
+    check(read is not None and read(MAP, 15, False) == 1 and read(MAP, 30, False) == 2 and read(MAP, 7, False) == 0,
+          "rise_kills: one kill, two kills in one rise (30 = 15 + 15), no kill", (read(MAP, 15, False), read(MAP, 30, False), read(MAP, 7, False)))
+    check(read(MAP, 15, True) == 0, "rise_kills: partied with my level unknown counts nothing", read(MAP, 15, True))
+    check("1st Accompaniment <Last Stage>" in relic_data.pq_maps() and relic_data.weight("1st Accompaniment <Bonus>", 60) == 1.0
+          and relic_data.weight(MAP, 60) == 0.0, "PQ maps weigh 1, an out-of-band map 0")
 
     # 3: the shared table ---------------------------------------------------------------------------------------
     b, cols, rows = st["board"], st["cols"], st["rows"]
