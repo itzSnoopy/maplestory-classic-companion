@@ -1,4 +1,9 @@
 {
+ "0.13.0": [
+  "MP Eater on the skill bar: shows the last MP it gave you (blue cross) and its 5 s cooldown sweeping like the regen slot.",
+  "MP Eater is read right even when it lands together with an attack, and isn't mistaken for MP regen; its size follows the monsters on your map.",
+  "Only your job's MP Eater shows (no more duplicates)."
+ ],
  "0.12.0": [
   "Heal on the skill bar: your casts and the HP they give are now matched reliably, and Heal shows your average heal (~135) under its slot, remembered between sessions.",
   "Party skills: when a Cleric is in your party, a Heal slot appears after your own skills and flashes with the amount when their Heal lands on you.",

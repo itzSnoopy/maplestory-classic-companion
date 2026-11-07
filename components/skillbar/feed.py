@@ -73,6 +73,15 @@ def _skills_data():
         return {}
 
 
+EATER_BY_LINE = {"F/P": "2100000", "I/L": "2200000", "Cleric": "2300000", "Priest": "2300000"}
+
+
+def _eater_for(job):
+    """The MP Eater id of the character's job line (None: not a 2nd-job mage, or unknown)."""
+    j = str(job or "")
+    return next((sid for k, sid in EATER_BY_LINE.items() if j.startswith(k)), None)
+
+
 class Feed:
     def __init__(self, hub=None):
         self.hub = hub                      # the source in (burst looks)
@@ -320,6 +329,7 @@ class Feed:
                 self._write_casts()
             self._log_events(booked)
             self._heal_stats(booked)
+            self._eater_last()
             self._finish(self._decide(t))
             self._watch_max(t, v, ev, prof)
             self._reconcile(before, prof)
@@ -354,6 +364,7 @@ class Feed:
                 if c and c.get("anchor"):
                     m.anchor, m.anchor_w = c["anchor"], c.get("w", 0.5)
         self.clock_saved = now
+        self._seed_eater()
 
     def _heal_stats(self, ev):
         """Own Heal rises that did not end at max HP (a capped one is cut short) go into the
@@ -373,6 +384,29 @@ class Feed:
             st["recent"] = ((st.get("recent") or []) + [a])[-HEAL_RECENT:]
             st["last_t"] = round(e["t"], 1)
             self.heal_dirty = True
+
+    def _seed_eater(self):
+        """The stored last absorb tells the usual size from the first look of a session."""
+        e = (self.model.data.get("eater") if self.model else None) or {}
+        if e.get("last") and not self.usage.eater_recent:
+            self.usage.eater_recent.append(int(e["last"]))
+
+    def _eater_last(self):
+        """The last MP Eater absorb, kept in the character's regen record ("eater": {last, t}) so the
+        bar shows it after a restart too. Only the last one: the amount depends on the mob (player)."""
+        le = self.usage.last_eater
+        if self.model is None or not le:
+            return
+        cur = self.model.data.get("eater") or {}
+        if cur.get("t") != le[0]:
+            self.model.data["eater"] = {"last": int(le[1]), "t": le[0]}
+            self.heal_dirty = True              # same save path as the Heal stats
+
+    def eater_info(self):
+        """live.json skills entry of MP Eater: {last, t, cd} or None (no absorb seen yet); cd = its
+        cooldown in s (the bar sweeps it from t)."""
+        e = (self.model.data.get("eater") if self.model else None) or {}
+        return {"last": e["last"], "t": e.get("t"), "cd": mpuse.EATER_CD_S} if e.get("last") else None
 
     def heal_info(self):
         """live.json skills entry of Heal: {avg, recent, n, level} or None (no uncapped Heal yet)."""
@@ -482,17 +516,24 @@ class Feed:
         mp_item, mp_meso, _ = self.hub.ask("mp_price") or (None, None, None)
         price_of = self.hub.ask("price_of") or (lambda name: None)
         level = ((c.get("stats") or {}).get("level") or {}).get("value")
+        own_eater = _eater_for(c.get("job"))  # one MP Eater slot: the job's (the Skill-window read can
+        eater_shown = False                     # store all three ids for the one name, 2026-11-06)
         for sid, s in (c.get("skills") or {}).items():
             lv = max(s.get("value") or 0, seen_lv.get(sid) or 0)   # casts show a newer level
             d = self.data.get(sid) or {}
             costs = d.get("mp") or []
             cost = costs[lv - 1] if 0 < lv <= len(costs) else None
-            if not lv or not cost:
+            eater = sid in mpuse.EATER_IDS      # MP Eater: passive, no cost, but its slot shows the last absorb
+            if not lv or (not cost and not eater):
                 continue
+            if eater:
+                if (own_eater and sid != own_eater) or (not own_eater and eater_shown):
+                    continue
+                eater_shown = True
             icon = DATA / "templates" / "skill_icons" / f"{sid}.png"
             texts = d.get("levels") or []
             extra = cast_extras(texts[lv - 1] if lv <= len(texts) else "", level)
-            mesos = cost * mp_meso if mp_meso is not None else None
+            mesos = cost * mp_meso if (mp_meso is not None and cost) else None
             if mesos is not None:
                 for name, n in extra["items"]:
                     price = price_of(name)
@@ -514,10 +555,11 @@ class Feed:
                            "attacks": (translate.skill_kind(sid) or {}).get("attacks"),   # Heal: "undead"
                            "hp_cost": int(hp_cost.group(1)) if hp_cost else None,
                            "heal": self.heal_info() if sid == mpuse.HEAL_ID else None,
+                           "eater": self.eater_info() if eater else None,
                            "cast_n": counts.get(sid, 0),
                            "active": self.buff_on.get(sid),     # buff icon showing (None: not watched / not seen yet)
                            "max": d.get("max"), "mp": cost,
-                           "casts": (mp["cur"] // cost) if mp.get("cur") is not None else None,
+                           "casts": (mp["cur"] // cost) if (cost and mp.get("cur") is not None) else None,
                            "mesos": round(mesos, 1) if mesos is not None else None,
                            "mesos_with": mp_item,           # the potion that prices the MP
                            "items": [[n, k, price_of(n)] for n, k in extra["items"]],

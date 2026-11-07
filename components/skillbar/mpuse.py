@@ -44,6 +44,11 @@ MAX_GAP_S = 3.0         # a longer gap between looks: the change isn't explained
 MIN_LEVEL_SEEN = 3      # casts at a higher level's cost before that level is believed
 RECOVERY_S = 33         # Recovery (beginner skill): 6 ticks, the last ~31.3 s after the cast (2026-10-30)
 EATER_IDS = ("2100000", "2200000", "2300000")         # MP Eater (F/P, I/L, Cleric)
+EATER_AFTER_S = 1.5  # MP Eater's MP rise counts up to this long after an attack cast (it procs on attacks)
+EATER_CD_S = 5.0     # MP Eater cooldown: 128 procs on 2026-11-06 never closer than 4.9 s (player: it has one)
+EATER_CD_SLACK = 0.5  # look timing: a proc may show up to this much early
+EATER_RATIO_OK = 2.5  # an absorb within this factor of the usual size is not unlikely (other mobs)
+EATER_CAP_MIN, EATER_CAP_FRAC = 30, 0.1   # no usual size yet: an absorb above max(30, 10 % of max MP) is not one
 GUARD_ID = "2001000"                                  # Magic Guard
 HEAL_ID = "2301001"                                   # Heal (Cleric)
 HEAL_LAG_S = 1.0     # Heal's HP rise shows 0-0.2 s after its MP drop (recording 2026-11-06, 5 fps)
@@ -74,8 +79,11 @@ class Usage:
         self.rise = None                        # skills whose level may have gone up (None: all)
         self.last_item = None                   # the last item used (rises capped at max)
         self.last_guard = None                  # (t, MP) of the last hit Magic Guard took MP for
+        self.last_eater = None                  # (t, MP) of the last MP Eater absorb (the bar shows it)
+        self.eater_recent = deque(maxlen=9)     # recent absorb sizes (feed seeds the stored last one)
         self.cast_count = Counter()             # skill id -> casts seen (the bar pulses on a new one)
         self.last_cast_t = -1e9
+        self.last_attack_t = -1e9              # the last attack cast (MP Eater procs on attacks)
         self.recovery_until = -1e9
         self.heal_open = deque()                # times of own Heal casts whose HP rise is not seen yet
         self.reset_totals()
@@ -299,9 +307,30 @@ class Usage:
                     if fit is not None and pen + fit + sc < best[0]:
                         best = (pen + fit + sc, ("guard", rest, combo), tick)
             if eater:                           # MP Eater (+ casts in the same look)
+                # it procs on an attack: an attack in the same look is the natural pair (-20 + 9 = -11
+                # beats "Energy Bolt at an unknown Lv 10", 2026-11-06 recording); one shortly before
+                # is fine; with no attack around it is not MP Eater
+                recent = t - self.last_attack_t <= EATER_AFTER_S
+                if self.last_eater and t - self.last_eater[0] < EATER_CD_S - EATER_CD_SLACK:
+                    recent = None               # on cooldown: this rise is something else (a tick, a potion)
+                want = self.eater_size()
+                cap = max(EATER_CAP_MIN, EATER_CAP_FRAC * mx)  # no usual size yet: a potion-sized rise isn't one
                 for total, (sc, combo) in sums.items():
-                    if r + total > 0 and len(combo) <= 2 and pen + 1.5 + sc < best[0]:
-                        best = (pen + 1.5 + sc, ("eater", r + total, combo), tick)
+                    if recent is None or r + total <= 0 or len(combo) > 2:
+                        continue
+                    if not want and r + total > cap:
+                        continue
+                    if any(self._not_attack(c[1]) == 0 for c in combo):
+                        ep = 1.2
+                    elif recent:
+                        # right after an attack, between regen ticks: beats an off-clock "tick" of an
+                        # odd size (1.2); +15 absorbs read as regen, 2026-11-06 validation run
+                        ep = 0.9
+                    else:
+                        continue
+                    ep += self._eater_fit(r + total, want)
+                    if pen + ep + sc < best[0]:
+                        best = (pen + ep + sc, ("eater", r + total, combo), tick)
         sc, how, tick = best
         if how is None:
             return ([self._ev(t, "mp", "other", "unexplained", d)] if d else []), 0
@@ -316,6 +345,8 @@ class Usage:
             self.last_guard = (round(t, 1), how[1])
             return (self._casts(t, how[2])
                     + [self._ev(t, "mp", "magic_guard", "Magic Guard", -how[1])]), tick
+        self.last_eater = (round(t, 1), how[1])
+        self.eater_recent.append(how[1])
         return (self._casts(t, how[2]) + [self._ev(t, "mp", "mp_eater", "MP Eater", how[1])],
                 tick)
 
@@ -332,10 +363,32 @@ class Usage:
             if sid == RECOVERY_ID:
                 self.recovery_until = t + RECOVERY_S
             self.last_cast_t = t
+            if self._not_attack(sid) == 0:
+                self.last_attack_t = t
             if sid == HEAL_ID:
                 self.heal_open.append(t)
             out.append(self._ev(t, "mp", "cast", name, -cost, skill=sid, level=L))
         return out
+
+    def eater_size(self):
+        """The usual MP Eater absorb lately (median of the recent ones), or None."""
+        a = sorted(self.eater_recent)
+        return a[len(a) // 2] if a else None
+
+    @staticmethod
+    def _eater_fit(amount, want):
+        """Score change for an absorb of `amount` when they are usually `want`: about the usual size
+        = a strong hint (beats a guessed regen tick); far off = unlikely. Claw -20 + Eater +22 in one
+        look shows +2: "Eater +2" must lose to "Claw + Eater 22" (player, 2026-11-06)."""
+        if not want:
+            return 0.0
+        if abs(amount - want) <= max(1, 0.15 * want):
+            return -0.5 if amount == want else -0.3
+        # another map's monsters give another size (+9 there, +15 here): within x2.5 is neutral,
+        # only far off (Eater +2 when they give 22, a potion's 187) is unlikely
+        if max(amount, want) / max(1, min(amount, want)) <= EATER_RATIO_OK:
+            return 0.0
+        return 1.5
 
     def rivals(self, ev):
         """Skill ids (other than the cast's own) that cost exactly what this booked cast cost, at a
@@ -452,7 +505,8 @@ def _replay(path, levels, quiet=False):
     meters = {"hp": meter.Meter(prior=10.0, settings_fn=fixed),
               "mp": meter.Meter(prior=10.0, settings_fn=fixed)}
     u = Usage(meters)
-    u.set_context(levels=levels)
+    u.set_context(levels=levels, rise=[])        # given levels are known (like the live app with no
+                                                 # level-up since the last Skill-window read)
     for r in csv.DictReader(open(path)):
         hp = [int(r["hp"]), int(r["hp_max"])] if r["hp"] else None
         mp = [int(r["mp"]), int(r["mp_max"])] if r["mp"] else None

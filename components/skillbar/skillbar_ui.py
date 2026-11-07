@@ -39,6 +39,7 @@ from hub.ui.overlay import KEY, font as _font, text as _text      # what the ove
 from . import partyfx
 
 HEAL_ID = "2301001"         # Heal: its slot shows the average heal under it (feed.py "heal")
+EATER_IDS = ("2100000", "2200000", "2300000")   # MP Eater: last absorb under the slot (feed.py "eater")
 GUARD_ID = "2001000"        # Magic Guard: its slot shows what it covers (feed.py "guard"), not casts
 
 LIVE = DATA / "live.json"
@@ -418,6 +419,23 @@ class SkillBar:
                 slots.append((self._slot(icon), self._caption(corner, color, "shield")))
                 ids.append(sk.get("id"))
                 continue
+            if sk.get("id") in EATER_IDS:       # MP Eater: the last absorb (it varies by mob), blue cross
+                ea = sk.get("eater")
+                seen = getattr(self, "eater_seen", {})
+                if ea and sk["id"] in seen and ea.get("t") != seen[sk["id"]]:
+                    self.pulses[sk["id"]] = now     # a new absorb: pulse like a cast
+                self.eater_seen = {**seen, sk["id"]: (ea or {}).get("t")}
+                cap = f"+{ea['last']}" if ea else "?"
+                left = (ea["t"] + ea["cd"] - now) if (ea and ea.get("t") and ea.get("cd")) else 0
+                if left > 0:                    # cooldown: a sweep and the seconds, like the regen slot
+                    img = self._slot(icon, frac_left=min(1.0, left / ea["cd"]), mid=f"{math.ceil(left):.0f}",
+                                     pulse=self._pulse(sk, now))
+                else:
+                    img = self._slot(icon, pulse=self._pulse(sk, now))
+                slots.append((img,
+                              self._caption(cap, (140, 190, 255, 255), "cross")))
+                ids.append(sk.get("id"))
+                continue
             hl = sk.get("heal") if sk.get("id") == HEAL_ID else None
             if sk.get("id") == HEAL_ID:         # Heal: its average rise under the slot (? until one is seen)
                 cap = f"~{hl['avg']}" if hl else "?"
@@ -620,6 +638,8 @@ def demo_live():
                        {"id": "2301001", "name": "Heal", "level": 3, "mp": 40, "casts": 12,
                         "kind": "buff", "attacks": "undead", "cast_n": int(t / 4),
                         "heal": {"avg": 135, "recent": 136, "n": 4, "level": 3}},
+                       {"id": "2300000", "name": "MP Eater", "level": 1, "mp": None, "casts": None,
+                        "eater": {"last": 9 + int(t // 8) % 3, "t": 8 * int(t // 8) + 1.5, "cd": 5.0}},   # an absorb every 8 s, 5 s cooldown
                        {"id": "2001000", "name": "Magic Guard", "level": 2, "mp": 8, "casts": 52,
                         "guard": {"pct": 33, "absorb": 270, "ehp": 818, "last": 43}}]}
 
