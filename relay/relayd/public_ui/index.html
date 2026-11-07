@@ -108,9 +108,20 @@
         <label class="inline">Difficulty
           <select id="mDiff"></select>
         </label>
+        <label class="check"><input type="checkbox" id="mAutofit"> Auto-fit: found pieces go straight into place</label>
         <button class="primary" id="mRelicStart" type="button">Start relic hunt</button>
         <button class="danger" id="mRelicStop" type="button" hidden>Stop</button>
         <a id="mRelicOpen" href="#" target="_blank" rel="noopener" hidden>Open the table</a>
+      </div>
+      <div id="mPicture" hidden>
+        <h4>Picture</h4>
+        <div id="mGallery" class="gallery"></div>
+        <div class="row">
+          <label class="inline">Upload your own (PNG, JPEG or WebP, up to 4 MB, 64 to 4096 px)
+            <input type="file" id="mUpload" accept="image/png,image/jpeg,image/webp">
+          </label>
+        </div>
+        <p class="muted" id="mPicMsg" hidden></p>
       </div>
       <p class="muted" id="mHint">Starts for everyone who is online in the room. Players need the app open to take part.</p>
     </div>

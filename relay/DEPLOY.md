@@ -124,3 +124,9 @@ so PINs and tokens travel unencrypted until then.
 | `RELAY_SUBNET`, `PROXY_IP` | 172.29.87.0/24, .10 | the stack's network and Caddy's address |
 
 License: AGPLv3. People using your relay can ask for its source; `/health` links to the public repo.
+
+## Relic hunt pictures (gallery)
+
+The relic hunt can use a picture instead of the drawn scene. Put the gallery pictures (PNG, JPEG or WebP; names of letters, digits, space, `_`, `.`, `-`) in `<DATA_DIR>/relic_gallery/` on the server, i.e. inside the stack's data volume (`/data/relic_gallery/` in the container). The folder is created on first use. They are never in git. Owners can also upload a picture per room from the `/rooms` page (stored under `<DATA_DIR>/relic_uploads/`, 5 per room, removed when the room is deleted).
+
+This version needs a redeploy of the relay (new endpoints, and the `/rooms` pages get `blob:` in `img-src`).

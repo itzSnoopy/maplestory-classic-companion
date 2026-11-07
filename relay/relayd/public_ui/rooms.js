@@ -242,6 +242,8 @@
     if (pollTimer) clearInterval(pollTimer);
     pollTimer = null;
     managed = null;
+    picOptions = picOptions.filter(function (o) { return o.kind === "gallery"; });      // uploads belong to one room
+    picChoice = null;
     $("manage").hidden = true;
   }
   function refreshManage() {
@@ -308,7 +310,7 @@
     var rel = (d.activities || {}).relic, cur = d.relic, box = $("mRelic"), sel = $("mDiff");
     clear(box);
     $("mRelicControls").hidden = !rel;
-    if (!rel) return;
+    if (!rel) { $("mPicture").hidden = true; return; }
     if (sel.options.length !== rel.difficulties.length) {
       clear(sel);
       rel.difficulties.forEach(function (x) {
@@ -317,6 +319,9 @@
     }
     var running = !!cur && cur.state === "running";
     sel.parentNode.hidden = running;
+    $("mAutofit").parentNode.hidden = running;
+    $("mPicture").hidden = running;
+    if (!running) loadGallery();
     $("mRelicStart").hidden = running;
     $("mRelicStop").hidden = !running;
     $("mRelicOpen").hidden = !cur;
@@ -325,9 +330,65 @@
     var head = cur.state === "finished"
       ? "Relic hunt complete (" + cur.label + "): most found " + cur.most_found + ", last piece by " + cur.last_placed_by
       : "Relic hunt " + cur.found + "/" + cur.pieces + " found, " + cur.placed + " placed (" + cur.label + ")" +
-        (cur.next_chance_pct == null ? "" : ", next piece " + cur.next_chance_pct.toFixed(2) + " % per kill");
+        (cur.next_chance_pct == null ? "" : ", next piece " + cur.next_chance_pct.toFixed(2) + " % per kill") +
+        (cur.autofit ? " (auto-fit)" : "");
     box.appendChild(h("div", { class: "live" }, h("b", {}, head)));
   }
+  // ---- the hunt's picture: drawn scene, a gallery picture, or an upload of your own
+  var picChoice = null, picOptions = [], galleryLoaded = false, galleryLoading = false, uploadBusy = false;
+  function picMsg(text) { var e = $("mPicMsg"); e.textContent = text || ""; e.hidden = !text; }
+  function loadGallery() {
+    if (galleryLoaded || galleryLoading) return;
+    galleryLoading = true;
+    api("GET", "/v2/relic/gallery").then(function (d) {
+      galleryLoading = false; galleryLoaded = true;
+      picOptions = (d.images || []).map(function (x) {
+        return { kind: "gallery", key: x.name, label: x.name, src: x.url, choice: { gallery: x.name } };
+      }).concat(picOptions.filter(function (o) { return o.kind === "upload"; }));
+      renderGallery();
+    }, function () { galleryLoading = false; renderGallery(); });
+  }
+  function renderGallery() {
+    var box = $("mGallery");
+    clear(box);
+    var all = [{ kind: "scene", key: "", label: "Drawn scene", src: null, choice: null }].concat(picOptions);
+    if (picChoice && !all.some(function (o) { return o.kind + ":" + o.key === picChoice; })) picChoice = null;
+    all.forEach(function (o) {
+      var id = o.kind + ":" + o.key;
+      box.appendChild(h("button", { type: "button", class: "pic" + ((picChoice || "scene:") === id ? " on" : ""),
+        title: o.label, onclick: function () { picChoice = id === "scene:" ? null : id; renderGallery(); } },
+        o.src ? h("img", { src: o.src, alt: "" }) : h("img", { alt: "", src: "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" }),
+        h("span", {}, o.label)));
+    });
+  }
+  function chosenPicture() {
+    var o = picOptions.filter(function (x) { return x.kind + ":" + x.key === picChoice; })[0];
+    return o ? o.choice : null;
+  }
+  $("mUpload").addEventListener("change", function () {
+    var inp = $("mUpload"), f = inp.files && inp.files[0];
+    inp.value = "";
+    picMsg("");
+    if (!f || !managed || uploadBusy) return;
+    if (["image/png", "image/jpeg", "image/webp"].indexOf(f.type) < 0) return picMsg("Use a PNG, JPEG or WebP picture.");
+    if (f.size > 4 * 1024 * 1024) return picMsg("That picture is over 4 MB.");
+    uploadBusy = true;
+    picMsg("Uploading...");
+    var m = managed;
+    fetch("/v2/rooms/" + m.id + "/relic/upload", { method: "POST", body: f,
+      headers: { Authorization: "Bearer " + m.token, "Content-Type": f.type } }).then(function (r) {
+      return r.json().then(function (d) {
+        uploadBusy = false;
+        if (!r.ok) return picMsg(d.error || ("error " + r.status));
+        picOptions = picOptions.filter(function (o) { return o.key !== d.upload; });
+        picOptions.push({ kind: "upload", key: d.upload, label: "Your upload", src: URL.createObjectURL(f),
+          choice: { upload: d.upload } });
+        picChoice = "upload:" + d.upload;
+        picMsg("Uploaded (" + d.w + " x " + d.h + ").");
+        renderGallery();
+      }, function () { uploadBusy = false; picMsg("unexpected reply"); });
+    }, function () { uploadBusy = false; picMsg("cannot reach the server"); });
+  });
   function renderActivity(d) {
     var race = (d.activities || {}).race, a = d.activity;
     var sel = $("mMinutes");
@@ -377,7 +438,11 @@
     if (managed && window.confirm("Stop the race now?")) act("/challenge/stop", {});
   });
   $("mRelicStart").addEventListener("click", function () {
-    if (managed) act("/relic/start", { difficulty: $("mDiff").value });
+    if (!managed) return;
+    var body = { difficulty: $("mDiff").value, autofit: $("mAutofit").checked };
+    var pic = chosenPicture();
+    if (pic) body.picture = pic;
+    act("/relic/start", body);
   });
   $("mRelicStop").addEventListener("click", function () {
     if (managed && window.confirm("Stop the relic hunt? The board is thrown away.")) act("/relic/stop", {});

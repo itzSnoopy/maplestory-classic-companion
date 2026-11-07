@@ -1,4 +1,9 @@
 {
+ "0.13.2": [
+  "Relic hunt: the \"Relic piece found!\" message stays 8 seconds (click it to close it sooner).",
+  "Relic hunt: a new Auto-fit option (Start activity > Relic hunt in the rooms panel's menu) drops each found piece straight into its place.",
+  "Room owners can pick the hunt's picture on the web page: one from the server's gallery or their own upload."
+ ],
  "0.13.1": [
   "Duels count your kills from the game's EXP messages (white lines are yours, yellow are your party's), so kills register reliably.",
   "The versus board now shows the right character picture for each player, and your own score moves the moment you get a kill."

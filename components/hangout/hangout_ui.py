@@ -133,6 +133,7 @@ class HangoutPanel:
         self.next_check, self.lost_t, self.checking = 0.0, 0.0, False
         self.status, self.status_t = {"error": None, "activity": None}, 0.0
         self.relic, self.relic_t = None, 0.0
+        self.autofit = None                  # tk.BooleanVar: "Auto-fit pieces" in the Relic hunt menu (this run only)
         self.piece_img = None
         self.last_err = None
         self.photo, self.shown, self.drawn = None, None, None
@@ -590,6 +591,10 @@ class HangoutPanel:
         for minutes in J.RACE_MINUTES:
             m.add_command(label=f"Kill race · {minutes} min", command=lambda mi=minutes: self.start_race(mi))
         relic = tk.Menu(m, tearoff=0)
+        if self.autofit is None:
+            self.autofit = tk.BooleanVar(master=self.w, value=False)
+        relic.add_checkbutton(label="Auto-fit pieces (they go straight into place)", variable=self.autofit)
+        relic.add_separator()
         for key, label in J.RELIC_LEVELS:
             relic.add_command(label=label, command=lambda k=key: self.start_relic(k))
         m.add_cascade(label="Relic hunt", menu=relic)
@@ -618,7 +623,9 @@ class HangoutPanel:
         self._send({"action": "start", "kind": "race", "minutes": minutes}, "Starting the kill race…")
 
     def start_relic(self, difficulty):
-        self._send_relic({"action": "start", "difficulty": difficulty}, "Starting the relic hunt…")
+        fit = bool(self.autofit.get()) if self.autofit is not None else False
+        self._send_relic({"action": "start", "difficulty": difficulty, "autofit": fit},
+                         "Starting the relic hunt (auto-fit)…" if fit else "Starting the relic hunt…")
 
     def stop_relic(self):
         self._send_relic({"action": "stop"}, "Stopping the relic hunt…")

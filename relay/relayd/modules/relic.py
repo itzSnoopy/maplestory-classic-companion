@@ -18,8 +18,8 @@ import math
 import random
 import threading
 
-from .. import clock
-from ..errors import ApiError
+from .. import clock, pictures
+from ..errors import ApiError, RawReply
 from . import Module, register
 
 KILLS_PER_HOUR = 550            # the design rate of one person (plan: measured 642/h, nerfed 15 %)
@@ -154,7 +154,7 @@ class Relic(Module):
     name = "relic"
     persistent = True
     offered = True              # owner_view offers "start" even where the module is not enabled yet
-    enable_on = ("start",)      # these actions switch the module on in a room that lacks it (owner / mod only)
+    enable_on = ("start", "upload")      # these actions switch the module on in a room that lacks it (owner / mod only)
 
     def __init__(self):
         self.lock = threading.RLock()
@@ -163,6 +163,7 @@ class Relic(Module):
         self.curves = {}                        # (room id, hunt id) -> chances
         self.cap = {}                           # (room id, name) -> [tokens, t]
         self.moves = {}                         # (room id, name) -> [move times]
+        self.uploads = {}                       # room id -> [upload times]
 
     # ---- state
     def _load(self, room_id):
@@ -258,6 +259,13 @@ class Relic(Module):
         x, y = self._scatter(hunt)
         hunt["found"][str(pid)] = {"by": name, "t": round(now, 1), "x": x, "y": y, "placed": False}
         hunt["order"].append(pid)
+        if hunt.get("autofit"):                 # straight into its slot, as a manual snap would
+            cx, cy = slot_center(hunt, pid)
+            hunt["found"][str(pid)].update(x=round(cx, 4), y=round(cy, 4), placed=True, placed_by=name,
+                                           placed_t=round(now, 1))
+            hunt["placed"] += 1
+            if hunt["placed"] >= hunt["pieces"]:
+                self._finish(rid, hunt, name, now)
         return pid
 
     def _scatter(self, hunt):
@@ -283,17 +291,18 @@ class Relic(Module):
         out = {"active": self._running(hunt), "difficulty": hunt["difficulty"], "pieces_total": hunt["pieces"],
                "found_count": nf, "placed_count": hunt["placed"],
                "next_chance_pct": round(nxt * 100, 3) if nxt is not None else None,
-               "together": together, "found": new, "counted": counted}
+               "together": together, "found": new, "counted": counted,
+               "autofit": bool(hunt.get("autofit"))}
         if hunt.get("finished"):
             out["finished"] = True
         return out
 
     # ---- actions and reads
     def actions(self):
-        return {"start": self._start, "stop": self._stop, "move": self._move}
+        return {"start": self._start, "stop": self._stop, "move": self._move, "upload": self._upload}
 
     def reads(self):
-        return {"state": self._state}
+        return {"state": self._state, "picture": self._picture}
 
     @staticmethod
     def _host_only(m):
@@ -326,6 +335,8 @@ class Relic(Module):
         self._host_only(m)
         rid = room["id"]
         key, label, pieces, cols, rows, hours, people, r = self._spec(d)
+        autofit = d.get("autofit") is True
+        picture = self._pick_picture(rid, d.get("picture"))
         with self.lock:
             st = self._load(rid)
             old = st.get("hunt")
@@ -338,11 +349,84 @@ class Relic(Module):
             st["hunt"] = {"id": hid, "active": True, "difficulty": key, "label": label, "pieces": pieces,
                           "cols": cols, "rows": rows, "hours": hours, "people": people, "r": r,
                           "started_by": m["name"], "started_t": round(now, 1), "deck": deck, "found": {},
-                          "order": [], "placed": 0, "acc": {}, "new": {}}
+                          "order": [], "placed": 0, "acc": {}, "new": {}, "autofit": autofit, "picture": picture}
             for k in [k for k in self.cap if k[0] == rid]:
                 del self.cap[k]
             self._save(rid)
             return self._board(rid, st["hunt"], m["name"], now)
+
+    def _data_dir(self):
+        return self.relay.cfg.data_dir if self.relay else None
+
+    def _pick_picture(self, rid, pic):
+        """Validate the `picture` of a start request: None, {"gallery": name} or {"upload": id}."""
+        if pic is None:
+            return None
+        dd = self._data_dir()
+        bad = ApiError(400, 'picture must be {"gallery": name} or {"upload": id}')
+        if not isinstance(pic, dict) or len(pic) != 1 or dd is None:
+            raise bad
+        if "gallery" in pic:
+            hit = pictures.gallery_file(dd, pic["gallery"])
+            if not hit:
+                raise ApiError(400, "that gallery picture does not exist")
+            return {"kind": "gallery", "name": pic["gallery"], "w": hit[1].w, "h": hit[1].h}
+        if "upload" in pic:
+            hit = pictures.upload_file(dd, rid, pic["upload"])
+            if not hit:
+                raise ApiError(400, "that upload does not exist in this room")
+            return {"kind": "upload", "id": pic["upload"], "w": hit[1].w, "h": hit[1].h}
+        raise bad
+
+    @staticmethod
+    def _picture_view(rid, hunt):
+        p = hunt.get("picture") if hunt else None
+        if not p:
+            return None
+        if p["kind"] == "gallery":
+            url = pictures.gallery_url(p["name"])
+        else:
+            url = f"/v2/rooms/{rid}/relic/picture?v={p['id']}"
+        return {"kind": p["kind"], "url": url, "w": p["w"], "h": p["h"]}
+
+    def _upload(self, room, m, d, now):
+        """Body is the raw image (http.py passes {"_raw": bytes, "_ctype": str}). Owner / mod only."""
+        self._host_only(m)
+        rid = room["id"]
+        raw = d.get("_raw")
+        if not isinstance(raw, bytes):
+            raise ApiError(400, "send the image as the raw request body")
+        dd = self._data_dir()
+        if dd is None:
+            raise ApiError(404, "not found")
+        n, window = pictures.UPLOAD_RATE
+        with self.lock:
+            ts = [t for t in self.uploads.get(rid, []) if now - t < window]
+            if len(ts) >= n:
+                raise ApiError(429, "too many uploads, try again in a few minutes")
+            self.uploads[rid] = ts + [now]          # every attempt counts (a bad image too): no free 4 MB retries
+            h = self._hunt(rid)
+            keep = (h.get("picture") or {}).get("id") if self._running(h) else None
+            uid, info = pictures.save_upload(dd, rid, raw, d.get("_ctype"), keep=keep)
+        return {"upload": uid, "w": info.w, "h": info.h}
+
+    def _picture(self, room, m, now):
+        """GET relic/picture: the bytes of the current hunt's picture (member token)."""
+        hunt = self._hunt(room["id"])
+        p = hunt.get("picture") if hunt else None
+        dd = self._data_dir()
+        hit = None
+        if p and dd is not None:
+            hit = (pictures.gallery_file(dd, p["name"]) if p["kind"] == "gallery"
+                   else pictures.upload_file(dd, room["id"], p["id"]))
+        if not hit:
+            raise ApiError(404, "no picture")
+        try:
+            with open(hit[0], "rb") as f:
+                body = f.read()
+        except OSError:
+            raise ApiError(404, "no picture")
+        return RawReply(body, hit[1].ctype, [("Cache-Control", "private, max-age=600")])
 
     def _stop(self, room, m, d, now):
         self._host_only(m)
@@ -437,7 +521,8 @@ class Relic(Module):
                "aspect": ASPECT, "board": b, "tile": round(s, 5), "found_count": nf, "placed_count": hunt["placed"],
                "next_chance_pct": round(nxt * 100, 3) if nxt is not None else None,
                "together": self._together(rid, me, now), "pieces": pieces, "finders": finders,
-               "started_by": hunt["started_by"], "gallery": gallery, "server_t": now}
+               "started_by": hunt["started_by"], "gallery": gallery, "server_t": now,
+               "autofit": bool(hunt.get("autofit")), "picture": self._picture_view(rid, hunt)}
         if hunt.get("finished"):
             out.update(finished_t=hunt["finished_t"], most_found=hunt["most_found"],
                        last_placed_by=hunt["last_placed_by"])
@@ -467,7 +552,8 @@ class Relic(Module):
         with self.lock:
             h = self._hunt(room["id"])
             return {"hunt": ({"difficulty": h["difficulty"], "found": len(h["found"]), "placed": h["placed"],
-                              "pieces": h["pieces"], "finished": bool(h.get("finished"))} if h else None)}
+                              "pieces": h["pieces"], "finished": bool(h.get("finished")),
+                              "autofit": bool(h.get("autofit"))} if h else None)}
 
     def owner_view(self, room, now):
         acts = {"relic": {"label": "Relic hunt", "difficulties": [
@@ -483,7 +569,8 @@ class Relic(Module):
                 cur = {"state": "finished" if h.get("finished") else "running", "difficulty": h["difficulty"],
                        "label": h["label"], "pieces": h["pieces"], "found": nf, "placed": h["placed"],
                        "next_chance_pct": round(chances[nf] * 100, 3) if nf < h["pieces"] else None,
-                       "started_by": h["started_by"], "server_t": now}
+                       "started_by": h["started_by"], "server_t": now, "autofit": bool(h.get("autofit")),
+                       "picture": (h.get("picture") or {}).get("kind")}
                 if h.get("finished"):
                     cur.update(most_found=h["most_found"], last_placed_by=h["last_placed_by"])
         return {"activities": acts, "current": None, "extra": {"relic": cur}}
@@ -503,3 +590,7 @@ class Relic(Module):
             for d in (self.cap, self.moves, self.curves):
                 for k in [k for k in d if k[0] == room_id]:
                     del d[k]
+            self.uploads.pop(room_id, None)
+        dd = self._data_dir()
+        if dd is not None:
+            pictures.delete_room(dd, room_id)

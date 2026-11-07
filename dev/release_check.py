@@ -380,6 +380,8 @@ def check_relay():
     check("relay v2 tokens / lockout / room size / lobby tests pass (relay/tests/test_v2_tokens.py)", r.returncode == 0, (r.stderr or r.stdout)[-300:])
     r = run([sys.executable, str(ROOT / "relay" / "tests" / "test_v2_relic.py")], env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=300)
     check("relay v2 relic hunt tests pass (relay/tests/test_v2_relic.py)", r.returncode == 0, (r.stderr or r.stdout)[-300:])
+    r = run([sys.executable, str(ROOT / "relay" / "tests" / "test_v2_relic_picture.py")], env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=300)
+    check("relay v2 relic picture tests pass (relay/tests/test_v2_relic_picture.py)", r.returncode == 0, (r.stderr or r.stdout)[-300:])
     r = run([sys.executable, str(ROOT / "dev" / "feedback_sim.py"), str(TMP / "feedback_sim")],
             env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=180)
     check("skill feedback sim (page -> relay -> dev tool)", r.returncode == 0, (r.stdout or r.stderr)[-300:])

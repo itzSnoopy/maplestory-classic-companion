@@ -56,3 +56,5 @@ pre, code { background: var(--code); border-radius: 4px; }
 pre { padding: 8px; overflow-x: auto; max-height: 320px; white-space: pre-wrap; overflow-wrap: anywhere; }
 code { padding: 1px 4px; overflow-wrap: anywhere; }
 .keybox { font-size: 16px; padding: 8px; display: block; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.bar h2 { margin: 0; }

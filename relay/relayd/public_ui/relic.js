@@ -11,6 +11,7 @@
   var token = "";
   var state = null, tiles = {}, slots = [], scene = null, sceneKey = "", dragging = null;
   var pollTimer = null, busy = false, popped = {};
+  var pic = { url: "", status: "none", img: null };      // the hunt's picture: none | loading | ready | failed
 
   function say(text) { var e = $("msg"); e.textContent = text || ""; e.hidden = !text; }
   function tryStore(fn) { try { return fn(); } catch (e) { return null; } }
@@ -87,6 +88,50 @@
     return c;
   }
 
+  // ---- the hunt's picture: loaded once per address, drawn "cover" (fills the board, centre crop)
+  function coverCanvas(img, cols, rows) {
+    var S = 96, W = cols * S, H = rows * S;
+    var c = document.createElement("canvas");
+    c.width = W; c.height = H;
+    var k = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+    var dw = img.naturalWidth * k, dh = img.naturalHeight * k;
+    c.getContext("2d").drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    return c;
+  }
+
+  function loadPicture(p) {
+    if (pic.url === p.url) return;
+    pic = { url: p.url, status: "loading", img: null };
+    var mine = pic;
+    function done(ok, img) {
+      if (pic !== mine) return;
+      mine.status = ok ? "ready" : "failed";
+      mine.img = ok ? img : null;
+      sceneKey = "";                    // rebuild the tiles from the new source
+      if (state) render(state);
+    }
+    function fromSrc(src, blobUrl) {
+      var img = new Image();
+      img.onload = function () {
+        if (blobUrl) URL.revokeObjectURL(blobUrl);
+        done(img.naturalWidth > 0 && img.naturalHeight > 0, img);
+      };
+      img.onerror = function () { if (blobUrl) URL.revokeObjectURL(blobUrl); done(false); };
+      img.src = src;
+    }
+    if (p.kind === "upload") {          // private to the room: needs the member token
+      fetch(p.url, { headers: { Authorization: "Bearer " + token } }).then(function (r) {
+        if (!r.ok) throw new Error("no picture");
+        return r.blob();
+      }).then(function (b) {
+        var u = URL.createObjectURL(b);
+        fromSrc(u, u);
+      }).catch(function () { done(false); });
+    } else {
+      fromSrc(p.url, null);
+    }
+  }
+
   function tileCanvas(pid, st) {
     var c = document.createElement("canvas");
     c.width = c.height = 96;
@@ -108,12 +153,16 @@
   }
 
   function build(st) {
-    var key = st.cols + "x" + st.rows + ":" + st.difficulty;
-    if (key === sceneKey) return;
+    if (st.picture) loadPicture(st.picture);
+    else pic = { url: "", status: "none", img: null };
+    if (st.picture && pic.status === "loading") return false;      // wait for it (falls back to the scene on failure)
+    var useImg = st.picture && pic.status === "ready";
+    var key = st.cols + "x" + st.rows + ":" + st.difficulty + ":" + (useImg ? pic.url : "scene");
+    if (key === sceneKey) return true;
     sceneKey = key;
     while (table.firstChild) table.removeChild(table.firstChild);
     tiles = {}; slots = []; popped = {};
-    scene = drawScene(st.cols, st.rows);
+    scene = useImg ? coverCanvas(pic.img, st.cols, st.rows) : drawScene(st.cols, st.rows);
     boardBox = document.createElement("div");
     boardBox.className = "boardbox";
     table.appendChild(boardBox);
@@ -123,6 +172,7 @@
       table.appendChild(s);
       slots.push(s);
     }
+    return true;
   }
 
   function layout(st) {
@@ -156,10 +206,11 @@
   }
 
   function render(st) {
-    build(st);
-    layout(st);
+    var ready = build(st);
+    if (ready) layout(st);
+    $("autofitNote").hidden = !st.autofit;
     st.pieces.forEach(function (p) {
-      if (p.state === "hidden") return;
+      if (!ready || p.state === "hidden") return;
       var t = ensureTile(p, st);
       t.lastChild.style.setProperty("--dotc", hue(p.by || ""));
       t.title = "Found by " + (p.by || "?");

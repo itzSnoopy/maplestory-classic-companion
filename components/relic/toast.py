@@ -1,6 +1,7 @@
-"""toast.py - the "Relic piece found!" notice over the game: bottom-right corner, 3 s, no sound.
+"""toast.py - the "Relic piece found!" notice over the game: bottom-right corner, 8 s, no sound.
 A Maple-style box (dark navy, gold frame) with the puzzle piece on the left (hub.ui.art.piece: the local
 placeholder picture in <data>/assets/art/, else a drawn piece), "Relic piece found!" and "17 / 48 found".
+Stays SHOW_S (8 s; a click closes it sooner).
 Helper side. Reads relic.json (written by the tracker's component) about once a second."""
 import time
 import tkinter as tk
@@ -8,7 +9,7 @@ import tkinter as tk
 from hub import history as H
 
 CHECK_S = 1.0
-SHOW_S = 3.0
+SHOW_S = 8.0           # player 2026-11-07: 3 s was too short to notice
 STALE_S = 15.0          # a toast older than this when first seen is not shown (the helper just started)
 
 
@@ -111,4 +112,7 @@ class Toaster:
             w.configure(bg=KEY)
             self.photo = ImageTk.PhotoImage(flat)
             tk.Label(w, image=self.photo, bd=0, bg=KEY).pack()
+        w.bind("<Button-1>", lambda e: self._close())
+        for c in w.winfo_children():
+            c.bind("<Button-1>", lambda e: self._close())
         self.win, self.until = w, now + SHOW_S

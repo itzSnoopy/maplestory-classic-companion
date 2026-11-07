@@ -528,6 +528,8 @@ class Relay:
         fn = mod.actions().get(action) if mod else None
         if not fn:
             raise ApiError(404, "not found")
+        if callable(body):                       # a raw-body action: read the body only after the auth passed
+            body = body()
         return fn(room, m, _obj(body), clock.now())
 
     def module_read(self, room_id, header, module, name, addr=None):

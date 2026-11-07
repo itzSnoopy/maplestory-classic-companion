@@ -4,11 +4,13 @@ import sys
 import traceback
 from urllib.parse import unquote
 
-from .errors import ApiError
+from . import pictures
+from .errors import ApiError, RawReply
 from .rooms import ROOM_ID_RE
 
 MAX_BODY = 8192
 FEEDBACK_MAX_BODY = 65536
+RAW_ACTIONS = {("relic", "upload")}      # POST bodies that are raw bytes (an image), read after the auth check
 
 
 class V2Mixin:
@@ -31,13 +33,35 @@ class V2Mixin:
         except ValueError:
             raise ApiError(400, "bad json")
 
+    def _raw_body(self, limit):
+        """The whole request body as bytes (for image uploads), at most `limit`. Returns (bytes, content type)."""
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            raise ApiError(400, "bad Content-Length")
+        if n > limit:
+            self.close_connection = True
+            raise ApiError(413, "the image is too big (4 MB at most)")
+        if n <= 0:
+            raise ApiError(400, "send the image as the request body")
+        ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        self._raw_read = True
+        return self.rfile.read(n), ctype
+
     def handle_v2(self, method, path):
         app = self.server.app
         try:
+            self._raw_read = not (method == "POST" and path.endswith("/relic/upload"))
             if not app.rate_ok(self.cinfo.ip):
                 raise ApiError(429, "slow down")
-            self._send(200, self._route(app, method, path))
+            out = self._route(app, method, path)
+            if isinstance(out, RawReply):
+                self._admin_send(200, out.body, out.ctype, out.headers)
+            else:
+                self._send(200, out)
         except ApiError as e:
+            if method == "POST" and not getattr(self, "_raw_read", True):
+                self.close_connection = True        # an unread body must not be taken for the next request
             self._send(e.code, {"error": e.msg, **e.extra})
         except Exception:
             traceback.print_exc(file=sys.stderr)
@@ -50,6 +74,8 @@ class V2Mixin:
         addr = self.cinfo.ip
         if n == 2 and seg[1] == "lobby" and method == "GET":
             return app.lobby()
+        if n == 3 and seg[1] == "relic" and seg[2] == "gallery" and method == "GET":
+            return pictures.gallery_list(app.cfg.data_dir)
         if n == 3 and seg[1] == "feedback":
             return self._feedback(app, method, seg[2], addr)
         if n >= 2 and seg[1] == "rooms":
@@ -80,6 +106,12 @@ class V2Mixin:
                 elif n == 5 and method == "POST":
                     if seg[3] == "members":
                         raise ApiError(404, "not found")
+                    if (seg[3], seg[4]) in RAW_ACTIONS:
+                        def body():
+                            raw, ctype = self._raw_body(pictures.MAX_UPLOAD)
+                            return {"_raw": raw, "_ctype": ctype}
+                        self._raw_read = False
+                        return app.module_action(rid, auth, seg[3], seg[4], body, addr)
                     return app.module_action(rid, auth, seg[3], seg[4], self._json_body(), addr)
                 elif n == 6 and method == "POST" and seg[3] == "members":
                     return app.member_action(rid, auth, seg[4], seg[5], addr)

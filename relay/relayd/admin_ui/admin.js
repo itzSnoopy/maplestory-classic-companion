@@ -177,7 +177,16 @@
       if (kind.value === "party") { max.setAttribute("max", "6"); max.setAttribute("min", "1"); }
       else { max.removeAttribute("max"); max.setAttribute("min", "0"); }
     });
-    add(viewEl, h("div", { class: "panel" }, h("h2", {}, "Create room"),
+    // collapsed into one bar, like /rooms: the form opens on "Create room"
+    var form = h("div", { hidden: true });
+    var openBtn = btn("Create room", function () { setOpen(true); }, "primary");
+    function setOpen(open) {
+      form.hidden = !open; openBtn.hidden = open;
+      if (open) name.focus(); else showError("");
+    }
+    add(viewEl, h("div", { class: "panel" },
+      h("div", { class: "bar" }, h("h2", {}, "Create room"), openBtn), form, shown));
+    add(form, [
       h("label", {}, "Room name", name),
       h("label", {}, "Owner name (the owner's name in the room, letters and digits, up to 16)", owner),
       h("label", {}, "Kind", kind), h("label", {}, "Access", access),
@@ -205,9 +214,10 @@
               var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(rng);
             })));
           name.value = ""; owner.value = ""; secret.value = ""; max.value = "";
+          setOpen(false);
           loadList();
         }, function (e) { showError(e.error); });
-      }, "primary"), shown));
+      }, "primary"), " ", btn("Close", function () { setOpen(false); })]);
     add(viewEl, listBox);
     loadList();
   }

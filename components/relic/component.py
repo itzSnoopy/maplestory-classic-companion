@@ -118,6 +118,8 @@ class RelicComponent(Component):
             for k in ("pieces", "hours", "people"):
                 if cmd.get(k) is not None:
                     body[k] = cmd[k]
+            if cmd.get("autofit") is True:
+                body["autofit"] = True
         try:
             status, res = link["call"]("relic", action, body)
         except Exception as e:
