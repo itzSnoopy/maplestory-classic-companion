@@ -32,6 +32,8 @@ class Handler(PublicMixin, AdminMixin, V2Mixin, party_relay.Handler):
         path = self.path.split("?", 1)[0]
         if method == "GET" and path == "/health":
             return self._send(200, self._health())
+        if method == "GET" and path == "/":
+            return self._redirect("/rooms")             # the rooms page is the relay's front page
         if path.startswith("/v2/") or path.startswith("/admin"):
             self.cinfo = self.server.app.access.resolve(self.client_address[0], self.headers)
             if path == "/admin" or path.startswith("/admin/") or path.startswith("/v2/admin/"):
@@ -46,6 +48,15 @@ class Handler(PublicMixin, AdminMixin, V2Mixin, party_relay.Handler):
         if path.startswith("/v2/"):
             return self.handle_v2(method, path)
         return self._send(404, {"error": "not found"})
+
+    def _redirect(self, where):
+        # 302, not 301: browsers keep a 301 forever, and the front page may change
+        self.send_response(302)
+        self.send_header("Location", where)
+        self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
 
     def do_GET(self):
         self._dispatch("GET")

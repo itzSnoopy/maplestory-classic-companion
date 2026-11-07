@@ -307,7 +307,16 @@
       var max = h("input", { type: "number", min: "1", max: "100", value: "3" });
       var days = h("input", { type: "number", min: "1", max: "3650", placeholder: "never" });
       var shown = h("div");
-      add(viewEl, h("div", { class: "panel" }, h("h2", {}, "New host key"),
+      // collapsed into one bar, like Create room: the form opens on "New host key"
+      var form = h("div", { hidden: true });
+      var openBtn = btn("New host key", function () { setOpen(true); }, "primary");
+      function setOpen(open) {
+        form.hidden = !open; openBtn.hidden = open;
+        if (open) label.focus(); else showError("");
+      }
+      add(viewEl, h("div", { class: "panel" },
+        h("div", { class: "bar" }, h("h2", {}, "New host key"), openBtn), form, shown));
+      add(form, [
         h("label", {}, "Label (who it is for)", label), h("label", {}, "Max rooms", max),
         h("label", {}, "Expires after days (optional)", days),
         btn("Create", function () {
@@ -324,9 +333,10 @@
                 var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(rng);
               })));
             label.value = "";
+            setOpen(false);
             loadList();
           }, function (e) { showError(e.error); });
-        }, "primary"), shown));
+        }, "primary"), " ", btn("Close", function () { setOpen(false); })]);
       add(viewEl, listBox);
       loadList();
     })();

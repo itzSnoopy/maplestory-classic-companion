@@ -52,7 +52,7 @@ Tests (all in release_check): `python relay/tests/test_v2.py`, `test_v2_challeng
 | File | Role |
 |---|---|
 | `relayd/server.py`, `__main__.py`, `config.py` | `make_server(cfg)`, start from env; `LOBBY`/`ALLOW_ANYONE_CREATE`/`SECURE_TOKENS` override the DB `settings` value when set |
-| `relayd/legacy.py` | Handler = v2 routes + `party_relay.Handler`: `/v1/*` runs the v1 code untouched (own memory) while `LEGACY_V1` is on; `/health` = `{ok, version, source, lobby, feedback, legacy_v1, create_open, you, via_proxy}`; `/rooms` + `/rooms/*` go to `public.py` |
+| `relayd/legacy.py` | Handler = v2 routes + `party_relay.Handler`: `/v1/*` runs the v1 code untouched (own memory) while `LEGACY_V1` is on; `/health` = `{ok, version, source, lobby, feedback, legacy_v1, create_open, you, via_proxy}`; `/rooms` + `/rooms/*` go to `public.py`; `GET /` = 302 to `/rooms` (the relay's front page) |
 | `relayd/http.py` | `/v2` router (V2Mixin), 8 KB bodies (64 KB for feedback POST only: `_json_body(limit)`), per-address bucket 4/s burst 10 |
 | `relayd/rooms.py` | `Relay`: create, join, me, leave, view, patch, delete, member actions, sync dispatch, module actions, lobby, hourly cleanup (members idle 30 d, rooms 90 d) |
 | `relayd/store.py` | SQLite `DATA_DIR/relay.db` (WAL, migrations): settings, accounts, identities, host_keys, rooms, members (token sha256 only), bans, module_state, feedback (migration 2) |

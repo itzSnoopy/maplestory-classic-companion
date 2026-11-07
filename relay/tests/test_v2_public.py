@@ -96,6 +96,18 @@ class TestPublicPage(AdminBase):
         self.assertEqual((s, hd["Content-Type"]), (200, "text/css; charset=utf-8"))
         self.assertIn("nosniff", hd["X-Content-Type-Options"])
 
+    def test_front_page_goes_to_rooms(self):
+        import http.client
+        from urllib.parse import urlsplit
+        u = urlsplit(self.base)
+        c = http.client.HTTPConnection(u.hostname, u.port, timeout=5)
+        c.request("GET", "/")
+        r = c.getresponse()
+        r.read()
+        c.close()
+        self.assertEqual((r.status, r.getheader("Location")), (302, "/rooms"))
+        self.assertEqual(self.raw("POST", "/", {}, {"Content-Type": "application/json"})[0], 404)
+
     def test_unknown_paths_404(self):
         for p in ("/rooms/x", "/rooms/../relayd/rooms.py", "/rooms/index.html", "/rooms/rooms.js/x"):
             self.assertEqual(self.raw("GET", p)[0], 404, p)
