@@ -136,6 +136,8 @@ class ChallengeComponent(Component):
             enabled, _dnd = self._cfg()
             if enabled:
                 self.duel.on_gain(t, base, party_bonus, own, overflow)
+                if own and self.duel.active():      # show my own score now, not with the next relay answer (~1-2 s)
+                    self._write()
 
     def _log_gain(self, t, base, party_bonus, own, overflow):
         """history/exp_gains.csv: t, map, base, party_bonus, own, overflow (for checking a party session later)."""
