@@ -27,7 +27,7 @@ from pathlib import Path
 from base import perf
 from hub import live
 
-GAIN_FACTS = ("exp_gain", "meso_gain", "item_gain")     # message-corner fact kinds (engine/msgcorner.py)
+GAIN_FACTS = ("exp_gain", "meso_gain", "item_gain", "msg_other")     # message-corner fact kinds (engine/msgcorner.py)
 
 
 class State:

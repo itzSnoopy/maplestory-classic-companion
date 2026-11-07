@@ -968,3 +968,7 @@ Cold start costs ~25 Tesseract calls (8 digit patterns), the second folder only 
   The EXP bar is a fallback only: a rise is held 2.5 s; if any gain has t in [rise-1.0, rise+2.5] it is covered, else solo -> whole-mob match, partied -> 0.
   The party formula (`gamedata/kills.party_kills`, `partyexp.PartyBonus`) is superseded and no longer fed. Every gain is logged to `history/exp_gains.csv`
   (t, map, base, party_bonus, own, overflow) so the next party session can be checked against the bar.
+
+## Item lines + gains ledger (2026-11-02)
+- Item pickup `Squishy Liquid x1 earned. (Etc)` read by whole-line Tesseract (`msgcorner._try_text`, 2 agreeing reads, cache by the line's pixels, <= 3 Tesseract calls per look). Fixture burst/20261030_222236: 3 pickups at 63.1 / 63.6 / 66.1 s read correctly (two arrive 0.5 s apart: the 63.6 one is a new line, seen on the picture). Other non-(+N) lines come out as fact `msg_other` {text}. Only this one format is confirmed: counts > 1, Equip/Use/Setup/Cash tabs, "inventory full" still to see.
+- `components/gains`: every notice to history/gains.csv, bursts checked vs the bar in history/gain_check.csv. Replays: 222236 bursts 8=8 and 1157=1157 (17 lines, 9 own); 230602 overflow burst 826 vs 844 (known 6-line cap).

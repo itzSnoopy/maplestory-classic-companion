@@ -41,6 +41,9 @@ Kills only, **individual kills**. The game's bottom-right `You received EXP (+N)
 - Superseded and no longer fed: `gamedata/kills.party_kills`, `partyexp.PartyBonus` (`history/party_bonus.json`), the formula fits. They stay (and `dev/party_kills_sim.py` in release_check) as reference. Mass-kill maps are limited by the corner (> 6 lines in one tick are partly never shown: overflow).
 Each kill goes to the relay as an event stamped with the relay clock; events are resent until acknowledged. Start = relay clock + 5 s. No sudden death: a tie is a TIE screen. Opponent on the left (sprite mirrored), you on the right.
 
+## Practice duel (dev only, 2026-11-02)
+A solo duel with no relay, to watch the counter: `python dev/practice.py [MINUTES]` writes `challenge_cmd.json` `{action: "practice", minutes}` (no UI, no setting). `Duel.start_practice` makes a one-player view (`id: "practice"`, 5 s countdown) that survives relay answers; own (white) lines count, yellow ones go to `shared` (`challenge.json` `active.mine_local` / `shared_local`); no events are sent; `practice_done` journals "Practice duel: N own kills, M shared". `python dev/practice_sim.py`.
+
 ## Test it
 Over a room: `python dev/rooms_sim.py OUT` (real relay v2: create / accept / kills via the sync part and the `kills` action / result / record between the tracker and a simulated client; section 6: a mod's Start with 3 simulated members, 3-player result, and an owner-on-web (not live) race).
 Gain-based kills: `python dev/gain_kills_sim.py` (synthetic duel + replay of the burst fixtures when present). Offline (v1): `python dev/challenge_sim.py OUT [--log exp_log.csv --map "Map"]` (real relay + real link thread on 127.0.0.1, a fake rival; covers create/accept/countdown/kills/ack/link down/win/tie/record/diary/dnd and the board's state machine), `python relay/test_relay.py`, `python dev/release_check.py`.

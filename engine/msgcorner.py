@@ -73,13 +73,13 @@ SHAPE_ABS, SHAPE_REL = 10, 0.03       # allowed differing pixels (JPEG noise) fo
 LABELS = {"exp": "You received EXP", "bonus": "Bonus EXP for PARTY", "meso": "You have gained mesos"}
 LABEL_FUZZ = 0.78
 
-# Item pickups: NOT confirmed, so nothing is emitted (such lines are dropped as "unknown"). Seen on the fixture
-# burst/20261030_222236 (frames 0063.1-0066.1), for whoever fills this in: `Squishy Liquid x1 earned. (Etc)`
-# (name, "x<count>", "earned.", "(<tab>)"; proportional text with no "(+N)" tail, so the digit-cell reader does
-# not apply and a name needs OCR). `Snail's Closeness has increased (+1)` is NOT an item (pet closeness).
-# Fill with (regex on the OCR text of the whole line, name_group, count_group_or_None) once the format is
-# confirmed and OCR of names is proven, then call `_read_item` from `_try_read` for lines without a "(+N)" shape.
-ITEM_PATTERNS = []                    # TODO(item format)
+# Item pickups: `Squishy Liquid x1 earned. (Etc)` (seen on burst/20261030_222236, frames 0063.1-0066.1): name, "x<count>",
+# "earned.", "(<tab>)"; proportional text with no "(+N)" tail, so the digit-cell reader does not apply and the line is
+# read by Tesseract (budget-limited, crop-hash cached, two agreeing reads). Patterns: (regex on the OCR text of the
+# whole line, name_group, count_group_or_None, tab_group_or_None). Only this one format is confirmed; any other
+# line that is not an EXP/meso line comes out as a `msg_other` fact with its OCR text, so new formats can be found.
+# `Snail's Closeness has increased (+1)` is NOT an item (pet closeness; it has a "(+N)" tail and a label not learned).
+ITEM_PATTERNS = [(r"(.+?)\s*[xX]\s*(\d+)\s+earned\.?\s*\(([A-Za-z]+)\)", 1, 2, 3)]
 
 
 def box_for(size):
@@ -121,7 +121,7 @@ class _Slot:
 
 class _Line:
     """One message line being tracked (follows its text up the stack)."""
-    __slots__ = ("t", "frames", "state", "kind", "num", "votes", "emitted", "slot", "last_bright", "t_last", "tries", "overflow", "own")
+    __slots__ = ("t", "frames", "state", "kind", "num", "votes", "emitted", "slot", "last_bright", "t_last", "tries", "overflow", "own", "item")
 
     def __init__(self, t, state):
         self.t, self.t_last, self.frames = t, t, 1
@@ -133,6 +133,7 @@ class _Line:
         self.last_bright = 0.0
         self.tries = 0
         self.overflow = False       # born in a frame whose whole stack was new: more lines may have been missed
+        self.item = None            # (name, count, tab) of an item line, or the OCR text of an unrecognised one
         self.own = None             # colour of the first look: True = white (your own kill), False = yellow (a teammate's)
 
 
@@ -150,7 +151,8 @@ class MsgCorner:
         self.label_seen = {}                              # kind -> times matched
         self.stats = {"frames": 0, "idle": 0, "new_lines": 0, "tess_calls": 0, "unknown": 0, "unread": 0,
                       "ghost": 0, "resync": 0, "orphan_bonus": 0, "conflict": 0, "learned_digits": 0,
-                      "template_reads": 0, "tess_reads": 0}
+                      "template_reads": 0, "tess_reads": 0, "items": 0, "other_text": 0}
+        self.text_cache = {}                              # line pixels -> OCR text (item / other lines)
         self.unknown_lines = []                           # [(t, why)] for the debug report
         self.out = []
         self._load()
@@ -446,10 +448,7 @@ class MsgCorner:
         b, pk = self._binarize(gs, ms)
         n = self._find_number(b)
         if n is None:
-            ln.state = "unknown"
-            self.stats["unknown"] += 1
-            self.unknown_lines.append((t, "no (+N) shape"))
-            return tess_budget
+            return self._try_text(t, ln, b, tess_budget)
         bits = self._label_bits(b, n)
         if bits is None:
             ln.state = "unknown"
@@ -486,6 +485,45 @@ class MsgCorner:
         if ln.tries >= 8:
             ln.state = "failed"
             self.stats["unread"] += 1
+        return tess_budget
+
+    def _try_text(self, t, ln, b, tess_budget):
+        """A line without the "(+N)" tail: an item pickup (or something new). Whole-line Tesseract, two agreeing
+        reads (the text is cached by the line's pixels, so a repeat of the same item costs nothing)."""
+        cols = np.where(b.any(0))[0]
+        if len(cols) < 10:
+            ln.state = "unknown"
+            self.stats["unknown"] += 1
+            return tess_budget
+        bits = b[:, cols.min():]
+        key = bits.tobytes()
+        text = self.text_cache.get(key)
+        if text is None:
+            if tess_budget <= 0:
+                return tess_budget
+            ln.tries += 1
+            tess_budget -= 1
+            text = _ocr_text(bits, self.stats)
+            if text is None:
+                if ln.tries >= 6:
+                    ln.state = "failed"
+                    self.stats["unread"] += 1
+                return tess_budget
+            ln.votes[text] = ln.votes.get(text, 0) + 1
+            top = max(ln.votes.items(), key=lambda kv: kv[1])
+            others = [v for k, v in ln.votes.items() if k != top[0]]
+            if not (top[1] >= 2 and (not others or top[1] > max(others))) and ln.tries < 6:
+                return tess_budget
+            text = top[0]
+            if len(self.text_cache) < 400:
+                self.text_cache[key] = text
+        item = _read_item(text)
+        if item is not None:
+            ln.state, ln.kind, ln.item = "item", "item", item
+            self.stats["items"] += 1
+        else:
+            ln.state, ln.kind, ln.item = "other", "other", text
+            self.stats["other_text"] += 1
         return tess_budget
 
     def _learn(self, b, n, num, kind, bits, known_kind):
@@ -562,6 +600,13 @@ class MsgCorner:
                     ln.emitted = True                               # no EXP line to belong to (or it went out without)
                     self.stats["orphan_bonus"] += 1
                     self.unknown_lines.append((ln.t, f"bonus without exp line (+{ln.num})"))
+            elif ln.state == "item":
+                ln.emitted = True
+                name, count, tab = ln.item
+                self.out.append((ln.t, "item_gain", {"name": name, "count": count, "tab": tab, "overflow": ln.overflow}))
+            elif ln.state == "other":
+                ln.emitted = True
+                self.out.append((ln.t, "msg_other", {"text": ln.item, "overflow": ln.overflow}))
             elif ln.state in ("unknown", "ghost", "failed"):
                 ln.emitted = True
 
@@ -576,6 +621,13 @@ class MsgCorner:
         elif ln.state == "read" and ln.kind == "meso":
             ln.emitted = True
             self.out.append((ln.t, "meso_gain", {"mesos": ln.num, "overflow": ln.overflow}))
+        elif ln.state == "item":
+            ln.emitted = True
+            name, count, tab = ln.item
+            self.out.append((ln.t, "item_gain", {"name": name, "count": count, "tab": tab, "overflow": ln.overflow}))
+        elif ln.state == "other":
+            ln.emitted = True
+            self.out.append((ln.t, "msg_other", {"text": ln.item, "overflow": ln.overflow}))
         elif ln.state == "pending":
             self.stats["unread"] += 1
         ln.emitted = True
@@ -642,12 +694,24 @@ def _ocr_label(b, bits, n, stats):
     return "other"
 
 
+def _ocr_text(bits, stats):
+    """Whole-line Tesseract of a message line (proportional text). None when it cannot run or read nothing."""
+    if not _tess_ready():
+        return None
+    import pytesseract
+    stats["tess_calls"] += 1
+    txt = pytesseract.image_to_string(_render(bits, 5), config="--psm 7").strip()
+    txt = re.sub(r"\s+", " ", txt)
+    return txt or None
+
+
 def _read_item(text):
-    """Item pickups: format unknown, ITEM_PATTERNS is empty, so nothing matches. -> (name, count) or None."""
-    for pat, name_g, count_g in ITEM_PATTERNS:
-        m = re.fullmatch(pat, text)
+    """Item pickup text -> (name, count, tab) or None."""
+    for pat, name_g, count_g, tab_g in ITEM_PATTERNS:
+        m = re.fullmatch(pat, text.strip())
         if m:
-            return m.group(name_g), int(m.group(count_g)) if count_g else 1
+            return (m.group(name_g).strip(), int(m.group(count_g)) if count_g else 1,
+                    m.group(tab_g) if tab_g else "")
     return None
 
 

@@ -54,7 +54,7 @@ Passive only: frames of the game window. Never game memory, network traffic or i
 | Party box | `party.search_box` top-left, found by the bar outline | fact `party` rows | `party` | `Names` caches Tesseract per row mask | NOTES 23:50; 05 |
 | Name tag | whole frame, template = status-bar name | `snapshot()` close-up | `nametag` | `templates/nametag.png` (exact tag learned from matches >= 0.80) | NOTES 23:40, 23:59, 00:05 |
 | Level-up shot | EXP % drop >= 40 points | picture 1.75 s after the reset | - | - | NOTES 22:55 |
-| Message corner | [1600,790,1920,932] anchored bottom-right (`layout.place` anchor `bottom-right`), 10 slots x 14 px | facts `exp_gain` {base, party_bonus, overflow, own (white line = own kill)}, `meso_gain` {mesos, overflow} (overflow = whole 6-line corner new: kills may be missed); `item_gain` hook (format unconfirmed, empty) | `msgcorner` | digit/label templates learned at run time (Tesseract bootstraps, 2 agreeing reads), kept in DATA `glyphs_msg.json` (never shipped) | NOTES 2026-10-31, 2026-11-01 (EXP line colour) |
+| Message corner | [1600,790,1920,932] anchored bottom-right (`layout.place` anchor `bottom-right`), 10 slots x 14 px | facts `exp_gain` {base, party_bonus, overflow, own (white line = own kill)}, `meso_gain` {mesos, overflow} (overflow = whole 6-line corner new: kills may be missed); `item_gain` {name, count, tab} (`Name xN earned. (Tab)`, whole-line Tesseract, 2 agreeing reads, cached by line pixels), `msg_other` {text} (any other line, OCR text) | `msgcorner` | digit/label templates learned at run time (Tesseract bootstraps, 2 agreeing reads), kept in DATA `glyphs_msg.json` (never shipped) | NOTES 2026-10-31, 2026-11-01 (EXP line colour) |
 | Album keeper | middle 720x720 of the last looks | `album_shot()` | `album` | - | NOTES 03:40 |
 
 Cost rules: new readers go on the frame the tracker already grabs, never a second capture session;
@@ -62,7 +62,7 @@ Tesseract only behind a crop-hash cache (a glyph read is ~1000x cheaper). Cost t
 
 ## Interfaces
 - **Implements:** `base.contract.Source` (`read, poll, quick_vitals, take_facts, snapshot, album_shot, after_step, checks_per_s, boost, party_name, party_reset, wake_at, watch_buffs`).
-- **Facts emitted** (via `take_facts`, dealt by `hub.feed_facts`): `vitals`, `away`, `map`, `exp`, `party`, `who`, `stat`, `skills`, `channel`, `buffs`, `exp_gain`, `meso_gain` (`item_gain` reserved; hub emits each gain also as an event of that name).
+- **Facts emitted** (via `take_facts`, dealt by `hub.feed_facts`): `vitals`, `away`, `map`, `exp`, `party`, `who`, `stat`, `skills`, `channel`, `buffs`, `exp_gain`, `meso_gain`, `item_gain`, `msg_other` ( hub emits each gain also as an event of that name).
 - **Settings read** (helper_settings.json, re-read by file time): `capture.fps`, `map_check.{min_s,max_s,step_s,every_s}`; config.json `regions`, `source_resolution`, `job_read`, `death_box`.
 - **Writes (DATA):** `glyphs*.json` (incl. `glyphs_msg.json`: msgcorner's learned templates), `glyphs/unknown/`, `templates/*`, `history/panel_spots.json`, `layouts.json` additions via `record`.
 - **Reads (shipped):** `engine/layouts.json` only.

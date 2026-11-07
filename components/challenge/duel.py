@@ -25,6 +25,8 @@ PARTY_LOOK_S = 10.0         # a party bonus line seen within this before a rise:
 GAINS_KEEP = 40
 LINES_NOTE = "kills from the game's EXP lines"
 NOT_SEEN_NOTE = "party: EXP lines not seen, kills not counted"
+PRACTICE_ID = "practice"    # the local solo duel (no relay): a made-up view of one player, never sent anywhere
+PRACTICE_LEAD_S = 5         # countdown before a practice duel, like the relay's
 STALE_S = 15                # challenge.json older than this: the helper stops showing the board
 
 
@@ -38,6 +40,7 @@ class Duel:
         self.cid = None         # the challenge the events below belong to
         self.seq = 0
         self.events = []        # kill events the relay has not acknowledged: [{s, n, t}]
+        self.shared = 0         # teammates' yellow EXP lines seen in this challenge (not scored, not sent: shown next to mine)
         self.mine = 0           # my kills in this challenge, counted here (the board shows the bigger of this and the relay's)
         self.done = set()       # ids of finished challenges already reported
         self.last = None        # the last result (dict) and when it was seen
@@ -45,6 +48,7 @@ class Duel:
         self.error = None       # (text, local time) of the last failed command
         self.party_seen = None  # (note, local time) of the last party hint for challenge.json (see snapshot)
         self.gains = []         # [(t, party bonus seen)] of the latest EXP lines (they cover EXP bar rises)
+        self.practice = None    # a running practice duel: {minutes, start_t, end_t} on the relay clock (no relay needed)
         self.pending = []       # EXP bar rises held until the corner has had its say: {t, map, d, partied}
 
     # ---- helpers
@@ -92,8 +96,9 @@ class Duel:
         return ts if v["start_t"] <= ts <= v["end_t"] else None
 
     def _kill(self, ts, n=1):
-        self.seq += 1
-        self.events.append({"s": self.seq, "n": n, "t": round(ts, 3)})
+        if not self.practice:                   # a practice duel's kills stay here, nothing to send
+            self.seq += 1
+            self.events.append({"s": self.seq, "n": n, "t": round(ts, 3)})
         self.mine += n
 
     def on_gain(self, t, base=0, party_bonus=0, own=False, overflow=False, now=None):
@@ -111,6 +116,8 @@ class Duel:
                 if own:
                     self._kill(self._live_ts(t))
                     n = 1
+                else:
+                    self.shared += 1
             self._settle(now)
             return n
 
@@ -151,9 +158,55 @@ class Duel:
                 self._kill(ts, n)
         self.pending = keep
 
+    def set_me(self, name):
+        """My name in the room (from the party link); a running practice duel follows it."""
+        with self.lock:
+            if name and name != self.me:
+                self.me = name
+                self._sync_practice()
+
+    # ---- practice (solo, local)
+    def _practice_view(self):
+        pr = self.practice
+        return {"id": PRACTICE_ID, "mode": "practice", "minutes": pr["minutes"], "state": "running",
+                "creator": self.me, "invited": [], "start_t": pr["start_t"], "end_t": pr["end_t"], "result": None,
+                "players": [{"name": self.me, "accepted": True, "score": 0, "ack": 0}]}
+
+    def _sync_practice(self):
+        """Keep the made-up view in `views` (a relay answer replaces the list) with my current name."""
+        self.views = [v for v in self.views if v.get("id") != PRACTICE_ID]
+        if self.practice:
+            self.views.append(self._practice_view())
+
+    def start_practice(self, minutes, now=None):
+        """A solo duel on my own: the board counts my white EXP lines for `minutes`, nothing goes to the relay.
+        False when a duel is already on or waiting."""
+        now = now if now is not None else time.time()
+        with self.lock:
+            if self.active() is not None or self.waiting() is not None or self.joined_open() is not None:
+                return False
+            self.me = self.me or "You"
+            ts = self.to_server(now) + PRACTICE_LEAD_S
+            self.practice = {"minutes": minutes, "start_t": ts, "end_t": ts + minutes * 60}
+            self.cid, self.seq, self.events, self.mine, self.shared = PRACTICE_ID, 0, [], 0, 0
+            self.pending = []
+            self._sync_practice()
+            return True
+
+    def practice_done(self, now=None):
+        """The practice duel ran out: its summary {minutes, kills, shared} once, and the board goes."""
+        now = now if now is not None else time.time()
+        with self.lock:
+            if not self.practice or self.to_server(now) <= self.practice["end_t"]:
+                return None
+            out = {"minutes": self.practice["minutes"], "kills": self.mine, "shared": self.shared}
+            self.practice = None
+            self._sync_practice()
+            return out
+
     def _switch(self, cid):
         if cid != self.cid:
-            self.cid, self.seq, self.events, self.mine = cid, 0, [], 0
+            self.cid, self.seq, self.events, self.mine, self.shared = cid, 0, [], 0, 0
             self.pending = []
 
     # ---- the party link hooks
@@ -166,7 +219,9 @@ class Duel:
         with self.lock:
             self._settle(time.time())           # held EXP bar rises that nothing covered count now
             v = self.active()
-            if v is not None:
+            if v is not None and v["id"] == PRACTICE_ID:
+                pass                            # practice never goes to the relay
+            elif v is not None:
                 self._switch(v["id"])
                 extra["ch"] = {"id": v["id"], "kills": self.events[:MAX_SEND]}
                 extra["_fast"] = True
@@ -184,6 +239,7 @@ class Duel:
             self.views = [v for v in reply.get("challenges") or [] if isinstance(v, dict)]
             if not enabled or dnd:
                 self.views = [v for v in self.views if self.me in [p["name"] for p in v["players"]]]
+            self._sync_practice()
             v = self.active()
             if v is not None:
                 self._switch(v["id"])
@@ -247,7 +303,8 @@ class Duel:
                 show = next((v for v in self.views if v["state"] == "done" and self._mine(v)
                              and v["id"] in self.done and now - self.last_t < RESULT_KEEP_S), None)
             if show is not None:
-                snap["active"] = {**show, "mine_local": self.mine if show["id"] == self.cid else 0}
+                snap["active"] = {**show, "mine_local": self.mine if show["id"] == self.cid else 0,
+                                  "shared_local": self.shared if show["id"] == self.cid else 0}
             if self.last:
                 snap["last"] = self.last
             if self.error and now - self.error[1] < 8:

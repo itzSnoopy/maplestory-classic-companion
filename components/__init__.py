@@ -22,6 +22,7 @@ COMPONENTS = [
     "components.kpq.component:KpqComponent",           # KPQ run summaries: stages / bonus EXP per run, live PQ view in the helper
     "components.challenge.component:ChallengeComponent",  # duels over the party relay (after party / training): board over the game
     "components.relic.component:RelicComponent",          # relic hunt: eligible kills -> the room's hunt, toast, table link (after challenge)
+    "components.gains.component:GainsComponent",        # ledger of the message corner (EXP, mesos, items) checked against the EXP bar
     "components.discord.component:DiscordComponent",    # Discord Rich Presence (helper only)
     "components.feedback.component:FeedbackComponent",  # skill review page + Send to the relay (helper only)
 ]

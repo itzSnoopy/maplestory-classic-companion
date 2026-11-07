@@ -55,7 +55,7 @@ HIDDEN = ["launcher.setup_ui", "hub.settings_ui", "engine.calibrate", "component
           "components.hangout.join", "hub.relay_room",
           "components.challenge.component", "components.challenge.duel", "components.challenge.board",
           "components.challenge.bulbs", "components.challenge.sprites", "components.challenge.partyexp", "components.challenge.settings_page", "components.challenge.invite_ui",
-          "components.relic.component", "components.relic.hunt", "components.relic.toast", "gamedata.relic",
+          "components.gains.component", "components.relic.component", "components.relic.hunt", "components.relic.toast", "gamedata.relic",
           "gamedata.kills",
           "hub.pages", "hub.ui.shell", "hub.ui.overlay", "hub.ui.theme", "hub.ui.layered",
           "engine.hudtext", "engine.levelup_shot", "gamedata.translate", "gamedata.parse", "gamedata.maplist",

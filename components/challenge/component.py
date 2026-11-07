@@ -113,7 +113,7 @@ class ChallengeComponent(Component):
             pass
 
     def on_post(self, extra, me, **_):                  # link thread
-        self.duel.me = me.get("name")
+        self.duel.set_me(me.get("name"))
         extra.update(self.duel.post_fields(*self._cfg()))
 
     def on_reply(self, reply, server_off, **_):         # link thread
@@ -149,6 +149,12 @@ class ChallengeComponent(Component):
         cmd_path = self.hub.root / "challenge_cmd.json"
         while not self.stop_ev.wait(CMD_POLL_S):
             try:
+                if self.duel.practice:              # no relay answers to refresh challenge.json: do it here
+                    done = self.duel.practice_done()
+                    if done:
+                        self.hub.journal(f"Practice duel: {done['kills']} own kills, {done['shared']} shared "
+                                         f"in {done['minutes']} min")
+                    self._write()
                 if cmd_path.exists():
                     cmd = H.read_json(cmd_path, None)
                     try:
@@ -163,6 +169,17 @@ class ChallengeComponent(Component):
     def _command(self, cmd):
         link = self.hub.ask("relay_link")
         d = self.duel
+        if cmd.get("action") == "practice":         # a solo duel on my own: no relay, no opponent
+            enabled, _dnd = self._cfg()
+            mins = cmd.get("minutes")
+            mins = mins if isinstance(mins, int) and 1 <= mins <= 15 else 5
+            if not enabled:
+                d.error = ("The challenge board is off (Settings > General)", time.time())
+            elif not d.start_practice(mins):
+                d.error = ("A duel is already on", time.time())
+            else:
+                self.hub.journal(f"Practice duel started ({mins} min): counting my own kills")
+            return self._write()
         if not link or not link["ok"] or not d.me:
             d.error = ("Not connected to the party relay", time.time())
             return self._write()
