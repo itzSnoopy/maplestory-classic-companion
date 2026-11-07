@@ -1,6 +1,8 @@
 """feedback component: players review the skill data in a page the app serves locally
 (/skill-review.html, review_page.py) and press Send; the app posts the export to the owner's relay
-feedback inbox (POST <server>/v1/feedback/<code>). Helper side only: attach() does nothing.
+feedback inbox (POST <server>/v2/feedback/<code>, falling back to /v1 on a 404 for a v1-only relay).
+The server is Settings > Internet > Skill feedback, else the relay address (hub/relay_addr.py); both get
+the relay's default port when the player types only a host. Helper side only: attach() does nothing.
 
 Subscribes: nothing. Emits: nothing.
 Helper side (ui): the page (shell.add_page), the local API POST /api/feedback/send (shell.add_api, hosted
@@ -17,11 +19,24 @@ import urllib.request
 from base import internet
 from base.contract import Component
 from hub import helper_settings as HS
+from hub import relay_addr
 
 PAGE = "/skill-review.html"
 API = "/api/feedback/send"
 STATUS_API = "/api/feedback/status"
 TIMEOUT_S = 10
+
+
+def server_for(settings):
+    """The feedback server URL: Skill feedback's own field, else the relay address ('' = none).
+    Normalized like the relay (a bare host gets port 8787)."""
+    fb = (settings or {}).get("feedback")
+    own = relay_addr.normalize(fb.get("server") if isinstance(fb, dict) else "")
+    return own or relay_addr.server(settings)
+
+
+def _normal(server):
+    return relay_addr.normalize(server)
 
 
 def validate(req):
@@ -40,50 +55,67 @@ def post_feedback(server, code, req, timeout=TIMEOUT_S):
     err = validate(req)
     if err:
         return 400, {"error": err}
-    server = str(server or "").strip().rstrip("/")
+    server = _normal(server)
     code = str(code or "").strip()
     if not server or not code:
-        return 400, {"error": "Set the feedback server and code in Settings > Internet."}
-    if not server.startswith(("http://", "https://")):
-        server = "http://" + server
+        return 400, {"error": "Set the relay (or feedback server) and the feedback code in Settings > Internet."}
     if not internet.allowed("feedback"):
         return 403, {"error": "Internet is off for Skill feedback (Settings > Internet)."}
-    url = f"{server}/v1/feedback/{urllib.parse.quote(code, safe='')}"
     body = json.dumps(req, ensure_ascii=False).encode("utf-8")
+    try:
+        return _post(server, code, body, timeout)
+    except urllib.error.HTTPError as e:
+        if e.code == 404:                   # a v1-only relay has no /v2: try its /v1 inbox
+            try:
+                return _post(server, code, body, timeout, ver="v1")
+            except urllib.error.HTTPError as e1:
+                return _http_error(e1)
+            except (urllib.error.URLError, OSError, ValueError):
+                return _unreachable()
+        return _http_error(e)
+    except (urllib.error.URLError, OSError, ValueError):
+        return _unreachable()
+
+
+def _post(server, code, body, timeout, ver="v2"):
+    url = f"{server}/{ver}/feedback/{urllib.parse.quote(code, safe='')}"
     rq = urllib.request.Request(url, data=body, method="POST",
                                 headers={"Content-Type": "application/json"})
-    try:
-        with urllib.request.urlopen(rq, timeout=timeout) as r:
-            try:
-                out = json.loads(r.read(20000) or b"{}")
-            except ValueError:
-                out = {}
-            return 200, {"ok": True, "id": out.get("id") if isinstance(out, dict) else None}
-    except urllib.error.HTTPError as e:
+    with urllib.request.urlopen(rq, timeout=timeout) as r:
         try:
-            text = str((json.loads(e.read(4000)) or {}).get("error") or "")[:200]
-        except (ValueError, AttributeError, TypeError):
-            text = ""
-        if e.code == 403:
-            return 403, {"error": "The feedback server says the code is wrong (Settings > Internet)."}
-        if e.code == 404:
-            return 404, {"error": "This server has no feedback inbox."}
-        if e.code in (400, 413, 429):
-            return e.code, {"error": text or f"The feedback server refused it (error {e.code})."}
-        return 502, {"error": text or f"The feedback server answered with error {e.code}."}
-    except (urllib.error.URLError, OSError, ValueError):
-        return 502, {"error": "Could not reach the feedback server. Check the address in "
-                              "Settings > Internet and that it is running."}
+            out = json.loads(r.read(20000) or b"{}")
+        except ValueError:
+            out = {}
+        return 200, {"ok": True, "id": out.get("id") if isinstance(out, dict) else None}
+
+
+def _unreachable():
+    return 502, {"error": "Could not reach the feedback server. Check the relay address in "
+                          "Settings > Internet and that it is running."}
+
+
+def _http_error(e):
+    try:
+        text = str((json.loads(e.read(4000)) or {}).get("error") or "")[:200]
+    except (ValueError, AttributeError, TypeError, OSError):
+        text = ""
+    if e.code == 403:
+        return 403, {"error": "The feedback server says the code is wrong (Settings > Internet)."}
+    if e.code == 404:
+        return 404, {"error": "This server has no feedback inbox."}
+    if e.code in (400, 413, 429):
+        return e.code, {"error": text or f"The feedback server refused it (error {e.code})."}
+    return 502, {"error": text or f"The feedback server answered with error {e.code}."}
 
 
 def server_status(server, code, timeout=4):
     """Is the review server up with its feedback inbox on? GET <server>/health (sends nothing about
     the player). Returns {online: bool, reason: text}. Checks the internet gate itself."""
-    server = str(server or "").strip().rstrip("/")
-    if not server or not str(code or "").strip():
-        return {"online": False, "reason": "Set the feedback server and code in Settings > Internet."}
-    if not server.startswith(("http://", "https://")):
-        server = "http://" + server
+    server = _normal(server)
+    if not server:
+        return {"online": False, "reason": "Set the relay address in Settings > Internet."}
+    if not str(code or "").strip():
+        return {"online": False, "reason": "Set the feedback code in Settings > Internet > Skill feedback."}
     if not internet.allowed("feedback"):
         return {"online": False, "reason": "Internet is off for Skill feedback (Settings > Internet)."}
     try:
@@ -137,12 +169,12 @@ class FeedbackComponent(Component):
             self.shell.notify("The skill review page needs Settings > Diary > Open pages: Through localhost.")
 
     def send(self, req):
-        fb = self._settings().get("feedback") or {}
-        return post_feedback(fb.get("server"), fb.get("code"), req)
+        s = self._settings()
+        return post_feedback(server_for(s), (s.get("feedback") or {}).get("code"), req)
 
     def status(self, req):
-        fb = self._settings().get("feedback") or {}
-        return 200, server_status(fb.get("server"), fb.get("code"))
+        s = self._settings()
+        return 200, server_status(server_for(s), (s.get("feedback") or {}).get("code"))
 
     def internet_extra(self, win, f):
         """Under "Skill feedback" on the Internet page: the owner's relay address and feedback code."""
@@ -151,7 +183,7 @@ class FeedbackComponent(Component):
         win.s.setdefault("feedback", {})
         for k, v in self.settings_defaults["feedback"].items():
             win.s["feedback"].setdefault(k, v)
-        for key, cap, hint in (("feedback.server", "Server", "e.g. http://192.0.2.10:8787"),
+        for key, cap, hint in (("feedback.server", "Server", "empty = the relay above"),
                                ("feedback.code", "Code", "from the person who runs the server")):
             row = tk.Frame(f, bg=win.w["bg"])
             row.pack(anchor="w", pady=(px(4), 0), padx=(px(22), 0))
@@ -160,7 +192,7 @@ class FeedbackComponent(Component):
             lb.pack(side="left")
             win.entry(row, key, width=32).pack(side="left", padx=(px(6), px(8)))
             win.label(row, hint, muted=True, size=8).pack(side="left")
-        win.label(f, "Menu > Review skills (send feedback) opens the page. Sending needs both fields.",
+        win.label(f, "Menu > Review skills (send feedback) opens the page. Sending needs the code (and the relay, or a server here).",
                   muted=True, size=8, wrap=px(540)).pack(anchor="w", padx=(px(22), 0), pady=(px(4), 0))
 
     def on_save(self, win):

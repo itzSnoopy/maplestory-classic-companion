@@ -1,6 +1,6 @@
 """relay_addr.py - the one relay address (helper_settings.json "relay": {"server"}) every online feature
 that talks to the player's relay uses: the party link, duels (they ride the party link) and the rooms panel.
-(The skill feedback page keeps its own server field: it is a different relay owner by design.)
+Skill feedback uses it too when its own server field is empty (that field is for another relay owner).
 
 The player types only a domain or an IP; normalize() makes the URL. Pure functions, no tkinter, no network:
 the party link thread (tracker process) and the helper both import it.

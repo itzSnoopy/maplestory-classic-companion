@@ -8,7 +8,7 @@ The engine (engine/) reads pixels and text and knows no game names. It is handed
     job_name(text)         OCR'd job text -> a pre-Big Bang job name, or None
     next_job_level(job)    level from which the next job advancement is possible (None: no more)
     snap_skill(text)       OCR'd skill name -> the candidate skills (skills_classic.json), cached
-    skill_kind(id)         skill id -> {kind, sub, target, duration_s, until, name} (skill_kinds_classic.json), or None
+    skill_kind(id)         skill id -> {kind, sub, target, duration_s, until, attacks, name} (skill_kinds_classic.json), or None
     exp_needed(level)      EXP needed at that level (exp_table_classic.json), or None
 """
 import difflib

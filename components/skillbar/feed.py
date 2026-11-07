@@ -40,6 +40,7 @@ SETTLE_S = 0.4          # ... plus this for a flip the source confirms on a seco
 FLIP_BEFORE_S = 0.3     # ... a flip seen this much before the MP drop counts too (the two reads come from separate looks)
 CLOCK_SAVE_S = 10       # the regen clock's position goes into the character's record this often
 CLOCK_KEEP_S = 90       # ... and is picked up again after a restart / update within this long
+HEAL_RECENT = 30        # own Heal amounts kept per level (the recent average)
 # passive recovery skills that tick every 10 s; the bar shows a meter's regen slot only when the
 # character has one of these at level >= 1 (chance-based ones like Critical Recovery don't count)
 REGEN_SKILLS = {"hp": ["1000000"],                          # Improved HP Recovery (Warrior)
@@ -80,6 +81,7 @@ class Feed:
         self.data = _skills_data()
         self.who = None
         self.party_n = 0                    # rows of the party box at the last look (party.py)
+        self.heal_dirty = False             # Heal stats changed since the last save
         self._new_meters()
 
     def _new_meters(self, t=None):
@@ -317,6 +319,7 @@ class Feed:
             if any(e["kind"] == "cast" for e in booked):
                 self._write_casts()
             self._log_events(booked)
+            self._heal_stats(booked)
             self._finish(self._decide(t))
             self._watch_max(t, v, ev, prof)
             self._reconcile(before, prof)
@@ -351,6 +354,36 @@ class Feed:
                 if c and c.get("anchor"):
                     m.anchor, m.anchor_w = c["anchor"], c.get("w", 0.5)
         self.clock_saved = now
+
+    def _heal_stats(self, ev):
+        """Own Heal rises that did not end at max HP (a capped one is cut short) go into the
+        character's record under "heal": {level: {n, sum, min, max, recent, last_t}}."""
+        if self.model is None:
+            return
+        for e in ev:
+            if e["kind"] != "heal" or e["name"] != "Heal" or e.get("to_full") or e["amount"] <= 0:
+                continue
+            lv = str(self.usage.level(mpuse.HEAL_ID) or 0)
+            st = self.model.data.setdefault("heal", {}).setdefault(lv, {})
+            a = int(e["amount"])
+            st["n"] = int(st.get("n") or 0) + 1
+            st["sum"] = int(st.get("sum") or 0) + a
+            st["min"] = min(a, st.get("min") or a)
+            st["max"] = max(a, st.get("max") or a)
+            st["recent"] = ((st.get("recent") or []) + [a])[-HEAL_RECENT:]
+            st["last_t"] = round(e["t"], 1)
+            self.heal_dirty = True
+
+    def heal_info(self):
+        """live.json skills entry of Heal: {avg, recent, n, level} or None (no uncapped Heal yet)."""
+        lv = self.usage.level(mpuse.HEAL_ID)
+        st = ((self.model.data.get("heal") or {}).get(str(lv)) if self.model else None) or {}
+        n = int(st.get("n") or 0)
+        if not n:
+            return None
+        rec = st.get("recent") or []
+        return {"avg": int(round(st["sum"] / n)),
+                "recent": int(round(sum(rec) / len(rec))) if rec else None, "n": n, "level": lv}
 
     def _expect(self, v):
         """Tell the meters which tick sizes the character's numbers predict (before any tick)."""
@@ -409,6 +442,8 @@ class Feed:
             name = (self.data.get(sid) or {}).get("name")
             if prof.learn_skill_level(sid, lv, time.time(), name):
                 changed = True
+        if self.heal_dirty:                 # new Heal stats: save them now
+            changed, self.heal_dirty = True, False
         now = time.time()
         if changed or now - self.clock_saved >= CLOCK_SAVE_S:
             self.clock_saved = now
@@ -476,7 +511,9 @@ class Feed:
             hp_cost = re.search(r"HP -(\d+)", text)
             skills.append({"id": sid, "name": s.get("name") or d.get("name"), "level": lv, "guard": guard,
                            "kind": (translate.skill_kind(sid) or {}).get("kind"),
+                           "attacks": (translate.skill_kind(sid) or {}).get("attacks"),   # Heal: "undead"
                            "hp_cost": int(hp_cost.group(1)) if hp_cost else None,
+                           "heal": self.heal_info() if sid == mpuse.HEAL_ID else None,
                            "cast_n": counts.get(sid, 0),
                            "active": self.buff_on.get(sid),     # buff icon showing (None: not watched / not seen yet)
                            "max": d.get("max"), "mp": cost,

@@ -38,7 +38,7 @@ JOB_ORDER = {"Beginner": 0, "1st Job": 1, "2nd Job": 2, "3rd Job": 3}
 
 
 # ------------------------------------------------------------------ fetch
-def _req(method, url, key, body=None):
+def _req(method, url, key, body=None, quiet404=False):
     data = None if body is None else json.dumps(body).encode()
     req = urllib.request.Request(url, data=data, method=method)
     req.add_header("X-Feedback-Key", key)
@@ -48,6 +48,9 @@ def _req(method, url, key, body=None):
         with urllib.request.urlopen(req, timeout=20) as r:
             return json.loads(r.read())
     except urllib.error.HTTPError as e:
+        if quiet404 and e.code == 404:
+            raise LookupError(url)
+
         sys.exit(f"server answered {e.code}: {e.read().decode(errors='replace')[:200]}")
     except urllib.error.URLError as e:
         sys.exit(f"cannot reach the server: {e.reason}")
@@ -62,8 +65,13 @@ def cmd_fetch(a):
     key = a.key or os.environ.get("FEEDBACK_KEY", "")
     if not key:
         sys.exit("no key: pass --key or set env FEEDBACK_KEY")
-    url = f"{a.server.rstrip('/')}/v1/feedback/{a.code}"
-    items = _req("GET", url, key).get("items", [])
+    base = a.server.rstrip('/')
+    url = f"{base}/v2/feedback/{a.code}"
+    try:                                        # v2 relay first; a v1-only relay has no /v2
+        items = _req("GET", url, key, quiet404=True).get("items", [])
+    except LookupError:
+        url = f"{base}/v1/feedback/{a.code}"
+        items = _req("GET", url, key).get("items", [])
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     for it in items:

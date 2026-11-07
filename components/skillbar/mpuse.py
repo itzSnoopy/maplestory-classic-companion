@@ -46,6 +46,7 @@ RECOVERY_S = 33         # Recovery (beginner skill): 6 ticks, the last ~31.3 s a
 EATER_IDS = ("2100000", "2200000", "2300000")         # MP Eater (F/P, I/L, Cleric)
 GUARD_ID = "2001000"                                  # Magic Guard
 HEAL_ID = "2301001"                                   # Heal (Cleric)
+HEAL_LAG_S = 1.0     # Heal's HP rise shows 0-0.2 s after its MP drop (recording 2026-11-06, 5 fps)
 RECOVERY_ID = "0001001"                               # Recovery (Beginner)
 ITEM_BONUS = {"mp": ("2000000",), "hp": ("1000000",)}  # Improved MP / HP Recovery
 ITEM_RANK = {"Potion": 0, "Food": 1}                  # others (event / quest items) after
@@ -76,6 +77,7 @@ class Usage:
         self.cast_count = Counter()             # skill id -> casts seen (the bar pulses on a new one)
         self.last_cast_t = -1e9
         self.recovery_until = -1e9
+        self.heal_open = deque()                # times of own Heal casts whose HP rise is not seen yet
         self.reset_totals()
         self._costs = None
         self._sums = {}
@@ -330,6 +332,8 @@ class Usage:
             if sid == RECOVERY_ID:
                 self.recovery_until = t + RECOVERY_S
             self.last_cast_t = t
+            if sid == HEAL_ID:
+                self.heal_open.append(t)
             out.append(self._ev(t, "mp", "cast", name, -cost, skill=sid, level=L))
         return out
 
@@ -367,6 +371,9 @@ class Usage:
 
     def _explain_hp(self, lo, t, d, hp, mp_ev):
         cur, mx = hp
+        while self.heal_open and t - self.heal_open[0] > HEAL_LAG_S:
+            self.heal_open.popleft()            # a Heal at full HP (or on others only) heals nothing here
+        healing = bool(self.heal_open)          # an own Heal cast just now: its rise may come a look later
         best = (OTHER, None, 0)
         for tick, pen in self._tick_options("hp", lo, t, d, hp):
             r = d - tick
@@ -382,8 +389,8 @@ class Usage:
                         cand.append((pen + 1 + self._rank_cost(rank) + (0.6 if capped else 0)
                                      - (0.05 if it["name"] == self.last_item else 0),
                                      ("potion", it["name"], r, capped)))
-                if any(e.get("skill") == HEAL_ID for e in mp_ev):
-                    cand.append((pen + 1.5, ("heal", "Heal", r)))
+                if healing:                     # any size (it depends on INT/LUK), capped at max too
+                    cand.append((pen + 0.2, ("heal", "Heal", r)))
                 if t <= self.recovery_until:
                     # an exact Recovery tick (formulas.recovery_tick) beats a regen tick of the same
                     # size unless the regen clock expects a tick here (pen 0.6); any other size: weak
@@ -399,9 +406,13 @@ class Usage:
             return [self._ev(t, "hp", "other", "unexplained", d)], 0
         if how is None:
             return [], tick
+        if how[0] == "heal" and how[1] == "Heal" and self.heal_open:
+            self.heal_open.popleft()
         if how[0] == "potion":
             self.last_item = how[1]
             return [self._ev(t, "hp", "potion", how[1], how[2], to_full=how[3])], tick
+        if how[0] == "heal" and how[1] == "Heal":       # ended at max HP: the rise was cut short
+            return [self._ev(t, "hp", "heal", "Heal", how[2], to_full=cur >= mx)], tick
         return [self._ev(t, "hp", how[0], how[1], how[2])], tick
 
     # -- results -----------------------------------------------------------------------

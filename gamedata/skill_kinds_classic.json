@@ -8,6 +8,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Three Snails"
   },
   "0001001": {
@@ -20,6 +21,7 @@
     30
    ],
    "until": null,
+   "attacks": null,
    "name": "Recovery"
   },
   "0001002": {
@@ -32,6 +34,7 @@
     30
    ],
    "until": null,
+   "attacks": null,
    "name": "Nimble Feet"
   },
   "1000000": {
@@ -40,6 +43,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Improved HP Recovery"
   },
   "1000001": {
@@ -48,6 +52,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Max HP Increase"
   },
   "1000002": {
@@ -56,6 +61,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Precise Strikes"
   },
   "1001000": {
@@ -85,6 +91,7 @@
     600
    ],
    "until": null,
+   "attacks": null,
    "name": "Iron Body"
   },
   "1001001": {
@@ -93,6 +100,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Power Strike"
   },
   "1001002": {
@@ -101,6 +109,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Slash Blast"
   },
   "1100000": {
@@ -109,6 +118,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Sword Mastery"
   },
   "1100001": {
@@ -117,6 +127,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Axe Mastery"
   },
   "1101000": {
@@ -125,6 +136,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Final Attack: Sword"
   },
   "1101001": {
@@ -133,6 +145,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Final Attack: Axe"
   },
   "1101002": {
@@ -162,6 +175,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Sword Booster"
   },
   "1101003": {
@@ -191,6 +205,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Axe Booster"
   },
   "1101004": {
@@ -230,6 +245,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Rage"
   },
   "1101005": {
@@ -238,6 +254,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Rush"
   },
   "1110000": {
@@ -246,6 +263,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Improved MP Recovery"
   },
   "1111000": {
@@ -254,6 +272,7 @@
    "target": "self",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Combo Attack"
   },
   "1111001": {
@@ -293,6 +312,7 @@
     9
    ],
    "until": null,
+   "attacks": null,
    "name": "Panic"
   },
   "1111002": {
@@ -301,6 +321,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Coma"
   },
   "1111003": {
@@ -340,6 +361,7 @@
     10
    ],
    "until": null,
+   "attacks": null,
    "name": "Shout"
   },
   "1111004": {
@@ -369,6 +391,7 @@
     15
    ],
    "until": null,
+   "attacks": null,
    "name": "Armor Crash"
   },
   "1111005": {
@@ -398,6 +421,7 @@
     180
    ],
    "until": null,
+   "attacks": null,
    "name": "Power Guard"
   },
   "1200000": {
@@ -406,6 +430,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Sword Mastery"
   },
   "1200001": {
@@ -414,6 +439,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Blunt Weapon Mastery"
   },
   "1201000": {
@@ -422,6 +448,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Final Attack: Sword"
   },
   "1201001": {
@@ -430,6 +457,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Final Attack: Blunt Weapon"
   },
   "1201002": {
@@ -459,6 +487,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Sword Booster"
   },
   "1201003": {
@@ -488,6 +517,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Blunt Weapon Booster"
   },
   "1201004": {
@@ -527,6 +557,7 @@
     30
    ],
    "until": null,
+   "attacks": null,
    "name": "Threaten"
   },
   "1201005": {
@@ -535,6 +566,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Rush"
   },
   "1210000": {
@@ -543,6 +575,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Improved MP Recovery"
   },
   "1211000": {
@@ -551,6 +584,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Charged Blow"
   },
   "1211001": {
@@ -590,6 +624,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Fire Charge"
   },
   "1211002": {
@@ -629,6 +664,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Ice Charge"
   },
   "1211003": {
@@ -668,6 +704,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Lightning Charge"
   },
   "1211004": {
@@ -697,6 +734,7 @@
     15
    ],
    "until": null,
+   "attacks": null,
    "name": "Elemental Crash"
   },
   "1211005": {
@@ -726,6 +764,7 @@
     180
    ],
    "until": null,
+   "attacks": null,
    "name": "Power Guard"
   },
   "1300000": {
@@ -734,6 +773,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Spear Mastery"
   },
   "1300001": {
@@ -742,6 +782,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Polearm Mastery"
   },
   "1301000": {
@@ -750,6 +791,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Final Attack: Spear"
   },
   "1301001": {
@@ -758,6 +800,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Final Attack: Polearm"
   },
   "1301002": {
@@ -787,6 +830,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Spear Booster"
   },
   "1301003": {
@@ -816,6 +860,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Polearm Booster"
   },
   "1301004": {
@@ -855,6 +900,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Iron Will"
   },
   "1301005": {
@@ -863,6 +909,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Rush"
   },
   "1310000": {
@@ -871,6 +918,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Partial Resistance"
   },
   "1311000": {
@@ -879,6 +927,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Piercing Crusher"
   },
   "1311001": {
@@ -887,6 +936,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Dragon Fury"
   },
   "1311002": {
@@ -926,6 +976,7 @@
     2
    ],
    "until": null,
+   "attacks": null,
    "name": "Dragon Roar"
   },
   "1311003": {
@@ -955,6 +1006,7 @@
     15
    ],
    "until": null,
+   "attacks": null,
    "name": "Power Crash"
   },
   "1311004": {
@@ -963,6 +1015,7 @@
    "target": "self",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Dragon Blood"
   },
   "1311005": {
@@ -992,6 +1045,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Hyper Body"
   },
   "2000000": {
@@ -1000,6 +1054,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Improved MP Recovery"
   },
   "2000001": {
@@ -1008,6 +1063,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Max MP Increase"
   },
   "2001000": {
@@ -1016,6 +1072,7 @@
    "target": "self",
    "duration_s": null,
    "until": "toggle",
+   "attacks": null,
    "name": "Magic Guard"
   },
   "2001001": {
@@ -1045,6 +1102,7 @@
     600
    ],
    "until": null,
+   "attacks": null,
    "name": "Magic Armor"
   },
   "2001002": {
@@ -1053,6 +1111,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Energy Bolt"
   },
   "2001003": {
@@ -1061,6 +1120,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Magic Claw"
   },
   "2100000": {
@@ -1069,6 +1129,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "MP Eater"
   },
   "2101000": {
@@ -1098,6 +1159,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Meditation"
   },
   "2101001": {
@@ -1106,6 +1168,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Teleport"
   },
   "2101002": {
@@ -1135,6 +1198,7 @@
     20
    ],
    "until": null,
+   "attacks": null,
    "name": "Slow"
   },
   "2101003": {
@@ -1143,6 +1207,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Fire Arrow"
   },
   "2101004": {
@@ -1151,6 +1216,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Poison Breath"
   },
   "2110000": {
@@ -1159,6 +1225,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Elemental Resistance"
   },
   "2111000": {
@@ -1167,6 +1234,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Element Amplification"
   },
   "2111001": {
@@ -1175,6 +1243,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Explosion"
   },
   "2111002": {
@@ -1214,6 +1283,7 @@
     5
    ],
    "until": null,
+   "attacks": null,
    "name": "Poison Mist"
   },
   "2111003": {
@@ -1222,6 +1292,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Element Composition"
   },
   "2111004": {
@@ -1251,6 +1322,7 @@
     20
    ],
    "until": null,
+   "attacks": null,
    "name": "Seal"
   },
   "2111005": {
@@ -1280,6 +1352,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Spell Booster"
   },
   "2200000": {
@@ -1288,6 +1361,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "MP Eater"
   },
   "2201000": {
@@ -1317,6 +1391,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Meditation"
   },
   "2201001": {
@@ -1325,6 +1400,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Teleport"
   },
   "2201002": {
@@ -1354,6 +1430,7 @@
     20
    ],
    "until": null,
+   "attacks": null,
    "name": "Slow"
   },
   "2201003": {
@@ -1393,6 +1470,7 @@
     3
    ],
    "until": null,
+   "attacks": null,
    "name": "Cold Beam"
   },
   "2201004": {
@@ -1401,6 +1479,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Thunder Bolt"
   },
   "2210000": {
@@ -1409,6 +1488,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Elemental Resistance"
   },
   "2211000": {
@@ -1417,6 +1497,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Element Amplification"
   },
   "2211001": {
@@ -1456,6 +1537,7 @@
     3
    ],
    "until": null,
+   "attacks": null,
    "name": "Ice Strike"
   },
   "2211002": {
@@ -1464,6 +1546,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Thunder Spear"
   },
   "2211003": {
@@ -1472,6 +1555,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Element Composition"
   },
   "2211004": {
@@ -1501,6 +1585,7 @@
     20
    ],
    "until": null,
+   "attacks": null,
    "name": "Seal"
   },
   "2211005": {
@@ -1530,6 +1615,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Spell Booster"
   },
   "2300000": {
@@ -1538,6 +1624,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "MP Eater"
   },
   "2301000": {
@@ -1546,6 +1633,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Teleport"
   },
   "2301001": {
@@ -1554,6 +1642,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": "undead",
    "name": "Heal"
   },
   "2301002": {
@@ -1583,6 +1672,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Invincible"
   },
   "2301003": {
@@ -1612,6 +1702,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Bless"
   },
   "2301004": {
@@ -1620,6 +1711,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Holy Arrow"
   },
   "2310000": {
@@ -1628,6 +1720,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Elemental Resistance"
   },
   "2311000": {
@@ -1636,6 +1729,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Dispel"
   },
   "2311001": {
@@ -1644,6 +1738,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Mystic Door"
   },
   "2311002": {
@@ -1683,6 +1778,7 @@
     1800
    ],
    "until": null,
+   "attacks": null,
    "name": "Holy Symbol"
   },
   "2311003": {
@@ -1691,6 +1787,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Shining Ray"
   },
   "2311004": {
@@ -1730,6 +1827,7 @@
     30
    ],
    "until": null,
+   "attacks": null,
    "name": "Doom"
   },
   "2311005": {
@@ -1769,6 +1867,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Summon Dragon"
   },
   "3000000": {
@@ -1777,6 +1876,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Critical Shot"
   },
   "3000001": {
@@ -1785,6 +1885,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "The Eye of Amazon"
   },
   "3001000": {
@@ -1814,6 +1915,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Focus"
   },
   "3001001": {
@@ -1822,6 +1924,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Arrow Blow"
   },
   "3001002": {
@@ -1830,6 +1933,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Double Shot"
   },
   "3001003": {
@@ -1838,6 +1942,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Power Knockback"
   },
   "3100000": {
@@ -1846,6 +1951,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Bow Mastery"
   },
   "3100001": {
@@ -1854,6 +1960,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Amazon's Judgement"
   },
   "3101000": {
@@ -1862,6 +1969,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Final Attack: Bow"
   },
   "3101001": {
@@ -1891,6 +1999,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Bow Booster"
   },
   "3101003": {
@@ -1920,6 +2029,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Soul Arrow: Bow"
   },
   "3101004": {
@@ -1959,6 +2069,7 @@
     2
    ],
    "until": null,
+   "attacks": null,
    "name": "Arrow Bomb"
   },
   "3110000": {
@@ -1967,6 +2078,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Mortal Blow"
   },
   "3111000": {
@@ -1996,6 +2108,7 @@
     60
    ],
    "until": null,
+   "attacks": null,
    "name": "Puppet"
   },
   "3111001": {
@@ -2004,6 +2117,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Inferno"
   },
   "3111002": {
@@ -2012,6 +2126,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Arrow Rain"
   },
   "3111003": {
@@ -2020,6 +2135,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Strafe"
   },
   "3111004": {
@@ -2059,6 +2175,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Silver Hawk"
   },
   "3111005": {
@@ -2067,6 +2184,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Wind Step"
   },
   "3200000": {
@@ -2075,6 +2193,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Crossbow Mastery"
   },
   "3200001": {
@@ -2083,6 +2202,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Amazon's Judgement"
   },
   "3201000": {
@@ -2091,6 +2211,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Final Attack: Crossbow"
   },
   "3201001": {
@@ -2120,6 +2241,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Crossbow Booster"
   },
   "3201003": {
@@ -2149,6 +2271,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Soul Arrow: Crossbow"
   },
   "3201004": {
@@ -2157,6 +2280,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Iron Arrow"
   },
   "3210000": {
@@ -2165,6 +2289,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Mortal Blow"
   },
   "3211000": {
@@ -2194,6 +2319,7 @@
     60
    ],
    "until": null,
+   "attacks": null,
    "name": "Puppet"
   },
   "3211001": {
@@ -2233,6 +2359,7 @@
     2
    ],
    "until": null,
+   "attacks": null,
    "name": "Blizzard"
   },
   "3211002": {
@@ -2241,6 +2368,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Arrow Eruption"
   },
   "3211003": {
@@ -2249,6 +2377,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Strafe"
   },
   "3211004": {
@@ -2288,6 +2417,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Golden Eagle"
   },
   "3211005": {
@@ -2296,6 +2426,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Evasion Step"
   },
   "4000000": {
@@ -2304,6 +2435,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Nimble Body"
   },
   "4000001": {
@@ -2312,6 +2444,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Keen Eyes"
   },
   "4001000": {
@@ -2341,6 +2474,7 @@
     30
    ],
    "until": null,
+   "attacks": null,
    "name": "Disorder"
   },
   "4001001": {
@@ -2349,6 +2483,7 @@
    "target": "self",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Dark Sight"
   },
   "4001002": {
@@ -2357,6 +2492,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Double Stab"
   },
   "4001003": {
@@ -2365,6 +2501,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Lucky Seven"
   },
   "4100000": {
@@ -2373,6 +2510,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Claw Mastery"
   },
   "4100001": {
@@ -2381,6 +2519,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Critical Throw"
   },
   "4100002": {
@@ -2389,6 +2528,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Critical Recovery"
   },
   "4101000": {
@@ -2418,6 +2558,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Claw Booster"
   },
   "4101001": {
@@ -2447,6 +2588,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Haste"
   },
   "4101002": {
@@ -2455,6 +2597,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Drain"
   },
   "4110000": {
@@ -2463,6 +2606,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Claw Guard"
   },
   "4111000": {
@@ -2492,6 +2636,7 @@
     1800
    ],
    "until": null,
+   "attacks": null,
    "name": "Meso Saver"
   },
   "4111001": {
@@ -2531,6 +2676,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Shadow Partner"
   },
   "4111002": {
@@ -2560,6 +2706,7 @@
     5
    ],
    "until": null,
+   "attacks": null,
    "name": "Shadow Web"
   },
   "4111003": {
@@ -2568,6 +2715,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Shadow Meso"
   },
   "4111004": {
@@ -2576,6 +2724,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Avenger"
   },
   "4111005": {
@@ -2584,6 +2733,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Flash Jump"
   },
   "4200000": {
@@ -2592,6 +2742,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Dagger Mastery"
   },
   "4200001": {
@@ -2600,6 +2751,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Nimble Recovery"
   },
   "4201000": {
@@ -2629,6 +2781,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Dagger Booster"
   },
   "4201001": {
@@ -2658,6 +2811,7 @@
     300
    ],
    "until": null,
+   "attacks": null,
    "name": "Haste"
   },
   "4201002": {
@@ -2697,6 +2851,7 @@
     60
    ],
    "until": null,
+   "attacks": null,
    "name": "Steal"
   },
   "4201003": {
@@ -2705,6 +2860,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Savage Blow"
   },
   "4210000": {
@@ -2713,6 +2869,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Chakra"
   },
   "4211000": {
@@ -2721,6 +2878,7 @@
    "target": "self",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Meso Guard"
   },
   "4211001": {
@@ -2760,6 +2918,7 @@
     2
    ],
    "until": null,
+   "attacks": null,
    "name": "Assaulter"
   },
   "4211002": {
@@ -2768,6 +2927,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Band of Thieves"
   },
   "4211003": {
@@ -2776,6 +2936,7 @@
    "target": "self",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Pickpocket"
   },
   "4211004": {
@@ -2784,6 +2945,7 @@
    "target": "mobs",
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Meso Explosion"
   },
   "4211005": {
@@ -2792,6 +2954,7 @@
    "target": null,
    "duration_s": null,
    "until": null,
+   "attacks": null,
    "name": "Flash Jump"
   }
  }

@@ -4,7 +4,7 @@
     python dev/make_skill_kinds.py --check  exit 1 if the file on disk differs from what would be generated
 
 A text rule gives a first guess; OVERRIDES (hand-checked) win. Never hand-edit the json: fix OVERRIDES here.
-Kinds: attack | buff | passive | other. See .claude/handoff/10-skills-plan.md.
+Kinds: attack | buff | passive | other. `attacks` (ATTACKS): a non-attack that also hits some mobs (Heal: undead). See .claude/handoff/10-skills-plan.md.
 """
 import json
 import re
@@ -39,6 +39,7 @@ _ov("1211001 1211002 1211003", "buff", "charge")
 
 TOGGLE = {"2001000"}     # Magic Guard: one cast, on until it ends (death); no timer (player, 2026-10-29/30)
 DURATION_FIXED = {"0001001": 30}                # Recovery: heals over 30 s
+ATTACKS = {"2301001": "undead"}  # Heal: stays a heal (other/heal) but also hits undead mobs (player, 2026-11-06)
 
 ATTACK = re.compile(r"Basic Attack \d|Mastery|\bDamage \d|\d\s*% damage", re.I)
 DUR = re.compile(r"\bfor (\d+)\s*(sec|seconds|min)\b", re.I)
@@ -88,7 +89,8 @@ def build():
             target = "party" if re.search("party", text, re.I) else "self"
         else:
             target = None
-        kinds[sid] = {"kind": kind, "sub": sub, "target": target, "duration_s": dur, "until": until, "name": s["name"]}
+        kinds[sid] = {"kind": kind, "sub": sub, "target": target, "duration_s": dur, "until": until,
+                      "attacks": ATTACKS.get(sid), "name": s["name"]}
     return {"made": "2026-10-29", "from": f"skills_classic.json fetched {src.get('fetched')}", "kinds": kinds}
 
 

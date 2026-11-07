@@ -16,6 +16,7 @@ import os
 import subprocess
 import sys
 import threading
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -119,7 +120,14 @@ relay.FEEDBACK_KEY = KEY
 settings["feedback"]["server"] = "http://127.0.0.1:9"
 s = status()
 check("status: OFFLINE when the server does not answer", s.get("online") is False, s)
-settings["feedback"]["server"] = RELAY
+settings["feedback"]["server"] = ""                 # no own server: falls back to the relay address
+settings["relay"] = {"server": RELAY}
+s = status()
+check("status: ONLINE through the relay address", s.get("online") is True, s)
+check("server_for: bare host gets the relay port", fbc.server_for(
+    {"relay": {"server": "relay.example"}}) == "http://relay.example:8787")
+check("server_for: own field wins", fbc.server_for(
+    {"feedback": {"server": "other.example"}, "relay": {"server": "relay.example"}}) == "http://other.example:8787")
 
 st, r = local(mixed, xdiary=False)
 check("no X-Diary header -> 403", st == 403, st)
@@ -144,6 +152,7 @@ env = {**os.environ, "FEEDBACK_KEY": KEY}
 inbox = OUT / "inbox"
 for f in inbox.glob("*.json"):              # a reused OUT_DIR keeps the last run's items
     f.unlink()
+time.sleep(2.5)                     # v1 relay bucket (4/s, burst 10): sends now try /v2 first
 p = subprocess.run([sys.executable, str(CODE / "dev" / "feedback.py"), "fetch", "--server", RELAY,
                     "--code", FCODE, "--out", str(inbox), "--clear"], env=env, capture_output=True, text=True)
 files = sorted(inbox.glob("*.json"))

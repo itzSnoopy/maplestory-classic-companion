@@ -112,6 +112,8 @@ def check_skill_kinds():
     for i, v in kd.items():
         if v.get("kind") not in ("attack", "buff", "passive", "other"):
             bad.append(f"{i} kind {v.get('kind')}")
+        if v.get("attacks") not in (None, "undead"):
+            bad.append(f"{i} attacks {v.get('attacks')}")
         d = v.get("duration_s")
         if d is not None and i in sk and len(d) != sk[i]["max"]:
             bad.append(f"{i} duration_s length")

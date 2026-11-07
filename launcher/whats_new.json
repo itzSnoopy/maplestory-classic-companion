@@ -1,4 +1,9 @@
 {
+ "0.12.0": [
+  "Heal on the skill bar: your casts and the HP they give are now matched reliably, and Heal shows your average heal (~135) under its slot, remembered between sessions.",
+  "Party skills: when a Cleric is in your party, a Heal slot appears after your own skills and flashes with the amount when their Heal lands on you.",
+  "Small marks on the skill bar labels (clock for regen, shield for Magic Guard, cross for Heal); skill feedback now uses your relay address."
+ ],
  "0.11.0": [
   "Relic hunt: finding a piece now pops a \"Relic piece found!\" notice with the piece, and the rooms panel shows the hunt's progress next to it (the - button hides it).",
   "Relic pieces now come from your own kills only, like duels, and party quest maps count even when their monsters are far below your level.",

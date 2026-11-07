@@ -191,6 +191,7 @@ function kindHtml(s){
     h += '<span class="tag">' + esc(m === "timed" && L[0][4] != null ? "timed " + span(L[0][4], L[L.length-1][4], fmtS) : m) + '</span>';
   }
   if (s.target === "party") h += '<span class="tag">party</span>';
+  if (s.attacks) h += '<span class="tag">also hits ' + esc(s.attacks) + '</span>';
   if (r && r.kind && r.kind !== s.kind) h += '<span class="fixed">was ' + s.kind + '</span>';
   return h;
 }

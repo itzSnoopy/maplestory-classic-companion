@@ -40,7 +40,7 @@ HIDDEN = ["launcher.setup_ui", "hub.settings_ui", "engine.calibrate", "component
           "components.killers.killers", "gamedata.game_refs", "base.internet", "engine.capture", "base.perf",
           "engine.panels", "hub.character", "engine.charname", "engine.vitals", "hub.live",
           "components.skillbar.mpuse", "components.skillbar.maxwatch", "gamedata.formulas", "components.skillbar.feed", "components.skillbar.meter",
-          "components.skillbar.skillbar_ui", "hub.tools", "launcher.whats_new",
+          "components.skillbar.skillbar_ui", "components.skillbar.partyfx", "hub.tools", "launcher.whats_new",
           "engine.party", "engine.msgcorner", "components.party.partylink", "components.party.party_ui",
           "components.training.training", "components.training.training_ui", "components.skillbar.regen",
           "components.training.itemicons", "engine.portrait",

@@ -54,7 +54,7 @@ def skill_rows():
                        items, dur, cd, t])
         rows.append({"id": sid, "name": v["name"], "cls": v["class"], "job": v["job"], "max": v["max"],
                      "kind": k["kind"], "sub": k.get("sub"), "target": k.get("target"),
-                     "until": k.get("until"), "lv": lv})
+                     "until": k.get("until"), "attacks": k.get("attacks"), "lv": lv})
     return S.get("fetched"), rows
 
 

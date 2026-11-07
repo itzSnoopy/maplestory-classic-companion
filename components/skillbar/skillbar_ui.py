@@ -6,6 +6,9 @@ Skill corner number (right-click, helper_settings skillbar.show): casts left (de
 cast, or mesos per cast (feed.py: the MP at what your MP potion costs per point, training's
 mp_price via hub.ask, plus items like Magic Rock at your own price, plus mesos like Shadow Meso).
 
+Party skills (partyfx.py): after a wider gap and a thin divider, one slot per known party skill whose
+caster class is in party.json (today Heal): green pulse + "+amount" when it lands on me.
+
 Slots, left to right:
   MP regen   tick size ("+6"), seconds to the next tick, and a dark sweep that empties as the
              tick comes (meter.Meter measures it from the status bar; nothing is guessed)
@@ -33,17 +36,70 @@ from PIL import Image, ImageDraw, ImageTk
 
 from base.paths import DATA
 from hub.ui.overlay import KEY, font as _font, text as _text      # what the overlay windows share
+from . import partyfx
 
+HEAL_ID = "2301001"         # Heal: its slot shows the average heal under it (feed.py "heal")
 GUARD_ID = "2001000"        # Magic Guard: its slot shows what it covers (feed.py "guard"), not casts
 
 LIVE = DATA / "live.json"
 CASTS = DATA / "live_casts.json"     # casts per skill, written the moment a cast is booked (feed.py)
 CASTS_EVERY_MS = 100
+PARTY = DATA / "party.json"          # the party link's file (others only)
+STATUS = DATA / "status.json"        # my map
+GROUP_GAP = 3                        # gap between my skills and the party's skills, in GAPs
+PULSE_GET = (90, 220, 120)           # a party skill landed on me: green
+RECEIVED_S = 15.0                    # the last amount stays under a party Heal this long
 SLOT, GAP, PAD = 44, 4, 4       # px at 96 dpi
 PULSE_S = 0.9                   # an attack's slot flashes this long after a cast is seen (player, 2026-10-31)
 PULSE_MP, PULSE_HP = (80, 160, 255), (255, 80, 80)   # what the cast cost: MP blue, HP red, both = two rings
 STALE_S = 6.0
 FPS = 10
+
+
+# -- caption marks: simple shapes, one small function each (swap for artist art later) ---------
+def _mark_clock(d, x, y, m, color):
+    w = max(1, m // 8)
+    d.ellipse((x, y, x + m - 1, y + m - 1), outline=color, width=w)
+    c = x + (m - 1) / 2, y + (m - 1) / 2
+    d.line((c[0], c[1], c[0], y + m * 0.2), fill=color, width=w)             # minute hand, up
+    d.line((c[0], c[1], x + m * 0.76, c[1] + m * 0.1), fill=color, width=w)  # hour hand, right
+
+
+def _mark_shield(d, x, y, m, color):
+    r = m - 1
+    d.polygon([(x, y), (x + r, y), (x + r, y + r * 0.5), (x + r / 2, y + r), (x, y + r * 0.5)],
+              fill=color)
+
+
+def _mark_cross(d, x, y, m, color):
+    t = max(2, m // 3)
+    a, b = (m - t) // 2, (m - t) // 2 + t - 1
+    d.rectangle((x + a, y, x + b, y + m - 1), fill=color)
+    d.rectangle((x, y + a, x + m - 1, y + b), fill=color)
+
+
+def _mark_users(size, color=(255, 255, 255)):
+    """Three person silhouettes (big one in front, two smaller behind): circle head + rounded body.
+    Returns an RGBA image size x size. Swap for artist art later."""
+    im = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    col = tuple(color[:3]) + (255,)
+
+    def person(cx, bottom, w):             # body = rounded top half-capsule, head above it
+        h = w * 0.7
+        d.rounded_rectangle((cx - w / 2, bottom - h, cx + w / 2, bottom + h), radius=w * 0.45,
+                            fill=col)
+        r = w * 0.3
+        d.ellipse((cx - r, bottom - h - r * 2.3, cx + r, bottom - h - r * 0.3), fill=col)
+    bottom = size                           # bodies run off the bottom edge (cropped by the image)
+    person(size * 0.2, bottom - size * 0.12, size * 0.3)
+    person(size * 0.8, bottom - size * 0.12, size * 0.3)
+    person(size * 0.5, bottom, size * 0.42)
+    return im
+
+
+MARKS = {"clock": _mark_clock, "shield": _mark_shield, "cross": _mark_cross}
+# not a caption mark: _mark_users(size, color) is a slot watermark (party skills)
 
 
 class SkillBar:
@@ -52,6 +108,9 @@ class SkillBar:
         self.k = k
         self.s = int(round(SLOT * k))
         self.live, self.live_t = {}, 0.0
+        self.party, self.my_map = {}, None      # party.json, status.json map (read with live.json)
+        self.pslots = []                # partyfx slots
+        self.party_seen = {}            # party skill id -> last_t already pulsed
         self.pulses = {}                # skill id -> when its pulse started (a new cast seen)
         self.icons = {}                 # path -> PIL image (slot size)
         self.photo = None
@@ -89,6 +148,7 @@ class SkillBar:
         if self.demo:
             self.live, self.live_t = demo_live(), time.time()
             self._new_casts()
+            self._demo_party(self.live_t)
         else:
             try:
                 st = LIVE.stat()
@@ -98,7 +158,54 @@ class SkillBar:
                     self._new_casts()
             except (OSError, ValueError):
                 pass
+            self._read_party()
         self.root.after(1000, self._read)
+
+    @staticmethod
+    def _json(path):
+        try:
+            d = json.loads(path.read_text(encoding="utf-8"))
+            return d if isinstance(d, dict) else {}
+        except (OSError, ValueError):
+            return {}
+
+    def _read_party(self):
+        """party.json + status.json (my map) -> the party skills slots; missing / broken = none."""
+        self.party = self._json(PARTY)
+        self.my_map = self._json(STATUS).get("map")
+        ev = ((self.live or {}).get("usage") or {}).get("recent") or []
+        self._set_party(partyfx.party_slots(self.party, ev, time.time(), self.my_map))
+
+    def _set_party(self, slots):
+        """Keep the slots; a newer matching event than the one seen starts the green pulse
+        (the first read only remembers)."""
+        now = time.time()
+        for p in slots:
+            t = p["last_t"]
+            if p["id"] in self.party_seen and t is not None and t != self.party_seen[p["id"]]:
+                self.pulses["party:" + p["id"]] = now
+            self.party_seen[p["id"]] = t
+        self.pslots = slots
+
+    def _demo_party(self, now):
+        """Demo only: a fake Cleric whose Heal lands every 8 s, a fake Assassin whose level 5
+        Haste (its real duration) is cast again when it runs out."""
+        self.party = {"ok": True, "t": now, "members": [
+            {"name": "FakeCleric", "job": "Cleric", "map": "Demo"},
+            {"name": "FakeSin", "job": "Assassin", "map": "Demo"}]}
+        self.my_map = "Demo"
+        dur = partyfx.duration("4101001", 5) or 140
+        t0 = getattr(self, "demo_t0", None) or now
+        self.demo_t0 = t0
+        skew = getattr(self, "demo_skew", 0)            # tests move the Haste clock with this
+        n = int((now - t0) // 8)
+        k = int((now - t0 + skew) // dur)
+        ev = [{"t": t0 + n * 8 + 0.0, "meter": "hp", "kind": "heal", "name": "Heal (party?)",
+               "amount": 128 + (n * 7) % 11}] if n >= 1 else []
+        ev.append({"t": t0 - skew + k * dur, "meter": "hp", "kind": "buff",
+                   "name": "Haste (party?)", "amount": 0})
+        self._set_party(partyfx.party_slots(self.party, ev, now, "Demo",
+                                            {**partyfx.PARTY_SKILLS, **partyfx.DEMO_BUFF}))
 
     def _new_casts(self, counts=None):
         """An attack whose cast count went up since the last read starts a pulse (the first read
@@ -111,7 +218,7 @@ class SkillBar:
         if seen is not None:
             for sid, n in counts.items():
                 sk = skills.get(sid)
-                if sk and sk.get("kind") == "attack" and n > seen.get(sid, n):
+                if sk and (sk.get("kind") == "attack" or sk.get("attacks")) and n > seen.get(sid, n):
                     self.pulses[sid] = now
         self.cast_seen = {**(seen or {}), **counts}
 
@@ -225,15 +332,51 @@ class SkillBar:
         return self._slot(icon, frac_left=min(1.0, left / per), mid=f"{math.ceil(left):.0f}",
                           corner=f"{per:g}s", label=label)
 
-    def _caption(self, text, color):
-        """A small dark pill under a slot, e.g. '+9' under MP (the measured gain per tick)."""
+    def _caption(self, text, color, mark=None):
+        """A small dark pill under a slot, e.g. '+9' under MP (the measured gain per tick).
+        mark: None, "clock", "shield" or "cross": a tiny code-drawn icon right of the text."""
         s, h = self.s, int(16 * self.k)
         im = Image.new("RGBA", (s, h), (0, 0, 0, 0))
         d = ImageDraw.Draw(im)
         d.rounded_rectangle((0, 0, s - 1, h - 1), radius=int(5 * self.k), fill=(24, 26, 32, 235),
                             outline=(90, 96, 110, 255))
-        _text(d, (s // 2, h // 2), text, self.f_small, fill=color)
+        draw = MARKS.get(mark)
+        if draw is None:
+            _text(d, (s // 2, h // 2), text, self.f_small, fill=color)
+            return im
+        m = max(6, round((h - int(6 * self.k)) * 0.8))  # icon size: caption height minus padding, -20 % (player)
+        gap = max(2, int(2 * self.k))
+        tw = int(d.textlength(text, font=self.f_small))
+        x0 = (s - (tw + gap + m)) // 2                # text + icon centred together
+        _text(d, (x0 + tw // 2, h // 2), text, self.f_small, fill=color)
+        draw(d, x0 + tw + gap, (h - m) // 2, m, color)
         return im
+
+    def _party_slot(self, ps, now):
+        """(slot, caption) for a party skill: heal = green pulse + last amount; buff = sweep + seconds."""
+        initials = "".join(w[0] for w in ps["name"].split()[:2])
+        ipath = DATA / "templates" / "skill_icons" / f"{ps['id']}.png"
+        icon = self._icon(str(ipath) if ipath.exists() else None, initials, (50, 90, 70))
+        icon = icon.copy()                  # watermark: "party" at a glance (40 % white users mark)
+        m = _mark_users(int(self.s * 0.65))
+        m.putalpha(m.getchannel("A").point(lambda v: v * 4 // 10))
+        icon.alpha_composite(m, ((icon.width - m.width) // 2, icon.height - m.height - 1))
+        who = ", ".join(n[:7] for n in ps["from"][:2]) + ("+" if len(ps["from"]) > 2 else "")
+        cap = self._caption(who, (170, 220, 180, 255))
+        pk = self.pulses.get("party:" + ps["id"])
+        pulse = None
+        if pk is not None and now - pk < PULSE_S:
+            pulse = ((now - pk) / PULSE_S, [PULSE_GET])
+        if ps["kind"] == "buff":
+            left = (ps["ends"] or 0) - now
+            if left > 0:
+                return (self._slot(icon, frac_left=min(1.0, left / (ps["dur"] or left)),
+                                   mid=f"{math.ceil(left)}", pulse=pulse), cap)
+            return self._slot(icon, dim=True, pulse=pulse), cap
+        t = ps["last_t"]
+        if t is not None and now - t < RECEIVED_S and ps["amount"]:
+            cap = self._caption(f"+{ps['amount']}", (255, 140, 140, 255), "cross")
+        return self._slot(icon, dim=ps["dim"], pulse=pulse), cap
 
     def render(self):
         now = time.time()
@@ -250,7 +393,7 @@ class SkillBar:
             img = self._regen_slot(m, self._icon(reg[k].get("icon"), "", color), now, label)
             if img is not None:
                 cap = f"+{m['tick']}" if m.get("tick") else "+?"
-                slots.append((img, self._caption(cap, text_color)))
+                slots.append((img, self._caption(cap, text_color, "clock")))
                 ids.append(None)
         hidden = set(self.get().get("hidden") or [])
         for sk in L.get("skills") or []:
@@ -272,7 +415,15 @@ class SkillBar:
                 else:
                     color = (140, 140, 150, 255) if gd.get("absorb") == 0 else (140, 190, 255, 255)
                 # a toggle buff's number sits under the slot like the regen "+13" (player, 2026-10-31)
-                slots.append((self._slot(icon), self._caption(corner, color)))
+                slots.append((self._slot(icon), self._caption(corner, color, "shield")))
+                ids.append(sk.get("id"))
+                continue
+            hl = sk.get("heal") if sk.get("id") == HEAL_ID else None
+            if sk.get("id") == HEAL_ID:         # Heal: its average rise under the slot (? until one is seen)
+                cap = f"~{hl['avg']}" if hl else "?"
+                slots.append((self._slot(icon, corner=corner, dim=casts == 0, corner_color=color,
+                                         pulse=self._pulse(sk, now)),
+                              self._caption(cap, (255, 140, 140, 255), "cross")))
                 ids.append(sk.get("id"))
                 continue
             if show == "mp" and sk.get("mp"):
@@ -282,20 +433,39 @@ class SkillBar:
             slots.append((self._slot(icon, corner=corner, dim=casts == 0, corner_color=color,
                                      pulse=self._pulse(sk, now)), None))
             ids.append(sk.get("id"))
+        n_own = len(slots)
+        for ps in self.pslots:
+            if "party:" + ps["id"] in hidden:
+                continue
+            slots.append(self._party_slot(ps, now))
+            ids.append("party:" + ps["id"])
         self.slot_ids = ids
         if not slots:
             return None
         g, p = int(GAP * self.k), int(PAD * self.k)
+        gg = int(GAP * GROUP_GAP * self.k)          # the wider gap between my skills and the party's
+
+        def gap_after(i):
+            return gg if (n_own and i == n_own - 1 and i < len(slots) - 1) else g
+        self.xs = []
+        x = p
+        for i in range(len(slots)):
+            self.xs.append(x)
+            x += self.s + gap_after(i)
         caps = any(c is not None for _, c in slots)
         ch = int(16 * self.k) + int(2 * self.k) if caps else 0
-        W = p * 2 + len(slots) * self.s + (len(slots) - 1) * g
+        W = x - gap_after(len(slots) - 1) + p
         H = p * 2 + self.s + ch
         bar = Image.new("RGBA", (W, H), (0, 0, 0, 0))
         for i, (im, cap) in enumerate(slots):
-            x = p + i * (self.s + g)
+            x = self.xs[i]
             bar.alpha_composite(im, (x, p))
             if cap is not None:
                 bar.alpha_composite(cap, (x, p + self.s + int(2 * self.k)))
+        if 0 < n_own < len(slots):      # thin divider in the middle of the wide gap
+            dx = self.xs[n_own - 1] + self.s + gg // 2
+            ImageDraw.Draw(bar).line((dx, p + 4, dx, p + self.s - 4), fill=(90, 96, 110, 255),
+                                     width=max(1, int(self.k)))
         # flatten onto the window's transparent key colour (no half-transparent edges to fringe)
         key = tuple(int(KEY[i:i + 2], 16) for i in (1, 3, 5))
         out = Image.new("RGB", (W, H), key)
@@ -335,13 +505,17 @@ class SkillBar:
 
     def _slot_at(self, x):
         """Index of the slot under window x, or None (padding / gaps)."""
-        g, p = int(GAP * self.k), int(PAD * self.k)
-        i, off = divmod(x - p, self.s + g)
         ids = getattr(self, "slot_ids", [])
-        return int(i) if 0 <= i < len(ids) and off < self.s else None
+        for i, x0 in enumerate(getattr(self, "xs", [])):
+            if i < len(ids) and x0 <= x < x0 + self.s:
+                return i
+        return None
 
     def _names(self):
-        return {sk.get("id"): sk.get("name") for sk in (self.live or {}).get("skills") or []}
+        d = {sk.get("id"): sk.get("name") for sk in (self.live or {}).get("skills") or []}
+        for ps in self.pslots:
+            d["party:" + ps["id"]] = "party " + ps["name"]
+        return d
 
     @staticmethod
     def _meso_text(sk):
@@ -443,6 +617,9 @@ def demo_live():
                        {"id": "1001002", "name": "Slash Blast", "level": 1, "mp": 8, "hp_cost": 5,
                         "casts": 51, "kind": "attack", "cast_n": int(t / 3)},
                        {"id": "0001001", "name": "Recovery", "level": 3, "mp": 15, "casts": 3},
+                       {"id": "2301001", "name": "Heal", "level": 3, "mp": 40, "casts": 12,
+                        "kind": "buff", "attacks": "undead", "cast_n": int(t / 4),
+                        "heal": {"avg": 135, "recent": 136, "n": 4, "level": 3}},
                        {"id": "2001000", "name": "Magic Guard", "level": 2, "mp": 8, "casts": 52,
                         "guard": {"pct": 33, "absorb": 270, "ehp": 818, "last": 43}}]}
 

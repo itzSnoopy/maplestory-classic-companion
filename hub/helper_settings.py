@@ -78,7 +78,7 @@ DEFAULTS = {
         "code": "",                     # same code on every PC in the party (v1 link; rooms replace it)
     },
     "feedback": {                       # Settings > Internet > Skill feedback; components/feedback
-        "server": "",                   # the owner's relay (relay/README.md); no fallback to the party server
+        "server": "",                   # another owner's relay; empty = relay.server (components/feedback)
         "code": "",                     # feedback code the owner gives reviewers
     },
     "trainingpanel": {                  # Settings > General / tray; training_ui.py over the game
