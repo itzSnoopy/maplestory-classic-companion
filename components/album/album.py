@@ -356,10 +356,14 @@ def render(album=None):
 
 
 def seen_places():
-    """Maps the diary has marked as visited (history/places.json: a data file, written by the diary)."""
+    """Maps the diary has marked as visited, every character together (history/places.json: a data
+    file written by the diary; a flat list, or {"chars": {fingerprint: [maps]}})."""
     try:
-        return set(json.loads((ROOT / "history" / "places.json").read_text(encoding="utf-8")))
-    except (OSError, ValueError):
+        d = json.loads((ROOT / "history" / "places.json").read_text(encoding="utf-8"))
+        if isinstance(d, dict):
+            return {n for v in (d.get("chars") or {}).values() if isinstance(v, list) for n in v}
+        return set(d)
+    except (OSError, ValueError, TypeError):
         return set()
 
 

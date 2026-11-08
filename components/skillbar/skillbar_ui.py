@@ -19,8 +19,9 @@ Slots, left to right:
 Lives in the helper process (helper_ui.App creates it when Settings > General > "Skill bar" is
 on). Drag it anywhere (e.g. the top of the screen). Lock makes it click-through so it never takes
 a game click; unlock from the tray menu. Hidden while live.json is stale (not playing).
-Position/lock/removed skills: helper_settings.json "skillbar" (right-click a skill: "Remove ... from
-the bar"; "Add back" lists the removed ones). Draws at ~10 frames a second, reads live.json
+Position/lock: helper_settings.json "skillbar". Removed skills, corner and Magic Guard number are per
+character (skillbar.chars[live.json "who"]; right-click a skill: "Remove ... from the bar"; "Add back"
+lists the removed ones). Draws at ~10 frames a second, reads live.json
 once a second.
 
   python -m components.skillbar.skillbar_ui --demo [--at=X,Y]     fake data, for trying it out
@@ -38,7 +39,18 @@ from base.paths import DATA
 from hub.ui.overlay import KEY, font as _font, text as _text      # what the overlay windows share
 from . import partyfx
 
+try:
+    from . import skillicons
+except Exception:               # never let a missing module break the bar
+    skillicons = None
+
 HEAL_ID = "2301001"         # Heal: its slot shows the average heal under it (feed.py "heal")
+NIMBLE_ID = "0001002"       # Nimble Feet: while on, a sweep + "+speed" with a boot + a pulse each second; then the cooldown
+NIMBLE_PULSE_S = 0.6        # its once-a-second flash
+PULSE_SPEED = (120, 230, 140)
+SWEEP_CD = (0, 0, 0, 140)                   # sweep of a cooldown: dark
+SWEEP_TICK = (242, 182, 50, 120)            # sweep to the next tick / while a buff runs: gold (player, 2026-11-07)               # Nimble Feet's flash and caption colour
+RECOVERY_ID = "0001001"     # Recovery: a sweep + red flash per HP tick and "+N" under it while it heals, then the cooldown (feed.py "recovery")
 EATER_IDS = ("2100000", "2200000", "2300000")   # MP Eater: last absorb under the slot (feed.py "eater")
 GUARD_ID = "2001000"        # Magic Guard: its slot shows what it covers (feed.py "guard"), not casts
 
@@ -99,8 +111,131 @@ def _mark_users(size, color=(255, 255, 255)):
     return im
 
 
-MARKS = {"clock": _mark_clock, "shield": _mark_shield, "cross": _mark_cross}
+BOOT_PIXELS = (                 # Nimble Feet's mark: a boot (cuff, shaft, heel, arch, toe right) + speed lines
+    "..XXXXXXX...",
+    "..XXXXXXX...",
+    "...XXXXX....",
+    "XX.XXXXX....",
+    "...XXXXX....",
+    "...XXXXX....",
+    "XX.XXXXXX...",
+    "...XXXXXXXX.",
+    "XX.XXXXXXXXX",
+    "...XXXXXXXXX",
+    "...XXXXXXXXX",
+    "...XXX..XXXX",
+)
+
+
+def _mark_boot(d, x, y, m, color):
+    """Pixel-art boot with speed lines, 1.5 m square (taller than the other marks: at 8 px a boot
+    read as an "L", player 2026-11-07), scaled without smoothing so it stays crisp."""
+    col = tuple(color[:3]) + (255,)
+    rows = BOOT_PIXELS
+    im = Image.new("RGBA", (len(rows[0]), len(rows)), (0, 0, 0, 0))
+    im.putdata([col if c == "X" else (0, 0, 0, 0) for r in rows for c in r])
+    n = round(m * 1.5)
+    d._image.alpha_composite(im.resize((n, n), Image.NEAREST), (int(x), int(y - (n - m) / 2)))
+
+
+_mark_boot.wide = 1.5           # marks are m x m unless they say how much wider they are
+
+
+MARKS = {"clock": _mark_clock, "shield": _mark_shield, "cross": _mark_cross, "boot": _mark_boot}
 # not a caption mark: _mark_users(size, color) is a slot watermark (party skills)
+
+def _recovery_next(rc, now):
+    """Recovery's slot state: (phase, seconds left, segment length, ticks done).
+    phase "heal": ticks come `first` s after the cast, then every `every` s, `n` in all; each booked
+    tick re-syncs the clock (a missed one is assumed on time); left = to the next tick.
+    phase "cd": the ticks are over, left = cooldown (`cd` s from the cast), segment = from the last
+    tick to its end. phase None: not cast lately."""
+    t0, first, every, n = rc.get("t"), rc.get("first") or 5.9, rc.get("every") or 5.1, rc.get("n") or 6
+    if t0 is None:
+        return None, None, None, 0
+    ticks = sorted(x for x in (rc.get("ticks") or []) if x >= t0)
+    done = min(len(ticks), n)
+    nxt = ticks[-1] + every if ticks else t0 + first
+    if done < n and now >= nxt:         # past the expected tick without one booked: assume it came
+        k = min(int((now - nxt) // every) + 1, n - done)
+        done, nxt = done + k, nxt + k * every
+    if done < n:
+        return "heal", nxt - now, (first if done == 0 else every), done
+    end = t0 + (rc.get("cd") or 0)
+    if now >= end:
+        return None, None, None, n
+    last = ticks[-1] if len(ticks) >= n else nxt - every    # when the last tick came (booked or assumed)
+    return "cd", end - now, max(end - min(last, now), 1e-6), n
+
+
+def _secs(left):
+    """Whole seconds for the middle of a slot, also for long cooldowns ('150', not '2:30'; player)."""
+    return f"{int(math.ceil(left))}"
+
+
+def _timer_next(tm, now):
+    """Nimble Feet's slot state: (phase, seconds left, segment length). phase "on": the buff runs
+    (`dur` s from the cast); "cd": the rest of the cooldown (`cd` s from the cast), segment = from the
+    buff's end; None: not cast lately."""
+    t0, dur, cd = tm.get("t"), tm.get("dur") or 0, tm.get("cd") or 0
+    if t0 is None:
+        return None, None, None
+    if now < t0 + dur:
+        return "on", t0 + dur - now, dur
+    if now < t0 + cd:
+        return "cd", t0 + cd - now, max(cd - dur, 1e-6)
+    return None, None, None
+
+
+# -- per-character settings: skillbar.chars[fingerprint] = {hidden, show, guard_show} -------------
+PER_CHAR = ("hidden", "show", "guard_show")
+CHAR_DEFAULTS = {"hidden": [], "show": "casts", "guard_show": "ehp"}   # a new character starts here
+
+
+def char_cfg(settings, who, key):
+    """Value of a per-character key. who None = no character known: the shared top-level key.
+    A character without the key (new, or never changed it) gets the default, not the shared value."""
+    if not who:
+        return settings.get(key, CHAR_DEFAULTS[key])
+    mine = (settings.get("chars") or {}).get(who) or {}
+    return mine.get(key, CHAR_DEFAULTS[key])
+
+
+def char_put(settings, who, **kw):
+    """Settings changes to save for per-character keys: {chars: {...all characters...}} for a known
+    character (the others' entries are kept), the plain keys when who is None."""
+    if not who:
+        return dict(kw)
+    chars = {k: dict(v) for k, v in (settings.get("chars") or {}).items()}
+    chars.setdefault(who, {}).update(kw)
+    return {"chars": chars}
+
+
+def main_char(characters_db):
+    """Fingerprint of the highest-level character in characters.json's data, or None."""
+    best, best_lv = None, None
+    chars = (characters_db or {}).get("characters") if isinstance(characters_db, dict) else None
+    for fp, c in (chars or {}).items():
+        try:
+            lv = float(c["stats"]["level"]["value"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if best_lv is None or lv > best_lv:
+            best, best_lv = fp, lv
+    return best
+
+
+def migrate(settings, characters_db):
+    """One time: the old shared hidden/show/guard_show were set on the player's main (the highest
+    level character). Returns the new `chars` dict to save, or None when there is nothing to do."""
+    if settings.get("chars"):
+        return None
+    if all(settings.get(k, CHAR_DEFAULTS[k]) == CHAR_DEFAULTS[k] for k in PER_CHAR):
+        return None
+    main = main_char(characters_db)
+    if not main:
+        return None
+    return {main: {k: settings[k] for k in PER_CHAR if k in settings}}
 
 
 class SkillBar:
@@ -139,10 +274,33 @@ class SkillBar:
         w.withdraw()
         self.after_tick = None
         self._apply_lock(cfg.get("locked", False))
+        if not demo:
+            self._migrate()
         self._read()
         if not demo:
             self._read_casts()
         self._tick()
+
+    # ---------------------------------------------------------------- per-character settings
+    def _who(self):
+        return (self.live or {}).get("who")
+
+    def cfg(self, key):
+        return char_cfg(self.get(), self._who(), key)
+
+    def put_char(self, **kw):
+        self.put(**char_put(self.get(), self._who(), **kw))
+
+    def _migrate(self):
+        """Old shared hidden/show/guard_show -> the main character's entry (once; skipped when
+        characters.json is missing or has no levels, retried at the next start)."""
+        try:
+            db = json.loads((DATA / "history" / "characters.json").read_text(encoding="utf-8"))
+            new = migrate(self.get(), db)
+            if new:
+                self.put(chars=new)
+        except Exception as e:
+            print(f"skill bar settings migration skipped: {e}")
 
     # ---------------------------------------------------------------- data
     def _read(self):
@@ -248,6 +406,22 @@ class SkillBar:
         return self.live and time.time() - (self.live.get("t") or 0) < STALE_S
 
     # ---------------------------------------------------------------- drawing
+    def _skill_pic(self, sid, cut):
+        """Picture path for a skill: my own cut (templates/skill_icons, via feed) first, else the one
+        downloaded from MeowDB (skillicons.py; starts the download if allowed), else None (initials)."""
+        if cut:
+            return cut
+        own = DATA / "templates" / "skill_icons" / f"{sid}.png"
+        if own.exists():
+            return str(own)
+        if skillicons is not None and sid:
+            try:
+                p = skillicons.path(sid)
+            except Exception:
+                p = None
+            return str(p) if p else None
+        return None
+
     def _icon(self, path, fallback, color):
         key = (path, fallback, color)
         if key not in self.icons:
@@ -267,7 +441,7 @@ class SkillBar:
         return self.icons[key]
 
     def _slot(self, icon, frac_left=None, top=None, mid=None, corner=None, dim=False,
-              corner_color=(255, 255, 255, 255), label=None, pulse=None):
+              corner_color=(255, 255, 255, 255), label=None, pulse=None, sweep=None):
         s = self.s
         im = Image.new("RGBA", (s, s), (0, 0, 0, 0))
         d = ImageDraw.Draw(im)
@@ -281,7 +455,7 @@ class SkillBar:
             ov = Image.new("RGBA", (s, s), (0, 0, 0, 0))
             r = s * 0.75
             ImageDraw.Draw(ov).pieslice((s / 2 - r, s / 2 - r, s / 2 + r, s / 2 + r),
-                                        -90 + 360 * (1 - frac_left), 270, fill=(0, 0, 0, 140))
+                                        -90 + 360 * (1 - frac_left), 270, fill=sweep or SWEEP_CD)
             mask = Image.new("L", (s, s), 0)
             ImageDraw.Draw(mask).rounded_rectangle((3, 3, s - 4, s - 4), radius=int(5 * self.k),
                                                    fill=255)
@@ -330,12 +504,12 @@ class SkillBar:
         left = nxt - now
         if left <= 0:               # overdue: what you're doing pushed the tick back; hold at 0
             return self._slot(icon, mid="0", corner=f"{per:g}s", label=label)
-        return self._slot(icon, frac_left=min(1.0, left / per), mid=f"{math.ceil(left):.0f}",
+        return self._slot(icon, frac_left=min(1.0, left / per), mid=f"{math.ceil(left):.0f}", sweep=SWEEP_TICK,
                           corner=f"{per:g}s", label=label)
 
     def _caption(self, text, color, mark=None):
         """A small dark pill under a slot, e.g. '+9' under MP (the measured gain per tick).
-        mark: None, "clock", "shield" or "cross": a tiny code-drawn icon right of the text."""
+        mark: None, "clock", "shield", "cross" or "boot": a tiny code-drawn icon right of the text."""
         s, h = self.s, int(16 * self.k)
         im = Image.new("RGBA", (s, h), (0, 0, 0, 0))
         d = ImageDraw.Draw(im)
@@ -348,7 +522,8 @@ class SkillBar:
         m = max(6, round((h - int(6 * self.k)) * 0.8))  # icon size: caption height minus padding, -20 % (player)
         gap = max(2, int(2 * self.k))
         tw = int(d.textlength(text, font=self.f_small))
-        x0 = (s - (tw + gap + m)) // 2                # text + icon centred together
+        mw = round(m * getattr(draw, "wide", 1.0))
+        x0 = (s - (tw + gap + mw)) // 2               # text + icon centred together
         _text(d, (x0 + tw // 2, h // 2), text, self.f_small, fill=color)
         draw(d, x0 + tw + gap, (h - m) // 2, m, color)
         return im
@@ -356,8 +531,7 @@ class SkillBar:
     def _party_slot(self, ps, now):
         """(slot, caption) for a party skill: heal = green pulse + last amount; buff = sweep + seconds."""
         initials = "".join(w[0] for w in ps["name"].split()[:2])
-        ipath = DATA / "templates" / "skill_icons" / f"{ps['id']}.png"
-        icon = self._icon(str(ipath) if ipath.exists() else None, initials, (50, 90, 70))
+        icon = self._icon(self._skill_pic(ps["id"], None), initials, (50, 90, 70))
         icon = icon.copy()                  # watermark: "party" at a glance (40 % white users mark)
         m = _mark_users(int(self.s * 0.65))
         m.putalpha(m.getchannel("A").point(lambda v: v * 4 // 10))
@@ -396,19 +570,19 @@ class SkillBar:
                 cap = f"+{m['tick']}" if m.get("tick") else "+?"
                 slots.append((img, self._caption(cap, text_color, "clock")))
                 ids.append(None)
-        hidden = set(self.get().get("hidden") or [])
+        hidden = set(self.cfg("hidden") or [])
         for sk in L.get("skills") or []:
             if sk.get("id") in hidden:          # removed from the bar by the player
                 continue
             casts = sk.get("casts")
             initials = "".join(w[0] for w in (sk.get("name") or "?").split()[:2])
-            icon = self._icon(sk.get("icon"), initials, (70, 70, 90))
+            icon = self._icon(self._skill_pic(sk.get("id"), sk.get("icon")), initials, (70, 70, 90))
             color = (255, 90, 90, 255) if casts is not None and casts < 5 else (255, 255, 255, 255)
             corner = str(casts) if casts is not None else "?"
-            show = self.get().get("show", "casts")
+            show = self.cfg("show")
             gd = sk.get("guard")
             if gd:                              # Magic Guard: what it covers, not casts
-                gs = self.get().get("guard_show", "ehp")
+                gs = self.cfg("guard_show")
                 v = gd.get(gs if gs in ("ehp", "absorb", "last") else "ehp")
                 corner = str(v) if v is not None else "-"
                 if gs == "ehp":                 # HP numbers in red, MP numbers in blue (player)
@@ -434,6 +608,44 @@ class SkillBar:
                     img = self._slot(icon, pulse=self._pulse(sk, now))
                 slots.append((img,
                               self._caption(cap, (140, 190, 255, 255), "cross")))
+                ids.append(sk.get("id"))
+                continue
+            if sk.get("id") == RECOVERY_ID and sk.get("recovery"):
+                rc = sk["recovery"]             # heals in ticks: one sweep per tick + HP per tick, then the cooldown
+                phase, left, seg, done = _recovery_next(rc, now)
+                last = getattr(self, "rec_done", None)
+                if phase == "heal" and last is not None and done > last:
+                    self.pulses["recovery_tick"] = now      # a tick (booked or due): red flash
+                self.rec_done = done if phase == "heal" else 0
+                kw = dict(corner=corner, dim=casts == 0, corner_color=color, pulse=self._pulse(sk, now))
+                rp = self.pulses.get("recovery_tick")
+                if rp is not None and now - rp < PULSE_S:
+                    kw["pulse"] = ((now - rp) / PULSE_S, [PULSE_HP])
+                cap = None
+                if phase:
+                    kw.update(sweep=SWEEP_TICK if phase == "heal" else None, frac_left=min(1.0, left / seg), dim=False,
+                              mid=_secs(left))
+                if phase == "heal":             # the per-tick heal shows only while it heals
+                    cap = self._caption(f"+{rc['tick']}" if rc.get("tick") else "+?",
+                                        (255, 140, 140, 255), "cross")
+                slots.append((self._slot(icon, **kw), cap))
+                ids.append(sk.get("id"))
+                continue
+            if sk.get("id") == NIMBLE_ID and sk.get("nimble"):
+                tm = sk["nimble"]               # speed buff: sweep + "+speed" while on, then the cooldown
+                phase, left, seg = _timer_next(tm, now)
+                kw = dict(corner=corner, dim=casts == 0, corner_color=color, pulse=self._pulse(sk, now))
+                cap = None
+                if phase:
+                    kw.update(frac_left=min(1.0, left / seg), dim=False, mid=_secs(left),
+                              sweep=SWEEP_TICK if phase == "on" else None)
+                if phase == "on":
+                    beat = (now - tm["t"]) % 1.0        # a flash every second while it runs
+                    if beat < NIMBLE_PULSE_S:
+                        kw["pulse"] = (beat / NIMBLE_PULSE_S, [PULSE_SPEED])
+                    cap = self._caption(f"+{tm['speed']}" if tm.get("speed") else "+?",
+                                        PULSE_SPEED + (255,), "boot")
+                slots.append((self._slot(icon, **kw), cap))
                 ids.append(sk.get("id"))
                 continue
             hl = sk.get("heal") if sk.get("id") == HEAL_ID else None
@@ -551,36 +763,36 @@ class SkillBar:
 
     def _menu(self, e):
         m = tk.Menu(self.w, tearoff=0)
-        show = tk.StringVar(value=self.get().get("show", "casts"))
+        show = tk.StringVar(value=self.cfg("show"))
         m._show = show                            # keep the variable alive with the menu
         for val, label in (("casts", "Show casts left"), ("mp", "Show MP per cast"),
                            ("mesos", "Show mesos per cast")):
             m.add_radiobutton(label=label, value=val, variable=show,
-                              command=lambda v=val: self.put(show=v))
+                              command=lambda v=val: self.put_char(show=v))
         m.add_separator()
         i = self._slot_at(e.x)
         sid = self.slot_ids[i] if i is not None else None
         names = self._names()
         if sid == GUARD_ID:                       # Magic Guard's own number
-            gs = tk.StringVar(value=self.get().get("guard_show", "ehp"))
+            gs = tk.StringVar(value=self.cfg("guard_show"))
             m._gs = gs
             for val, label in (("ehp", "Magic Guard: effective HP (HP + guard % of MP)"),
                                ("absorb", "Magic Guard: absorb (guard % of current MP)"),
                                ("last", "Magic Guard: MP used by the last hit")):
                 m.add_radiobutton(label=label, value=val, variable=gs,
-                                  command=lambda v=val: self.put(guard_show=v))
+                                  command=lambda v=val: self.put_char(guard_show=v))
             m.add_separator()
         if sid:
             m.add_command(label=f"Remove {names.get(sid) or 'skill'} from the bar",
                           command=lambda: self.set_hidden(sid, True))
-        hidden = [h for h in (self.get().get("hidden") or []) if h in names]
+        hidden = [h for h in (self.cfg("hidden") or []) if h in names]
         if hidden:
             back = tk.Menu(m, tearoff=0)
             for h in hidden:
                 back.add_command(label=names[h], command=lambda h=h: self.set_hidden(h, False))
             if len(hidden) > 1:
                 back.add_separator()
-                back.add_command(label="All of them", command=lambda: self.put(hidden=[]))
+                back.add_command(label="All of them", command=lambda: self.put_char(hidden=[]))
             m.add_cascade(label="Add back", menu=back)
         if sid or hidden:
             m.add_separator()
@@ -590,13 +802,13 @@ class SkillBar:
 
     def set_hidden(self, sid, hide):
         """Take a skill off the bar (or put it back). Saved in helper_settings.json
-        skillbar.hidden, by skill id."""
-        cur = list(self.get().get("hidden") or [])
+        skillbar.chars[character].hidden, by skill id."""
+        cur = list(self.cfg("hidden") or [])
         if hide and sid not in cur:
             cur.append(sid)
         elif not hide and sid in cur:
             cur.remove(sid)
-        self.put(hidden=cur)
+        self.put_char(hidden=cur)
 
     def set_locked(self, locked):
         self.put(locked=locked)
@@ -624,7 +836,7 @@ class SkillBar:
 
 def demo_live():
     t = time.time()
-    return {"t": t, "character": "Demo",
+    return {"t": t, "character": "Demo", "who": None,
             "mp": {"cur": 412, "max": 606, "tick": 6, "period": 10.0, "next": t - (t % 10) + 6.3},
             "hp": {"cur": 380, "max": 408, "tick": 9, "period": 10.0, "next": t - (t % 10) + 7},
             "regen": {"mp": {"skill": "Improved MP Recovery", "level": 5, "icon": None}},  # no HP skill
@@ -634,7 +846,11 @@ def demo_live():
                         "kind": "attack", "cast_n": int(t / 5)},
                        {"id": "1001002", "name": "Slash Blast", "level": 1, "mp": 8, "hp_cost": 5,
                         "casts": 51, "kind": "attack", "cast_n": int(t / 3)},
-                       {"id": "0001001", "name": "Recovery", "level": 3, "mp": 15, "casts": 3},
+                       {"id": "0001001", "name": "Recovery", "level": 3, "mp": 15, "casts": 3,
+                        "recovery": {"tick": 12, "t": t - (t % 45), "ticks": [], "first": 5.9,
+                                     "every": 5.1, "n": 6, "cd": 40}},   # cast every 45 s, 6 ticks of +12, 40 s cooldown (demo)
+                       {"id": "0001002", "name": "Nimble Feet", "level": 3, "mp": 10, "casts": 41,
+                        "nimble": {"t": t - (t % 50), "dur": 30, "cd": 45, "speed": 10}},  # demo: 30 s on, 45 s cooldown
                        {"id": "2301001", "name": "Heal", "level": 3, "mp": 40, "casts": 12,
                         "kind": "buff", "attacks": "undead", "cast_n": int(t / 4),
                         "heal": {"avg": 135, "recent": 136, "n": 4, "level": 3}},

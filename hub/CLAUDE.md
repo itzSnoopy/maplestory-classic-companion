@@ -16,8 +16,8 @@ The hub sees the engine only through `base/contract.py` (`Observation`, `Source`
 |---|---|
 | `tracker.py` (987 lines) | `Tracker` (EXP needed, level-up/death classification, ETA, adaptive `next_interval`, `status()` -> status.json), `MapStats`, `Session` (CSV row, journal, events), `run(cfg, args, source, hub)` the service loop (lock, read, poll, AFK/absent closing, stop file). **Most contended file: small changes only** |
 | `bus.py` | `Hub` + `State`. `on/emit`, `feed_facts`, `publish/published`, `provide/ask`, `settings`, `state`, `wake/take_wake`, `snapshot`, `album_shot`, `tell_source`, `journal`, `log`, `on_idle/idle`, `shots_dir`. Each subscriber timed as `bus.<event>`; failures logged `bus: <event> -> <handler> failed` |
-| `live.py` | `LiveFile`: live.json = `t`, `character`, then published sections in `KEYS` order (hp, mp, regen, skills, usage, training, party); written after a facts batch holding a `vitals` fact, at most every 0.9 s |
-| `history.py` | `write_json` (atomic, retries `os.replace` on PermissionError), `read_json`, csv helpers, `Journal`, `add_session`, `add_map_stint`, `build_digest()` (digest.json), `cleanup(retention_days=14)` |
+| `live.py` | `LiveFile`: live.json = `t`, `character`, `who` (fingerprint or null), then published sections in `KEYS` order (hp, mp, regen, skills, usage, training, party); written after a facts batch holding a `vitals` fact, at most every 0.9 s |
+| `history.py` | `write_json` (atomic, retries `os.replace` on PermissionError), `read_json`, csv helpers (`append_csv` keeps an existing file's own header), `levels.csv` last column `who` (character fingerprint; `LEVELS_FIELDS`), `owner_at(iso)` (owner of untagged records: diary_owners.json, else highest-level character; same rule as the diary's `owner()`), `migrate_levels_who()` (tracker start: old file gets the column), `current_who()`, `Journal`, `add_session`, `add_map_stint`, `build_digest()` (digest.json; "level_times" = the current character's rows only, sessions / maps stay account-wide), `cleanup(retention_days=14)` |
 | `character.py` | `Profile`: what to believe from the game windows, per character fingerprint -> history/characters.json (stats, skills, channel, regen, change log); `score_stat/skills/channel/who` (0-10 rule); `summary()` for the digest |
 | `exprate.py` | `ExpRate`: EXP/hr per map visit (active clock, 120 s break, first number after 3 gains, "~" until 5 active min, lumps/party apart) |
 | `helper_settings.py` | helper_settings.json `DEFAULTS` (keys: character, discord, diary, capture, internet, updates, skillbar, relay, party, trainingpanel, partypanel, map_check, regen_check, kpq, window, challenge), `load/save/job`. Order of keys = JSON bytes: don't reorder |
@@ -31,6 +31,12 @@ The hub sees the engine only through `base/contract.py` (`Observation`, `Source`
 | `ui/art.py` | Shared small pictures: `piece(size)` (relic piece; `<data>/assets/art/relic_piece.png|gif` if present, git-ignored, never packaged; else drawn) |
 | `pages.py` | Local page registry (`register_page/page/paths/open_page/serve`, `register_api/api` = local POST endpoints, `set_host`); the diary server (127.0.0.1:8737) hosts the pages |
 | `tools.py` | `portrait_maker()` hook, loaded by name from the launcher |
+
+## Character switch (2026-11-07)
+`run()` watches `prof.who`: when the Profile commits another fingerprint it closes the session ("character switch") and deletes
+`history/state.json`, so the next session starts with no level, timers or need bounds of the old character. While a new
+character waits for its second screenshot (`prof.who_pending`, up to 60 s) readings are skipped (no fake death at the new
+Lv 1). `hub.who_now()` (set by `run`) is what `_on_levelup` writes into the `who` column.
 
 ## Interfaces
 - **Emits (tracker):** `service_start/stop, loop, poll, facts_begin, fact, facts, session_start, observation, progress, moment, session_end, levelup, death_guess, death, job_change, map_enter, map_change`. Component-emitted: `exp_rise` (training), `first_kill` (album). **Payload text: `base/contract.py` EVENTS** (add events/services there first).

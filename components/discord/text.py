@@ -4,13 +4,6 @@ import re
 
 from hub import helper_settings as HS
 
-MAPLESTORY_APP_ID = HS.MAPLESTORY_APP_ID
-
-
-def uses_game_app(d):
-    return str(d.get("client_id") or "").strip() == MAPLESTORY_APP_ID
-
-
 PLACEHOLDERS = {
     "{name}": "character name",
     "{job}": "job",
@@ -106,11 +99,7 @@ def build_activity(snap, settings):
         act["details"] = details[:128]
     if len(state) >= 2:
         act["state"] = state[:128]
-    large = render(d.get("large_text"), vals)
-    if d.get("large_image") and len(large) >= 2 and not uses_game_app(d):
-        # hover text needs an image to show on; the game's app has no art we may use,
-        # so Discord shows the game's own icon there
-        act["assets"] = {"large_image": d["large_image"], "large_text": large[:128]}
+    # no assets: the game's Discord app shows its own icon (hover text would need our own image)
     if playing and d.get("show_elapsed") and getattr(snap, "session_start", None):
         act["timestamps"] = {"start": int(snap.session_start)}
     return act

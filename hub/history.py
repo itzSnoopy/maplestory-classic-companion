@@ -2,7 +2,7 @@
 
   journal.md              human-readable log: sessions, level-ups, map changes, deaths
   history/sessions.csv    one row per play session
-  history/levels.csv      one row per level-up (written by tracker.py)
+  history/levels.csv      one row per level-up (written by tracker.py; last column `who` = character)
   history/map_stats.json  per-map totals across all sessions (active time, EXP, EXP/hr)
   digest.json             compact summary (~1-2 KB) for a quick check-in by Claude or a script
 """
@@ -79,13 +79,94 @@ def read_csv(path):
 
 
 def append_csv(path, row, fields):
+    """Append one row. An existing file keeps its own header: its columns win, so an old file
+    never gets a row of a different shape."""
     path.parent.mkdir(parents=True, exist_ok=True)
     new = not path.exists()
+    if not new:
+        try:
+            with open(path, newline="", encoding="utf-8") as f:
+                head = next(csv.reader(f), None)
+            if head:
+                fields = head
+            else:
+                new = True
+        except OSError:
+            pass
     with open(path, "a", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
         if new:
             w.writeheader()
         w.writerow(row)
+
+
+# ------------------------------------------------------------------ whose rows (two characters, one account)
+LEVELS_FIELDS = ["time", "level_reached", "active_seconds_in_prev_level",
+                 "wall_seconds_in_prev_level", "exp_needed_prev_level", "map", "who"]
+
+
+def current_who():
+    """Fingerprint of the character playing now, per characters.json (None if unknown)."""
+    db = read_json(HISTORY / "characters.json", {})
+    return db.get("current") if isinstance(db, dict) else None
+
+
+def owner_at(iso_time):
+    """Fingerprint of the character a record of that time belongs to when it carries no `who`:
+    the last history/diary_owners.json owner whose `from` <= the time (older than all -> the
+    first), else the highest-level character in characters.json, else "". Same rule as the
+    diary's `owner()`; the hub keeps its own copy so it never imports a component."""
+    owners = [o for o in read_json(HISTORY / "diary_owners.json", [])
+              if isinstance(o, dict) and o.get("who")]
+    if owners:
+        owners.sort(key=lambda o: str(o.get("from") or ""))
+        t, pick = str(iso_time or ""), owners[0]
+        for o in owners:
+            if str(o.get("from") or "") <= t:
+                pick = o
+            else:
+                break
+        return pick["who"]
+    db = read_json(HISTORY / "characters.json", {})
+    best, top = "", -1
+    for fp, c in ((db.get("characters") or {}) if isinstance(db, dict) else {}).items():
+        lv = (((c or {}).get("stats") or {}).get("level") or {}).get("value")
+        if isinstance(lv, (int, float)) and lv > top:
+            best, top = fp, lv
+    return best
+
+
+def migrate_levels_who(owner_fn=None):
+    """One time, at tracker start: add the `who` column to an old levels.csv, filled by the owner
+    rule. No-op when the file is missing or already has it. Returns True when it rewrote."""
+    owner_fn = owner_fn or owner_at
+    try:
+        with open(LEVELS_CSV, newline="", encoding="utf-8") as f:
+            rd = csv.DictReader(f)
+            rows, head = list(rd), list(rd.fieldnames or [])
+    except OSError:
+        return False
+    if not head:
+        return False
+    if "who" in head:
+        return False
+    fields = head + ["who"]
+    tmp = LEVELS_CSV.with_suffix(".tmp")
+    with open(tmp, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+        w.writeheader()
+        for r in rows:
+            r["who"] = owner_fn(r.get("time")) or ""
+            w.writerow(r)
+    for i in range(5):
+        try:
+            os.replace(tmp, LEVELS_CSV)
+            break
+        except PermissionError:
+            if i == 4:
+                raise
+            time.sleep(0.05)
+    return True
 
 
 def _num(v, cast=float):
@@ -156,7 +237,10 @@ def build_digest():
     """Compact snapshot of everything worth knowing; rebuilt by the tracker regularly."""
     status = read_json(STATUS, {})
     sessions = read_csv(SESSIONS_CSV)
-    levels = read_csv(LEVELS_CSV)
+    levels = all_levels = read_csv(LEVELS_CSV)
+    me = current_who()
+    if me:      # time per level is the current character's; sessions / maps stay account-wide
+        levels = [r for r in levels if (r.get("who") or "") == me]
     maps = read_json(MAP_STATS, {})
     ref = {int(k): v for k, v in read_json(REF_TABLE, {}).items() if not k.startswith("_")}
     now = datetime.now()
@@ -223,7 +307,7 @@ def build_digest():
         "projection": {"basis_exp_per_hour": basis, "levels": proj},
         "recent_sessions": recent,
         "character": _character(),
-        "totals": {"sessions": len(sessions), "level_ups_logged": len(levels),
+        "totals": {"sessions": len(sessions), "level_ups_logged": len(all_levels),
                    "played": fmt_secs(sum(_num(s.get("active_s"), int) or 0 for s in sessions))},
     }
     write_json(DIGEST, digest, indent=1)

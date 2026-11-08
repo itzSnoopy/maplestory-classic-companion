@@ -34,7 +34,8 @@ def _regions():
     return out
 
 
-def _levels(root):
+def _levels(root, ctx=None):
+    ctx = ctx or diary._owner_ctx()
     try:
         rows = list(csv.DictReader(open(root / "history" / "levels.csv", encoding="utf-8")))
     except OSError:
@@ -47,6 +48,7 @@ def _levels(root):
             except ValueError:
                 return None
         out.append({"level": num("level_reached"), "time": r.get("time"), "map": r.get("map"),
+                    "who": diary.owner({"who": r.get("who"), "time": r.get("time")}, ctx) or "",
                     "active_s": num("active_seconds_in_prev_level"),
                     "wall_s": num("wall_seconds_in_prev_level"),
                     "exp_needed": num("exp_needed_prev_level")})
@@ -56,6 +58,8 @@ def _levels(root):
 def data(root=None):
     root = Path(root or diary.ROOT)
     items = [e for e in diary.with_context(diary.entries()) if not e.get("hidden")]
+    ctx, raw = diary._owner_ctx(), diary.entries()
+    cur = diary.current()[0]
     custom = diary.custom_captions()
     for e in items:      # only pictures that exist; split close-ups from full frames
         shots = [s for s in e.get("shots", []) if (root / s).exists()]
@@ -66,10 +70,17 @@ def data(root=None):
         e["story"], e["story_source"] = diary.caption_info(e, custom)
         e["custom"] = e["id"] in custom
         e["clock"] = diary.clock(datetime.fromisoformat(e["time"]))
+        e["who"] = diary.owner(e, ctx) or ""          # the page filters by this
+    names = {w: diary.character_name(w, raw) for w in {e["who"] for e in items}}
+    for e in items:
+        e["char"] = names.get(e["who"]) or e.get("char") or ""
+    chars = [{"who": w, "name": names.get(w) or "Unknown", "n": sum(1 for e in items if e["who"] == w)}
+             for w in sorted(names, key=lambda w: (w != cur, names[w] or ""))]
     maps = _read_json(root / "history" / "map_stats.json", {})
     digest = _read_json(root / "digest.json", {})
     return {"name": diary.char_name(), "generated": datetime.now().isoformat(timespec="seconds"),
-            "entries": items, "levels": _levels(root), "maps": maps,
+            "entries": items, "characters": chars,
+            "current": cur if cur in names else (chars[0]["who"] if chars else ""), "levels": _levels(root, ctx), "maps": maps,
             "regions": {k: v for k, v in _regions().items()
                         if k in maps or any(e.get("map") == k for e in items)}, "now": digest.get("now", {}), "totals": digest.get("totals", {})}
 
@@ -156,6 +167,8 @@ nav.tabs button.on { color: var(--ink); border-color: var(--accent); font-weight
 .chip.on { background: var(--accent-soft); border-color: var(--accent); }
 .chip .n { color: var(--muted); margin-left: 4px; font-variant-numeric: tabular-nums; }
 .spacer { flex: 1; }
+#chars[hidden] { display: none; }
+#chars { margin: 0 0 14px; }
 .day { margin: 22px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em;
   color: var(--muted); font-weight: 600; }
 .entry { display: grid; grid-template-columns: 56px 1fr; gap: 0 14px; background: var(--panel);
@@ -333,6 +346,7 @@ tr:last-child td { border-bottom: 0; }
     <a class="theme" href="album.html" title="Monster album: every mob, your first kills" style="text-decoration:none">👾 Album</a>
     <button class="theme" id="theme" title="Switch light / dark">Theme</button>
   </header>
+  <div class="controls" id="chars" hidden></div>
   <div class="stats" id="stats"></div>
   <nav class="tabs" id="tabs">
     <button data-tab="story">Story</button>
@@ -386,8 +400,25 @@ const hm = d => d.toLocaleTimeString(undefined, {hour: "2-digit", minute: "2-dig
 const shortDay = d => d.toLocaleDateString(undefined, {month: "short", day: "numeric"});
 const num = n => n == null ? "–" : Number(n).toLocaleString();
 
-document.title = D.name + "'s diary";
-$("#title").textContent = D.name + "'s diary";
+// several characters: a switcher; the page shows one character's entries (D.entries is that view)
+const ALL = D.entries;
+let who = store.get("char", D.current);
+if (!(D.characters || []).some(c => c.who === who)) who = D.current;
+const multi = (D.characters || []).length > 1;
+if (multi) D.entries = ALL.filter(e => e.who === who);
+const charName = () => (multi && (D.characters.find(c => c.who === who) || {}).name) || D.name;
+function setTitle() { document.title = charName() + "'s diary"; $("#title").textContent = charName() + "'s diary"; }
+setTitle();
+function renderChars() {
+  const box = $("#chars"); box.hidden = !multi; if (!multi) return;
+  box.innerHTML = D.characters.map(c => `<button class="chip${c.who === who ? " on" : ""}" data-who="${esc(c.who)}">${esc(c.name)}<span class="n">${c.n}</span></button>`).join("");
+  for (const b of box.querySelectorAll("[data-who]")) b.onclick = () => selectChar(b.dataset.who);
+}
+function selectChar(w) {
+  who = w; store.set("char", w); D.entries = ALL.filter(e => e.who === w); editing = null;
+  setTitle(); renderChars(); stats(); renderLevels(); computeDays(); renderFilters(); renderList(); renderStory(); renderDayNav();
+  if (DAYS.length) jumpDay(DAYS.length - 1, false);
+}
 
 // theme toggle: auto -> light -> dark
 const themes = ["auto", "light", "dark"];
@@ -397,10 +428,12 @@ let theme = store.get("theme", "auto"); applyTheme(theme);
 $("#theme").onclick = () => { theme = themes[(themes.indexOf(theme) + 1) % 3]; store.set("theme", theme); applyTheme(theme); };
 
 // stats strip
-(function stats() {
-  const n = D.now || {}, E = D.entries;
+function stats() {
+  const n = (!multi || who === D.current) ? (D.now || {}) : {}, E = D.entries;
   const lastJob = [...E].reverse().find(e => e.job)?.job;
-  const level = n.level ?? (Math.max(0, ...E.map(e => e.level || 0)) || "–");
+  // the latest level-up wins: an entry written right at login can carry the previous character's level
+  const lastUp = [...E].reverse().find(e => e.kind === "levelup" && e.level)?.level;
+  const level = n.level ?? lastUp ?? (Math.max(0, ...E.map(e => e.level || 0)) || "–");
   const parts = [];
   parts.push(`<div class="stat"><b>Lv ${esc(level)}</b><span>${esc(n.job || lastJob || "")}</span>` +
     (n.pct != null ? `<div class="bar"><i style="width:${Math.min(100, n.pct)}%"></i></div><span>${n.pct.toFixed(1)}% to Lv ${level + 1}</span>` : "") + `</div>`);
@@ -410,7 +443,8 @@ $("#theme").onclick = () => { theme = themes[(themes.indexOf(theme) + 1) % 3]; s
   parts.push(`<div class="stat"><b>${Object.keys(D.maps || {}).length}</b><span>maps explored</span></div>`);
   parts.push(`<div class="stat"><b>${c("death")}</b><span>deaths</span></div>`);
   $("#stats").innerHTML = parts.join("");
-})();
+}
+stats();
 
 // days: Day 1 = the first day with an entry
 const dayKey = d => `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
@@ -606,6 +640,9 @@ async function deleteEntry(e, btn) {
   try {
     await api("/api/delete", {id: e.id});
     D.entries = D.entries.filter(x => x.id !== e.id);
+    for (let i = ALL.length - 1; i >= 0; i--) if (ALL[i].id === e.id) ALL.splice(i, 1);
+    const cc = (D.characters || []).find(c => c.who === e.who); if (cc) cc.n--;
+    renderChars();
     computeDays(); renderFilters(); renderList(); renderStory(); renderDayNav(); toast("Entry deleted.");
   } catch (err) {
     if (btn) btn.disabled = false;
@@ -742,12 +779,13 @@ function toast(msg) {
   t.textContent = msg; t.classList.add("on"); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("on"), 4000);
 }
 renderStory();
+renderChars();
 renderDayNav();
 { const m = /^#day-(\d+)$/.exec(location.hash); if (m) setTimeout(() => jumpDay(+m[1] - 1, false), 50); }
 
 // levels table: one row per level reached
-(function levels() {
-  const L = D.levels.filter(l => l.level);
+function renderLevels() {
+  const L = D.levels.filter(l => l.level && (!multi || l.who === who));
   if (!L.length) { $("#levtable").innerHTML = `<div class="empty">No level-ups recorded yet.</div>`; return; }
   const max = Math.max(1, ...L.map(l => l.active_s || 0));
   const rows = L.map(l => { const d = dt(l.time);
@@ -756,12 +794,13 @@ renderDayNav();
       <td class="num">${dur(l.active_s)}</td>
       <td style="width:20%">${l.active_s ? `<div class="tbar" style="width:${100 * l.active_s / max}%"></div>` : ""}</td>
       <td class="num">${num(l.exp_needed)}</td><td class="num">${num(rate)}</td><td>${esc(l.map || "")}</td></tr>`; });
-  const n = D.now || {};
+  const n = (!multi || who === D.current) ? (D.now || {}) : {};     // "next" only for the one playing
   if (n.level && n.pct != null) rows.push(`<tr><td><b>Lv ${n.level + 1}</b></td><td class="sub">next</td><td class="num sub">${esc(n.time_in_level_active || "")} so far</td>
     <td><div class="bar"><i style="width:${Math.min(100, n.pct)}%"></i></div></td><td class="num">${num(n.exp_needed)}</td><td></td><td>${esc(n.map || "")}</td></tr>`);
   $("#levtable").innerHTML = `<p class="sub">Took = play time (AFK excluded) spent on the level before. EXP = what that level needed.</p><table><thead><tr><th>Level</th><th>Reached</th><th class="num">Took</th><th></th>
     <th class="num">EXP</th><th class="num">EXP / hr</th><th>Map</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
-})();
+}
+renderLevels();
 
 // places table
 (function places() {

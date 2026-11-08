@@ -43,6 +43,8 @@ CAST_S = 0.6            # about the fastest one cast follows another (attack ani
 MAX_GAP_S = 3.0         # a longer gap between looks: the change isn't explained
 MIN_LEVEL_SEEN = 3      # casts at a higher level's cost before that level is believed
 RECOVERY_S = 33         # Recovery (beginner skill): 6 ticks, the last ~31.3 s after the cast (2026-10-30)
+RECOVERY_FIRST_S = 5.9  # Recovery: first tick this long after the cast, then one every RECOVERY_EVERY_S
+RECOVERY_EVERY_S = 5.1  # (measured 5.0-5.2 s, NOTES 2026-10-30); the bar sweeps each tick
 EATER_IDS = ("2100000", "2200000", "2300000")         # MP Eater (F/P, I/L, Cleric)
 EATER_AFTER_S = 1.5  # MP Eater's MP rise counts up to this long after an attack cast (it procs on attacks)
 EATER_CD_S = 5.0     # MP Eater cooldown: 128 procs on 2026-11-06 never closer than 4.9 s (player: it has one)
@@ -53,6 +55,7 @@ GUARD_ID = "2001000"                                  # Magic Guard
 HEAL_ID = "2301001"                                   # Heal (Cleric)
 HEAL_LAG_S = 1.0     # Heal's HP rise shows 0-0.2 s after its MP drop (recording 2026-11-06, 5 fps)
 RECOVERY_ID = "0001001"                               # Recovery (Beginner)
+NIMBLE_ID = "0001002"                                 # Nimble Feet (Beginner): speed buff + cooldown on the bar
 ITEM_BONUS = {"mp": ("2000000",), "hp": ("1000000",)}  # Improved MP / HP Recovery
 ITEM_RANK = {"Potion": 0, "Food": 1}                  # others (event / quest items) after
 OTHER = 99.0            # score of "unexplained"
@@ -82,9 +85,12 @@ class Usage:
         self.last_eater = None                  # (t, MP) of the last MP Eater absorb (the bar shows it)
         self.eater_recent = deque(maxlen=9)     # recent absorb sizes (feed seeds the stored last one)
         self.cast_count = Counter()             # skill id -> casts seen (the bar pulses on a new one)
+        self.last_cast = {}                     # skill id -> time of its last cast (buff / cooldown timers)
         self.last_cast_t = -1e9
         self.last_attack_t = -1e9              # the last attack cast (MP Eater procs on attacks)
         self.recovery_until = -1e9
+        self.recovery_cast = None               # time of the last Recovery cast (the bar's tick sweep)
+        self.recovery_ticks = []                # times of the Recovery ticks booked since that cast
         self.heal_open = deque()                # times of own Heal casts whose HP rise is not seen yet
         self.reset_totals()
         self._costs = None
@@ -356,12 +362,15 @@ class Usage:
             name = (self.data.get(sid) or {}).get("name") or sid
             self.cost_seen[(sid, cost)] += 1
             self.cast_count[sid] += 1
+            self.last_cast[sid] = round(t, 2)
             if not known and self.cost_seen[(sid, cost)] >= MIN_LEVEL_SEEN:
                 if L > (self.levels_seen.get(sid) or 0):
                     self.levels_seen[sid] = L
                     self._costs = None
             if sid == RECOVERY_ID:
                 self.recovery_until = t + RECOVERY_S
+                self.recovery_cast = round(t, 2)
+                self.recovery_ticks = []
             self.last_cast_t = t
             if self._not_attack(sid) == 0:
                 self.last_attack_t = t
@@ -406,6 +415,9 @@ class Usage:
         if self.cast_count[old] <= 0:
             del self.cast_count[old]
         self.cast_count[sid] += 1
+        if self.last_cast.get(old) == ev["t"]:
+            del self.last_cast[old]
+        self.last_cast[sid] = ev["t"]
         if self.cost_seen[(old, cost)] > 0:
             self.cost_seen[(old, cost)] -= 1
         self.cost_seen[(sid, cost)] += 1
@@ -478,6 +490,8 @@ class Usage:
         for e in ev:
             self.recent.append(e)
             k, kind, name, a = e["meter"], e["kind"], e["name"], e["amount"]
+            if kind == "recovery":
+                self.recovery_ticks.append(e["t"])
             if kind in ("cast", "potion", "magic_guard", "mp_eater", "heal", "recovery",
                         "hit", "other"):
                 self._count(k, kind, name, a)

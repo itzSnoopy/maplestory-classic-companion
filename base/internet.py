@@ -35,6 +35,13 @@ FEATURES = {
                 "per item, once) from NiaMeowDB. Kept on this PC only. Nothing about you is sent.",
         "hosts": ["meowdb.com"],
     },
+    "skillicons": {
+        "label": "Skill pictures",
+        "what": "Downloads the skill pictures the skill bar shows when you haven't cut them from your "
+                "own Skill window, e.g. a party member's Heal (one small image per skill, once) from "
+                "NiaMeowDB. Kept on this PC only. Nothing about you is sent.",
+        "hosts": ["meowdb.com"],
+    },
     "mobs": {
         "label": "Monster pictures",
         "what": "Downloads the monster pictures the monster album shows (one small image per "

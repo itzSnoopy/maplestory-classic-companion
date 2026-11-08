@@ -1,10 +1,10 @@
 """live.py - live.json, the feed the helper's overlays read (skill bar, training panel, party panel):
 rewritten about once a second while playing, whenever a batch of facts has a 'vitals' look in it.
 
-The hub only composes the file. t and character are its own; every other key is a section some
+The hub only composes the file. t, character and who are its own; every other key is a section some
 component publishes (hub.publish(name, fn); fn(now, prof) is called at write time):
 
-  t, character
+  t, character, who  who = the 10-hex character fingerprint (prof.who) or None; per-character settings key
   hp / mp     {cur, max, tick, period, next (epoch s), sure_s, ticks_seen, clock, check_every,
               checks, restarts}                                   skillbar (meter.Meter.state)
   regen       {mp: {skill, level, says}}                          skillbar
@@ -46,7 +46,8 @@ class LiveFile:
     def snapshot(self, prof, now):
         c = (prof.char() if prof is not None else None) or {}
         got = {name: (fn(now, prof) if callable(fn) else fn) for name, fn in self.hub.published().items()}
-        out = {"t": round(now, 2), "character": c.get("name") or c.get("name_guess")}
+        out = {"t": round(now, 2), "character": c.get("name") or c.get("name_guess"),
+               "who": getattr(prof, "who", None)}
         for k in KEYS:
             if k in got:
                 out[k] = got.pop(k)

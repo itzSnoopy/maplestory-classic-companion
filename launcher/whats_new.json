@@ -1,4 +1,9 @@
 {
+ "0.14.0": [
+  "Each character keeps its own diary, level times and skill bar setup (hidden skills, corner number), so a new character starts fresh.",
+  "Skill bar: Recovery and Nimble Feet show their effect and cooldown. Gold sweeps count to the next tick, dark ones are cooldowns. Skill pictures load for every skill.",
+  "Discord shows you playing MapleStory Classic World. The job advancement to Swordsman (the game's name for a 1st-job Warrior) is now recognized."
+ ],
  "0.13.2": [
   "Relic hunt: the \"Relic piece found!\" message stays 8 seconds (click it to close it sooner).",
   "Relic hunt: a new Auto-fit option (Start activity > Relic hunt in the rooms panel's menu) drops each found piece straight into its place.",

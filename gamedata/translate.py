@@ -58,6 +58,10 @@ def _norm(s):
 
 
 _NORM = {_norm(n): n for n in TIER}
+# other names the game shows for the same job: Classic's status bar says "Swordsman" for 1st-job
+# warriors, while equipment and the job lists say "Warrior" (player, 2026-11-07); keep one name each
+JOB_ALIASES = {"Swordsman": "Warrior", "Swordman": "Warrior", "Archer": "Bowman", "Rogue": "Thief"}
+_NORM.update({_norm(a): n for a, n in JOB_ALIASES.items()})
 
 
 def job_name(text):

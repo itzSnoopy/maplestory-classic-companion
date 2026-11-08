@@ -62,6 +62,7 @@ class Hub:
         self.source = None                  # the Source the service reads (set by tracker.run)
         self.take_facts = lambda: None      # tracker: collect the source's character facts now
         self.journal_write = lambda text: None
+        self.who_now = lambda: None         # tracker: fingerprint of the character playing (Profile.who)
         self._subs = {}
         self._names = {}
         self._live = {}

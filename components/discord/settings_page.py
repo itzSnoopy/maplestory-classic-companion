@@ -8,7 +8,7 @@ import time
 import tkinter as tk
 
 from components.discord import text as T
-from hub.ui.theme import BG, MUTED, GOLD, GREEN, RED, FIELD, TEXT, F
+from hub.ui.theme import BG, MUTED, GOLD, RED, FIELD, TEXT, F
 
 # Discord look for the preview card
 DC_BG = "#232428"
@@ -39,13 +39,11 @@ class DiscordPage:
         en.pack(anchor="w")
         self.en_note = win.label(left, "", muted=True, size=8, wrap=px(320))
         self.en_note.pack(anchor="w", pady=(0, px(8)))
-        win.form_row(left, "Application ID", self.app_id_row,
-                     "MapleStory's own ID adds your lines to the \"Playing MapleStory\" card "
-                     "Discord already shows, with the game's icon. For a custom name and icon, "
-                     "create an app at discord.com/developers and paste its Application ID.")
+        win.label(left, "Your lines go on the \"Playing MapleStory Classic World\" card Discord "
+                  "already shows, with the game's icon.", muted=True, size=8,
+                  wrap=px(320)).pack(anchor="w", pady=(0, px(8)))
         win.form_row(left, "Line 1", lambda p: win.entry(p, "discord.details"))
         win.form_row(left, "Line 2", lambda p: win.entry(p, "discord.state"))
-        win.form_row(left, "Icon hover text", lambda p: win.entry(p, "discord.large_text"))
 
         chips = tk.Frame(left, bg=BG)
         chips.pack(anchor="w", pady=(0, px(10)))
@@ -73,15 +71,6 @@ class DiscordPage:
         self.pv_head.pack(fill="x", pady=(0, px(8)))
         row = tk.Frame(card, bg=DC_BG)
         row.pack(fill="x")
-        try:
-            from PIL import ImageTk
-            from hub.helper_ui import make_icon_image
-            img = make_icon_image(GREEN, 256).resize((px(60), px(60)))
-            self.pv_img = ImageTk.PhotoImage(img)
-            self.pv_icon = tk.Label(row, image=self.pv_img, bg=DC_BG)
-            self.pv_icon.pack(side="left", anchor="n")
-        except Exception:
-            pass
         txt = tk.Frame(row, bg=DC_BG)
         txt.pack(side="left", padx=(px(10), 0), anchor="n")
         self.pv = {}
@@ -91,8 +80,6 @@ class DiscordPage:
                          wraplength=px(220))
             l.pack(anchor="w")
             self.pv[key] = l
-        self.pv_hover = win.label(right, "", muted=True, size=8, wrap=px(300))
-        self.pv_hover.pack(anchor="w", pady=(px(8), 0))
         self.pv_raw = tk.Label(right, text="", font=("Consolas", 8), fg=MUTED, bg=BG, anchor="w",
                                justify="left", wraplength=px(300))
         self.pv_raw.pack(anchor="w", pady=(px(8), 0))
@@ -100,16 +87,6 @@ class DiscordPage:
         self.pv_status.pack(anchor="w", pady=(px(8), 0))
         win.on_tick(self.tick)
         return f
-
-    def app_id_row(self, parent):
-        win = self.win
-        row = tk.Frame(parent, bg=BG)
-        win.entry(row, "discord.client_id", 22).pack(side="left")
-        b = win.button(row, "Use MapleStory's", lambda: win.vars["discord.client_id"].set(
-            T.MAPLESTORY_APP_ID))
-        b.configure(padx=win.px(8), pady=win.px(2), font=(F, 9))
-        b.pack(side="left", padx=(win.px(6), 0))
-        return row
 
     def show_toggles(self, parent):
         row = tk.Frame(parent, bg=BG)
@@ -147,40 +124,28 @@ class DiscordPage:
             snap = copy.copy(snap)
             snap.state = "idle"
         act = T.build_activity(snap, win.s)
-        game_app = T.uses_game_app(d)
-        self.pv["app"].configure(text="MapleStory" if game_app else
-                                 (d.get("app_name") or "MapleStory Classic"))
-        img = d.get("large_image") and not game_app   # game app: Discord shows the game's icon
-        if hasattr(self, "pv_icon"):
-            self.pv_icon.configure(image=self.pv_img if img else "", width=0 if img else 1)
+        self.pv["app"].configure(text="MapleStory Classic World")
         if act is None:
             self.pv_head.configure(text="(NO STATUS SHOWN)")
             for k in ("details", "state", "time"):
                 self.pv[k].configure(text="")
             self.pv["app"].configure(text="Nothing is shown while you're not playing.")
-            self.pv_hover.configure(text="")
         else:
             self.pv_head.configure(text="PLAYING A GAME")
             self.pv["details"].configure(text=act.get("details", ""))
             self.pv["state"].configure(text=act.get("state", ""))
             ts = act.get("timestamps", {}).get("start")
             self.pv["time"].configure(text=f"{fmt_dur(time.time() - ts)} elapsed" if ts else "")
-            hover = act.get("assets", {}).get("large_text")
-            self.pv_hover.configure(text=f'Icon hover: "{hover}"' if hover else "")
         if act:
             lines = ["Sent to Discord:",
                      f"  line 1: {act.get('details', '-')}",
                      f"  line 2: {act.get('state', '-')}",
-                     f"  hover:  {act.get('assets', {}).get('large_text', '-')}",
                      f"  timer:  {'yes' if act.get('timestamps') else 'no'}"]
         else:
             lines = ["Sent to Discord:", "  (clear status)"]
         self.pv_raw.configure(text="\n".join(lines))
 
-        cid = (d.get("client_id") or "").strip()
-        if d.get("enabled") and not cid.isdigit():
-            self.en_note.configure(text="Needs an Application ID before it can connect.", fg=GOLD)
-        elif d.get("enabled"):
+        if d.get("enabled"):
             self.en_note.configure(text="Will turn on when you press Save.", fg=GOLD)
         else:
             self.en_note.configure(text="Off. Nothing is sent to Discord.", fg=MUTED)

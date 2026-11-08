@@ -356,6 +356,8 @@ class Tracker:
         Returns (event, d_exp, gains); event is None, 'levelup', 'death' or 'rejected'."""
         t, cur, pct, level_read = obs.t, obs.exp_cur, obs.exp_pct, obs.level
         chat_text = obs.raw.get("chat")
+        if self.cur is None and level_read is not None:
+            self.level = level_read         # first frame: the badge, before the map-enter event reads it
         self.update_map(obs.map, t, obs.map_confirmed)
         if obs.job and obs.job != self.job:
             if self.job:
@@ -483,6 +485,7 @@ class Tracker:
             "wall_seconds_in_prev_level": round(t - self.level_started) if self.level_started else None,
             "exp_needed_prev_level": need_prev,
             "map": self.map,
+            "who": (self.hub.who_now() if self.hub else None) or "",
         }
         self.level_ups.append(rec)
         H.append_csv(LEVELS_CSV, rec, list(rec))
@@ -815,6 +818,7 @@ def run(cfg, args, source, hub=None):
     digest_every = svc.get("digest_every_s", 300)
 
     H.cleanup(svc.get("retention_days", 14))
+    H.migrate_levels_who()          # old levels.csv rows get their `who` before anything appends
     journal = H.Journal()
     hub.journal_write = journal.write
     session = None
@@ -828,11 +832,18 @@ def run(cfg, args, source, hub=None):
     prof = character.Profile(note=lambda s: (log("character: " + s), journal.write(s)),
                              log=lambda s: log("character: " + s))
 
+    hub.who_now = lambda: prof.who
+    pending_t = None                          # since when a new character waits for confirmation
+    switched = []                             # set when the Profile commits another character
+
     def take_facts():
         try:
             facts = source.take_facts()
             if facts:
+                before = prof.who
                 prof.update(facts)
+                if before and prof.who != before:
+                    switched.append(prof.who)
                 hub.feed_facts(facts, prof)
         except Exception:
             log("character update failed: " + traceback.format_exc())
@@ -878,12 +889,24 @@ def run(cfg, args, source, hub=None):
                     log("source exhausted")
                     break
                 take_facts()
+                if switched:
+                    # another character: the old one's level, timers and EXP must not leak into
+                    # the new one's rows. Close the session and forget the saved level state.
+                    switched.clear()
+                    log("character switched: closing the session, resetting level state")
+                    close_session("character switch")
+                    STATE.unlink(missing_ok=True)
+                    afk_reading = None
                 if obs.status == UNAVAILABLE:
                     went_away(t, "waiting_for_source", obs.note or "source unavailable")
                     sleep_for = source.retry_s
                 elif obs.status == ABSENT:
                     went_away(t, "idle", obs.note or "game not present")
+                elif prof.who_pending and (pending_t := pending_t or t) and t - pending_t < 60:
+                    sleep_for = cfg.get("fast_interval", 2)    # new character not confirmed yet: its
+                    #   first frames must not be judged against the old one's level (a fake death)
                 else:
+                    pending_t = None
                     absent_since, last_state = None, "playing"
                     key = (obs.exp_cur, obs.exp_pct, obs.level)
                     if session is None and afk_reading is not None and key == afk_reading:

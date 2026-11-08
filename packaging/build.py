@@ -43,7 +43,7 @@ HIDDEN = ["launcher.setup_ui", "hub.settings_ui", "engine.calibrate", "component
           "components.skillbar.skillbar_ui", "components.skillbar.partyfx", "hub.tools", "launcher.whats_new",
           "engine.party", "engine.msgcorner", "components.party.partylink", "components.party.party_ui",
           "components.training.training", "components.training.training_ui", "components.skillbar.regen",
-          "components.training.itemicons", "engine.portrait",
+          "components.training.itemicons", "components.skillbar.skillicons", "engine.portrait",
           "components.album.album", "components.album.album_html", "components.album.mobicons",
           "components.diary.diary_server",
           "launcher.compose", "hub.bus", "base.contract", "components",       # composition: the registry loads components by name
@@ -135,7 +135,7 @@ def main():
     shutil.copy2(ROOT / "packaging" / "START_HERE.txt", top / "START HERE.txt")
 
     bad = [p for p in top.rglob("*") if p.name in FORBIDDEN or "game_icons" in p.parts
-           or "item_icons" in p.parts]
+           or "item_icons" in p.parts or "skill_icons" in p.parts]
     if bad:
         sys.exit(f"refusing to package player/game files: {bad}")
 

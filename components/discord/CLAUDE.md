@@ -11,21 +11,20 @@ Shows "Playing MapleStory" with the player's level, map, etc. on their Discord p
 |---|---|
 | `component.py` | `DiscordComponent`: Settings page, save hook, per-refresh `update(snap)`, `close()` on exit; creates `Presence` lazily |
 | `discord_rpc.py` | `IPC` (named pipe `\.\pipe\discord-ipc-0..9`, handshake, `SET_ACTIVITY`) and `Presence` (background worker: sends changes only, `MIN_SEND_GAP_S` 15 s, reconnect every `RETRY_S` 30 s, `status`) |
-| `text.py` | Placeholders (`PLACEHOLDERS`), `SHOW_FIELDS`, `PCT_STYLES`, `values`, `render` (drops empty fields cleanly), `build_activity(snap, settings)` -> activity dict or `None` (= clear), `uses_game_app` |
+| `text.py` | Placeholders (`PLACEHOLDERS`), `SHOW_FIELDS`, `PCT_STYLES`, `values`, `render` (drops empty fields cleanly), `build_activity(snap, settings)` -> activity dict or `None` (= clear); never sends `assets` |
 | `settings_page.py` | `DiscordPage`: Settings > Discord fields + live preview card ("Sent to Discord" text, connection status) |
 
 ## Interfaces
 - **Listens to (events):** none (helper side; no bus).
 - **Emits / services / Source hooks:** none.
-- **Settings:** `discord` slice of helper_settings.json: `enabled` (False), `client_id` (default
-  `HS.MAPLESTORY_APP_ID`), `app_name` (preview only), `details`, `state`, `large_text`, `large_image`,
+- **Settings:** `discord` slice of helper_settings.json: `enabled` (False), `details`, `state`,
   `show{name,job,level,pct,map,channel}`, `pct_style` (`whole|one|two`), `show_elapsed`,
   `when_not_playing` (`clear|idle`). Also reads `character.*` (name, channel, job). DEFAULTS live in `hub/helper_settings.py`.
 - **Writes (player data folder):** nothing (the Settings window saves helper_settings.json).
 - **Reads (shipped data):** none. (`discord_icon.png` in the repo root is a manual upload for the player's own
   Discord app, not read by code.)
 - **Helper side (`ui(shell)`):** `shell.add_settings_page("Discord", ..., after="Character")`,
-  `shell.on_settings_save` (strips `client_id`), `shell.on_refresh(update)`, `shell.on_exit(close)`; the helper
+  `shell.on_refresh(update)`, `shell.on_exit(close)`; the helper
   snapshot (`snap.state/level/pct/map/eta_s/rate/session_start`) feeds `build_activity`. Not sent in demo mode.
 - **Network:** local IPC to the Discord desktop app only; not an internet feature (not in `base/internet.py`).
 
@@ -44,6 +43,6 @@ the diary/album. The helper snapshot's shape is in `hub/helper_ui.py` (`Snapshot
 
 ## Rules that bite here
 - Text only: no screenshots or game files are ever sent. Nothing is sent until the player turns it on.
-- Art on the player's own Discord app is the friend's original art (`discord_icon.png`); never Nexon art.
-  Under MapleStory's own app ID no `assets` are sent (hover text dropped).
+- Always Discord's "MapleStory Classic World" app (`HS.MAPLESTORY_APP_ID`); no custom app setting, no `assets`
+  (Discord shows the game's icon).
 - Keep `component.py` light at import (tkinter/PIL only inside `page()`/`settings_page.py`).

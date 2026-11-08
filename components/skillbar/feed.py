@@ -43,6 +43,7 @@ CLOCK_KEEP_S = 90       # ... and is picked up again after a restart / update wi
 HEAL_RECENT = 30        # own Heal amounts kept per level (the recent average)
 # passive recovery skills that tick every 10 s; the bar shows a meter's regen slot only when the
 # character has one of these at level >= 1 (chance-based ones like Critical Recovery don't count)
+BUFF_CAST_S = 3.0           # a buff icon coming on more than this long after a booked cast of it = a cast of its own
 REGEN_SKILLS = {"hp": ["1000000"],                          # Improved HP Recovery (Warrior)
                 "mp": ["2000000", "1110000", "1210000"]}    # Improved MP Recovery (Magician,
                                                             # Crusader, White Knight)
@@ -194,6 +195,8 @@ class Feed:
             old = self.buff_on.get(sid)
             if old is not None and old != now_on:
                 self.flips.append([t, sid, now_on, False])
+                if now_on and sid == mpuse.NIMBLE_ID and t - self.usage.last_cast.get(sid, -1e9) > BUFF_CAST_S:
+                    self.usage.last_cast[sid] = round(t, 2)     # icon came on with no cast booked: that's the cast
             self.buff_on[sid] = now_on
 
     def _hold(self, ev):
@@ -408,6 +411,39 @@ class Feed:
         e = (self.model.data.get("eater") if self.model else None) or {}
         return {"last": e["last"], "t": e.get("t"), "cd": mpuse.EATER_CD_S} if e.get("last") else None
 
+    def recovery_info(self, now):
+        """live.json skills entry of Recovery: {tick, t, ticks, first, every, n, cd}. tick = HP per
+        tick at the character's level (0: unknown); cd = its cooldown in s from the cast (skill data);
+        t = the last cast while its ticks or cooldown still run (else None), ticks = Recovery ticks
+        booked since (the bar re-syncs its sweep on them)."""
+        u = self.usage
+        tick = formulas.recovery_tick(u._skill_text(mpuse.RECOVERY_ID))
+        lv = u.level(mpuse.RECOVERY_ID)
+        cds = (self.data.get(mpuse.RECOVERY_ID) or {}).get("cd") or []
+        cd = cds[lv - 1] if 0 < lv <= len(cds) else (cds[-1] if cds else 0)
+        live = u.recovery_cast is not None and now - u.recovery_cast <= max(mpuse.RECOVERY_S, cd)
+        return {"tick": tick, "t": u.recovery_cast if live else None,
+                "ticks": list(u.recovery_ticks) if live else [],
+                "first": mpuse.RECOVERY_FIRST_S, "every": mpuse.RECOVERY_EVERY_S,
+                "n": formulas.RECOVERY_TICKS, "cd": cd}
+
+    def nimble_info(self, now):
+        """live.json skills entry of Nimble Feet: {t, dur, cd, speed}. t = the last cast while the buff
+        or its cooldown runs (else None); dur / cd in s at the character's level (skill data); speed =
+        the bonus its text states ("speed +10")."""
+        sid = mpuse.NIMBLE_ID
+        d = self.data.get(sid) or {}
+        lv = self.usage.level(sid)
+
+        def at(key):
+            v = d.get(key) or []
+            return v[lv - 1] if 0 < lv <= len(v) else (v[-1] if v else 0)
+        dur, cd = at("time"), at("cd")
+        m = re.search(r"speed \+(\d+)", at("levels") or "")
+        t = self.usage.last_cast.get(sid)
+        live = t is not None and now - t <= max(dur, cd)
+        return {"t": t if live else None, "dur": dur, "cd": cd, "speed": int(m.group(1)) if m else None}
+
     def heal_info(self):
         """live.json skills entry of Heal: {avg, recent, n, level} or None (no uncapped Heal yet)."""
         lv = self.usage.level(mpuse.HEAL_ID)
@@ -556,6 +592,8 @@ class Feed:
                            "hp_cost": int(hp_cost.group(1)) if hp_cost else None,
                            "heal": self.heal_info() if sid == mpuse.HEAL_ID else None,
                            "eater": self.eater_info() if eater else None,
+                           "recovery": self.recovery_info(now) if sid == mpuse.RECOVERY_ID else None,
+                           "nimble": self.nimble_info(now) if sid == mpuse.NIMBLE_ID else None,
                            "cast_n": counts.get(sid, 0),
                            "active": self.buff_on.get(sid),     # buff icon showing (None: not watched / not seen yet)
                            "max": d.get("max"), "mp": cost,

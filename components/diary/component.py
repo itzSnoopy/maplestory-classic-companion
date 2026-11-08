@@ -1,7 +1,7 @@
 """diary component: the tracker's events become diary beats (diary.py), plus the helper's camera
 button and notes (requests the helper leaves in diary_requests.jsonl).
 
-Subscribes: service_start (places seen before the diary), loop (requests), poll (wake the wait loop
+Subscribes: facts_begin (the Profile: which character), service_start (places seen before the diary), loop (requests), poll (wake the wait loop
 when one is waiting), observation (delayed re-render once late pictures exist), levelup, death, job_change,
 map_enter, moment, first_kill (from the album), session_end (render).
 Offers: hub.ask("seen_places").
@@ -36,8 +36,8 @@ class DiaryComponent(Component):
         self.hub = hub
         diary.set_root(hub.root)
         self.render_at = 0.0            # re-render the diary when late pictures (+2 s, +10 s) exist
-        hub.provide("seen_places", diary.seen_places)
-        for event, fn in (("service_start", self.on_start), ("loop", self.on_loop),
+        hub.provide("seen_places", diary.seen_places)      # union of every character
+        for event, fn in (("facts_begin", self.on_facts), ("service_start", self.on_start), ("loop", self.on_loop),
                           ("poll", self.on_poll), ("observation", self.on_observation),
                           ("levelup", self.on_levelup), ("death", self.on_death),
                           ("job_change", self.on_job), ("map_enter", self.on_enter),
@@ -91,6 +91,8 @@ class DiaryComponent(Component):
         return self.hub.snapshot(diary.SHOTS, stem, delays)
 
     # -- service
+    def on_facts(self, prof=None, **_):
+        diary.set_profile(prof)         # who is playing; diary.add tags entries with it
     def on_start(self, maps, **_):
         diary.seed_places(maps)         # maps visited before the diary existed: not first visits
 

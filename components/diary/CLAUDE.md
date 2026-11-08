@@ -1,6 +1,6 @@
 # diary/: the character's diary (timeline, Story page, local page server)
 
-Records milestones (level-ups, deaths, job advancements, first visits, first kills, notes, random moments),
+Records one character's milestones (per character since 2026-11-07, see below) (level-ups, deaths, job advancements, first visits, first kills, notes, random moments),
 each with a screenshot and a character close-up, and shows them as `diary.md` and the `diary.html` Story view
 (captions, Edit/Generate). **Both processes**: the tracker side writes entries from bus events; the helper side
 has the menu entry, camera button, pop-up card, Settings > Diary, and `diary_server.py`, which also hosts
@@ -13,32 +13,43 @@ every other component's pages (`hub/pages.py`, e.g. `/album.html`).
 | File | Role |
 |---|---|
 | `component.py` | `DiaryComponent` (events -> `diary.add`, requests loop, `ui(shell)`) + `PageHost` (the host `hub/pages.py` uses) |
-| `diary.py` | Core: `add`, `entries`, `delete_entry`, `render` (diary.md + html), text builders, captions (`caption_lines`, `set_caption`, `generate_caption`, `sources_off`, `nickname`), places (`mark_place`, `seed_places`, `with_context`), `moment_due`, requests (`request_note`, `request_moment`, `take_requests`), `open_diary`, `annotate_last_death`, `backfill`, CLI |
-| `diary_html.py` | Builds `diary.html` (one self-contained page; data embedded as JSON); `page(root, live)`, `build` |
+| `diary.py` | Core: `add`, `entries(who=None)`, character (`set_profile`, `current`, `owner`, `legacy_who`, `character_name`), `delete_entry`, `render` (diary.md + html), text builders, captions (`caption_lines`, `set_caption`, `generate_caption`, `sources_off`, `nickname`), places (`mark_place`, `seen_places(who=None)`, `seed_places`, `with_context`; per character), `moment_due`, requests (`request_note`, `request_moment`, `take_requests`), `open_diary`, `annotate_last_death`, `backfill`, CLI |
+| `diary_html.py` | Builds `diary.html` (one self-contained page; data embedded as JSON; character chips at the top when there are 2+ characters, entries carry `who`/`char`); `page(root, live)`, `build` |
 | `diary_server.py` | Localhost server `127.0.0.1:8737` (Host check, `X-Diary` header on POSTs): diary page, registered pages, pictures; `/api/caption`, `/api/generate`, `/api/sources`, `/api/delete`; other POST paths go to APIs components registered with `hub.pages.register_api` (same Host + `X-Diary` checks, body up to 70000 bytes vs 10000 for its own; handler -> `(status, obj)`); `start_thread`, `running`, `open_page`, `serve` |
 | `diary_popup.py` | `DiaryPopup` (card on new entries, watches timeline.jsonl) + `page(win, f, popup)` = Settings > Diary |
 | `captions.json` | Story caption dictionary per kind (shipped; the player's copy in the data folder wins) |
 
 ## Interfaces
-- **Listens to (events):** `service_start` (`maps`), `loop`, `poll`, `observation`, `levelup` (`level_reached`, `map`,
+- **Listens to (events):** `facts_begin` (`prof`: which character is playing; `diary.set_profile`), `service_start` (`maps`), `loop`, `poll`, `observation`, `levelup` (`level_reached`, `map`,
   `active_seconds_in_prev_level`, `job`), `death` (`level`, `map`, `lost`, `pct_lost`, `box`, `killer`, `job`),
   `job_change` (`old`, `new`, `level`, `map`), `map_enter` (`map`, `level`, `job`), `moment` (`level`, `map`, `job`,
   `active_total`), `first_kill` (`mob`, `map`, `level`, `job`, `shots`, `caught`, `text`), `session_end`.
 - **Emits:** nothing.
-- **Provides (services):** `seen_places` (the album seeds from it). **Asks:** none.
+- **Provides (services):** `seen_places` (union of every character; the album seeds from it). **Asks:** none.
 - **Source hooks used:** `hub.snapshot(diary.SHOTS, stem, delays)` (full frame + close-up; delayed shots on a later
   reading), `hub.wake()`, `hub.log`, `hub.state`, `hub.root`.
 - **Settings:** `diary` slice: `moments`, `moment_min`, `moment_max`, `popup`, `popup_seconds`, `open_via`
   (`localhost|file`). DEFAULTS in `hub/helper_settings.py`; the tracker re-reads them each check (`moment_settings`).
-- **Writes (data folder):** `history/timeline.jsonl` (the record), `diary.md`, `diary.html`, `history/places.json`,
+- **Writes (data folder):** `history/timeline.jsonl` (the record), `diary.md`, `diary.html`, `history/places.json` (`{"chars": {fingerprint: [maps]}}`; the old flat list still reads, as the legacy owner's),
   `history/captions_custom.json` (own/rolled captions, `_nickname`, `_sources_off`), `history/diary_deleted.json`,
   `diary_requests.jsonl` (helper -> tracker queue: notes, camera), `screenshots/diary/<stem>.jpg|_char.png|_kill.jpg`,
   `game_icons/<appid>.jpg` (local only). Read by: the album CLI (`places.json`), the popup (`timeline.jsonl`), `diary_html`.
-- **Reads:** `history/levels.csv`, `history/map_stats.json`, `digest.json`, `helper_settings.json` (name, diary),
+- **Reads:** `history/diary_owners.json` (optional, hand-made), `history/characters.json` (current, names, levels), `history/levels.csv`, `history/map_stats.json`, `digest.json`, `helper_settings.json` (name, diary),
   `paths.asset("gamedata/maps_classic.json" | "gamedata/important_maps.json" | "gamedata/game_refs.json")`,
   `paths.asset("components/diary/captions.json")` (data-folder copies of captions and important maps win).
 - **Helper side (`ui`):** `pages.set_host(PageHost())`, `shell.set_camera(diary.request_moment)`, command `diary`,
   menu "Open diary" (slot `open`), Settings page "Diary" (after "Discord"), `on_refresh` -> pop-up check.
+
+## Characters (2026-11-07)
+- Every new timeline entry has `who` (10-hex fingerprint) and `char` (name) when known (`current()`: the tracker's
+  `Profile` from `facts_begin`, else `characters.json` "current"). timeline.jsonl is never rewritten for this.
+- `owner(e)`: tagged -> its `who`; untagged -> last `history/diary_owners.json` owner (`[{from, who, char}]`, by iso time;
+  older than all -> the first) -> else the highest-level character in characters.json -> else the current one.
+- `diary.md` = the current character only (its own name in the header); `diary.html` has all, switcher chips, remembers
+  the pick. The Levels tab follows the chip too (rows carry `who`: levels.csv column, else `owner()`; the "next level"
+  row only for the playing character); `backfill` only does the current character's rows. Places tab = account.
+  The Lv strip / digest "level_times" are the current character's.
+- First visits, regions and `moment_due` are per character; `seen_places()` (album seed) is the union.
 
 ## Test it
 Offline (never the real diary; scratch root via `diary.set_root`):

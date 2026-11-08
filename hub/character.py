@@ -178,6 +178,12 @@ class Profile:
     def who(self):
         return self.db.get("current")
 
+    @property
+    def settled(self):
+        """True when it's sure who is playing: no new character waiting for its second screenshot.
+        While one waits, what the HUD shows (max HP/MP, cast costs, regen) belongs to nobody yet."""
+        return bool(self.who) and not self.who_pending
+
     def char(self, who=None):
         who = who or self.who
         return self.db["characters"].setdefault(who, {}) if who else None
@@ -411,7 +417,7 @@ class Profile:
         """A skill level worked out from what its casts cost (mpuse.levels_seen): stored like a
         Skill window read, but only upwards (SP is never taken back) and marked "from casts"."""
         c = self.char()
-        if c is None:
+        if c is None or not self.settled:
             return False
         old = ((c.get("skills") or {}).get(sid) or {}).get("value") or 0
         if level <= old:
@@ -433,7 +439,7 @@ class Profile:
         authoritative: its next read replaces this one. Returns True when the stored value changed."""
         c = self.char()
         key = kind + "_max"
-        if c is None or key not in LABEL or not value:
+        if c is None or not self.settled or key not in LABEL or not value:
             return False
         return self._keep("stats", key, int(value), t, LABEL[key], True, {"how": f"from the {source}"})
 
@@ -444,7 +450,7 @@ class Profile:
 
     def save_regen(self, data):
         c = self.char()
-        if c is not None and c.get("regen") != data:
+        if c is not None and self.settled and c.get("regen") != data:
             c["regen"] = data
             self.dirty = True
 

@@ -13,9 +13,11 @@ from base.paths import DATA as ROOT
 from hub import relay_addr
 SETTINGS = ROOT / "helper_settings.json"
 
-# Discord's own "MapleStory" entry (detectable-games list, matches maplestory.exe). Sending
-# presence under it puts our lines on the "Playing MapleStory" card Discord already shows.
-MAPLESTORY_APP_ID = "359510095811444736"
+# Discord's own "MapleStory Classic World" entry (detectable-games list, matches
+# maplestorycw/.../maplestory.exe). Sending presence under it puts our lines on the
+# "Playing MapleStory Classic World" card Discord already shows.
+# Always used; there is no custom app setting (dropped 2026-11-07).
+MAPLESTORY_APP_ID = "1565580212664795249"
 
 
 DEFAULTS = {
@@ -27,12 +29,8 @@ DEFAULTS = {
     },
     "discord": {
         "enabled": False,               # stays off until the user turns it on
-        "client_id": MAPLESTORY_APP_ID, # the game's own Discord entry; or your own app's ID
-        "app_name": "MapleStory Classic",   # preview only, own app; Discord shows its real name
         "details": "{name} · Lv {level} {job}",
         "state": "{map} · Ch {channel} · {pct}",
-        "large_text": "MapleStory Classic World",
-        "large_image": "icon",          # art asset key in the Discord app; "" = app has no images
         "show": {"name": True, "job": True, "level": True, "pct": True, "map": True,
                  "channel": True},      # per-field toggles; a hidden field drops out of the text
         "pct_style": "whole",           # whole 66% · one 66.6% · two 66.61%
@@ -55,6 +53,7 @@ DEFAULTS = {
         "features": {"updates": True,   # automatic updates (updater.py, packaged app only)
                      "party": True,     # party link (partylink.py; needs the relay server + code)
                      "icons": True,     # item pictures for the training panel (itemicons.py)
+                     "skillicons": True,  # skill pictures the player hasn't cut (skillicons.py)
                      "feedback": True,  # skill review "Send" (components/feedback; needs server + code)
                      "hangout": True},  # rooms panel list (components/hangout; needs the relay server)
     },
@@ -69,6 +68,9 @@ DEFAULTS = {
         "hidden": [],                   # skill ids the player removed from the bar (right-click)
         "show": "casts",                # skill corner: casts (left) | mp (per cast) | mesos (per cast)
         "guard_show": "ehp",            # Magic Guard slot: ehp (HP + what MP covers) | absorb | last (MP of the last hit)
+        # hidden / show / guard_show above are only the fallback with no known character; the real
+        # values are per character: "chars": {fingerprint: {hidden, show, guard_show}}
+        "chars": {},
     },
     "relay": {                          # Settings > Internet > Relay; hub/relay_addr.py (hub-owned)
         "server": "",                   # your relay: a domain or IP, port 8787 is added (relay/README.md).

@@ -77,16 +77,24 @@ class PartyBonus:
 
     def _fit(self, k):
         try:
+            while True:
+                with self.lock:
+                    rises = [tuple(r) for r in self.samples.get(k, []) if len(r) >= 4]
+                    self.since_fit[k] = 0
+                res = kills.fit_bonus(rises)
+                with self.lock:
+                    if res:
+                        self.sizes[k] = {**res, "t": round(time.time(), 1)}
+                    else:                              # no rule explains the data: say so, keep the samples
+                        self.sizes[k] = {"b": None, "n": len(rises), "t": round(time.time(), 1)}
+                    if self.since_fit.get(k, 0) < REFIT_EVERY:
+                        self.fitting = False       # samples that came in during the fit get one more pass
+                        break
+        except Exception:
             with self.lock:
-                rises = [tuple(r) for r in self.samples.get(k, []) if len(r) >= 4]
-            res = kills.fit_bonus(rises)
-            with self.lock:
-                if res:
-                    self.sizes[k] = {**res, "t": round(time.time(), 1)}
-                else:                                  # no rule explains the data: say so, keep the samples
-                    self.sizes[k] = {"b": None, "n": len(rises), "t": round(time.time(), 1)}
+                self.fitting = False
+            raise
         finally:
-            self.fitting = False
             self.save()
 
     def save(self):

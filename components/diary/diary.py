@@ -1,7 +1,9 @@
 """diary.py - the character's diary: a timeline of milestones with screenshots.
 
   history/timeline.jsonl   one JSON object per entry (the permanent record; never rewritten
-                           except by `annotate`)
+                           except by `annotate`). New entries carry "who" (character fingerprint)
+                           and "char" (name); older ones are assigned at read time (owner())
+  history/diary_owners.json  optional [{"from": iso time, "who": fp, "char": name}] for untagged entries
   diary.md                 readable diary rendered from the timeline, grouped by day, with
                            character close-ups inline (open in VS Code / Obsidian / any md viewer)
   screenshots/diary/       <stamp>_<kind>.jpg (full frame) + <stamp>_<kind>_char.png (close-up)
@@ -42,7 +44,7 @@ SNAP_TEXT = "A moment I captured."       # the helper's camera button
 
 
 def set_root(root):
-    global ROOT, TIMELINE, DIARY, SHOTS, PLACES, REQUESTS, CUSTOM, DELETED
+    global ROOT, TIMELINE, DIARY, SHOTS, PLACES, REQUESTS, CUSTOM, DELETED, OWNERS, CHARS
     ROOT = Path(root)
     TIMELINE = ROOT / "history" / "timeline.jsonl"
     DIARY = ROOT / "diary.md"
@@ -51,6 +53,8 @@ def set_root(root):
     REQUESTS = ROOT / "diary_requests.jsonl"           # notes waiting for the tracker
     CUSTOM = ROOT / "history" / "captions_custom.json"  # Story captions the player wrote/rolled
     DELETED = ROOT / "history" / "diary_deleted.json"   # entry ids the player deleted
+    OWNERS = ROOT / "history" / "diary_owners.json"     # who wrote the untagged old entries
+    CHARS = ROOT / "history" / "characters.json"        # hub/character.py (read only)
 
 
 set_root(DATA)
@@ -67,21 +71,114 @@ def char_name():
     return _read_json(DATA / "helper_settings.json", {}).get("character", {}).get("name") or "My character"
 
 
-def entries():
-    """Every entry in the timeline, minus the ones the player deleted."""
+# ------------------------------------------------------------------ which character
+# The tracker side hands over hub/character.py's Profile (component.py, facts events); without one
+# (helper, CLI) history/characters.json "current" says who is playing.
+_prof = None
+
+
+def set_profile(prof):
+    global _prof
+    _prof = prof
+
+
+def current():
+    """(fingerprint, readable name) of the character playing now; (None, None) when unknown."""
+    p = _prof
+    if p is not None:
+        try:
+            who = p.who
+            if who:
+                c = p.char() or {}
+                return who, c.get("name") or c.get("name_guess")
+        except Exception:
+            pass
+    db = _read_json(CHARS, {})
+    who = db.get("current") if isinstance(db, dict) else None
+    if who:
+        c = (db.get("characters") or {}).get(who) or {}
+        return who, c.get("name") or c.get("name_guess")
+    return None, None
+
+
+def _fallback_owner():
+    """Owner of untagged entries when there's no diary_owners.json: the highest-level character."""
+    db = _read_json(CHARS, {})
+    best, top = None, -1
+    for fp, c in ((db.get("characters") or {}) if isinstance(db, dict) else {}).items():
+        lv = (((c or {}).get("stats") or {}).get("level") or {}).get("value")
+        if isinstance(lv, (int, float)) and lv > top:
+            best, top = fp, lv
+    return best or current()[0]
+
+
+def _owner_ctx():
+    owners = [o for o in _read_json(OWNERS, []) if isinstance(o, dict) and o.get("who")]
+    owners.sort(key=lambda o: str(o.get("from") or ""))
+    return owners, (None if owners else _fallback_owner())
+
+
+def owner(e, ctx=None):
+    """Fingerprint of the character an entry belongs to (None if unknown). Tagged entries say so;
+    untagged ones belong to the last diary_owners.json owner whose `from` <= the entry time (the
+    first owner if it's older than all), else to the highest-level character, else the current one."""
+    if e.get("who"):
+        return e["who"]
+    owners, default = ctx or _owner_ctx()
+    if not owners:
+        return default
+    t, pick = str(e.get("time") or ""), owners[0]
+    for o in owners:
+        if str(o.get("from") or "") <= t:
+            pick = o
+        else:
+            break
+    return pick["who"]
+
+
+def legacy_who():
+    """The character that owns what predates tagging (flat places.json, oldest untagged entries)."""
+    return owner({"time": ""})
+
+
+def character_name(who, items=None):
+    """Readable name for a fingerprint: characters.json, the owners file, a tagged entry, a guess."""
+    if not who:
+        return None
+    c = ((_read_json(CHARS, {}).get("characters") or {}).get(who) or {})
+    if c.get("name"):
+        return c["name"]
+    for o in reversed(_read_json(OWNERS, [])):
+        if isinstance(o, dict) and o.get("who") == who and o.get("char"):
+            return o["char"]
+    for e in reversed(items if items is not None else _raw_entries()):
+        if e.get("who") == who and e.get("char"):
+            return e["char"]
+    return c.get("name_guess")
+
+
+def _raw_entries():
     if not TIMELINE.exists():
         return []
-    gone = deleted_ids()
     out = []
     for line in TIMELINE.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if line:
             try:
-                e = json.loads(line)
+                out.append(json.loads(line))
             except json.JSONDecodeError:
                 continue
-            if not gone or entry_id(e) not in gone:
-                out.append(e)
+    return out
+
+
+def entries(who=None):
+    """Every entry in the timeline, minus the ones the player deleted. who = a character
+    fingerprint: only that character's entries (owner())."""
+    gone = deleted_ids()
+    out = [e for e in _raw_entries() if not gone or entry_id(e) not in gone]
+    if who is not None:
+        ctx = _owner_ctx()
+        out = [e for e in out if owner(e, ctx) == who]
     return out
 
 
@@ -135,8 +232,10 @@ def add(kind, text, when=None, level=None, map=None, job=None, shots=None, **det
         for k in ("why", "new_region", "region"):
             details.setdefault(k, _pending_place.get(k))
         _pending_place = {}
+    who, name = current()
+    tag = {k: v for k, v in (("who", who), ("char", name)) if v}
     e = {"time": when.isoformat(timespec="seconds"), "kind": kind, "text": text,
-         "level": level, "map": map, "job": job, "shots": shots or [], **details}
+         "level": level, "map": map, "job": job, "shots": shots or [], **tag, **details}
     TIMELINE.parent.mkdir(parents=True, exist_ok=True)
     with open(TIMELINE, "a", encoding="utf-8") as f:
         f.write(json.dumps(e, ensure_ascii=False) + "\n")
@@ -215,6 +314,14 @@ def nickname():
     return custom_captions().get("_nickname") or char_name()
 
 
+def entry_name(e):
+    """{name} for one entry: the nickname belongs to the first (legacy) character; others use their own name."""
+    who = owner(e)
+    if not who or who == legacy_who():
+        return nickname()
+    return character_name(who) or e.get("char") or nickname()
+
+
 def sources_off():
     """References (games) the player switched off for automatic and generated captions.
     Lines without a source are always allowed."""
@@ -266,7 +373,7 @@ def _filled_lines(e):
             "prev": lv - 1 if lv else None, "job": e.get("job_to") or e.get("job"),
             "old": e.get("job_from"), "took": fmt_dur(e.get("took_s")),
             "lost": f"{e['lost']:,}" if e.get("lost") else None, "killer": e.get("killed_by"),
-            "name": nickname(), "why": e.get("why"), "region": e.get("region"),
+            "name": entry_name(e), "why": e.get("why"), "region": e.get("region"),
             "mob": e.get("mob"), "caught": e.get("caught")}
     lines = caption_lines()
     key = e["kind"]
@@ -414,8 +521,32 @@ def _rebuild_html():
 
 
 # ------------------------------------------------------------------ places
-def seen_places():
-    return set(_read_json(PLACES, []))
+def _places_db():
+    """{fingerprint: set of maps}. The old flat list is the key "_" (belongs to legacy_who())."""
+    d = _read_json(PLACES, [])
+    if isinstance(d, list):
+        return {"_": {n for n in d if n}}
+    chars = d.get("chars") if isinstance(d, dict) else None
+    return {k: {n for n in v if n} for k, v in (chars or {}).items() if isinstance(v, list)}
+
+
+def seen_places(who=None):
+    """Maps a character has visited; with no `who`, the union of every character (the album's seed)."""
+    db = _places_db()
+    if who is None:
+        return set().union(*db.values()) if db else set()
+    s = set(db.get(who, ()))
+    if who == legacy_who():
+        s |= db.get("_", set())
+    # its own first-visit entries count too (places seen before the split sit in the old flat list)
+    s |= {e["map"] for e in entries(who) if e.get("kind") == "first_visit" and e.get("map")}
+    return s
+
+
+def _save_places(db):
+    PLACES.parent.mkdir(parents=True, exist_ok=True)
+    PLACES.write_text(json.dumps({"chars": {k: sorted(v) for k, v in db.items()}}, indent=1),
+                      encoding="utf-8")
 
 
 _pending_place = {}      # context of the place mark_place() just announced, for add()
@@ -454,16 +585,20 @@ def place_info(name, seen=None, db=None):
 
 
 def mark_place(name):
-    """Remember the map; True when it deserves a diary entry: an important map (important_maps.json)
-    or the first map of a new region. Other maps are remembered quietly."""
+    """Remember the map for the current character; True when it deserves a diary entry: an important
+    map (important_maps.json) or the first map of a new region for that character. Other maps are
+    remembered quietly. Unknown character: the account-wide list decides."""
     global _pending_place
-    s = seen_places()
+    who = current()[0]
+    s = seen_places(who)
     if name in s:
         return False
     info = place_info(name, seen=s)
-    s.add(name)
-    PLACES.parent.mkdir(parents=True, exist_ok=True)
-    PLACES.write_text(json.dumps(sorted(s), indent=1), encoding="utf-8")
+    db = _places_db()
+    if "_" in db and legacy_who():                    # pin the old flat list to its owner
+        db.setdefault(legacy_who(), set()).update(db.pop("_"))
+    db.setdefault(who or "_", set()).add(name)
+    _save_places(db)
     _pending_place = info
     return bool(info["important"] or info["new_region"])
 
@@ -471,10 +606,11 @@ def mark_place(name):
 def with_context(items):
     """Entries in time order with place context (why / new_region / region), worked out for old
     entries that predate it, plus `hidden` for first visits that aren't worth showing."""
-    db, imp, seen_regions = map_db(), important_maps(), set()
-    out = []
+    db, imp, ctx = map_db(), important_maps(), _owner_ctx()
+    seen_by, out = {}, []                        # regions seen so far, per character
     for e in sorted(items, key=lambda e: e["time"]):
         e = dict(e)
+        seen_regions = seen_by.setdefault(owner(e, ctx), set())
         region = (db.get(e.get("map")) or {}).get("region")
         if e["kind"] == "first_visit":
             if "new_region" not in e:            # entries from before this existed
@@ -519,7 +655,7 @@ def moment_due(active_seconds):
     if active_seconds < _moment["next"]:
         return False
     _moment["next"] = active_seconds + random.uniform(lo, hi) * 60
-    items = entries()
+    items = entries(who=current()[0])           # this character's entries
     if items:                                   # don't crowd a real event
         last = datetime.fromisoformat(items[-1]["time"])
         if (datetime.now() - last).total_seconds() < 10 * 60:
@@ -530,15 +666,16 @@ def moment_due(active_seconds):
 def seed_places(names):
     """Maps visited before the diary existed: don't announce them as first visits."""
     if PLACES.exists():
-        return
-    PLACES.parent.mkdir(parents=True, exist_ok=True)
-    PLACES.write_text(json.dumps(sorted(set(n for n in names if n)), indent=1), encoding="utf-8")
+        return                                  # only the very first time (a new character starts empty)
+    _save_places({"_": {n for n in names if n}})
 
 
 # ------------------------------------------------------------------ rendering
 def render():
-    items = [e for e in with_context(entries()) if not e.get("hidden")]
-    out = [f"# {char_name()}'s diary\n",
+    who, name = current()
+    items = [e for e in with_context(entries(who=who)) if not e.get("hidden")]
+    name = character_name(who) or name or char_name()
+    out = [f"# {name}'s diary\n",
            "*MapleStory Classic World. Written automatically by the tracker; screenshots are "
            "local only.*\n"]
     day = None
@@ -608,9 +745,10 @@ def take_requests():
 
 
 def annotate_last_death(killed_by):
-    items = entries()
+    items, who = entries(), current()[0]
+    ctx = _owner_ctx()
     for e in reversed(items):
-        if e["kind"] == "death":
+        if e["kind"] == "death" and (who is None or owner(e, ctx) == who):
             e["killed_by"] = killed_by
             e["text"] = death_text(e.get("level"), e.get("map"), e.get("lost"), e.get("pct_lost"),
                                    killed_by)
@@ -628,10 +766,13 @@ def backfill(portrait=None):
     if portrait is None:
         from hub import tools
         portrait = tools.portrait_maker()
-    have = {(e["kind"], e.get("level")) for e in entries()}
+    me, ctx = current()[0], _owner_ctx()
+    have = {(e["kind"], e.get("level")) for e in entries(me)}
     rows = list(csv.DictReader(open(ROOT / "history" / "levels.csv", encoding="utf-8")))
     n = 0
     for r in rows:
+        if me and owner({"who": r.get("who"), "time": r.get("time")}, ctx) != me:
+            continue                    # another character's level-up
         lv = int(r["level_reached"])
         if ("levelup", lv) in have:
             continue
