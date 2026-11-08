@@ -401,6 +401,13 @@ class RelayTest(unittest.TestCase):
         r = self.member("Abc", ch={"id": "nope", "kills": 5})            # junk ignored
         self.assertEqual(len(r["challenges"]), 1)
 
+    def test_healed_field(self):
+        r = self.member("Abc", healed=[3, 132, 130])
+        self.assertEqual(r["members"][0]["healed"], [3, 132, 130])
+        for bad in ([1, 2], [1, 2, 3, 4], "1,2,3", [1.5, 2, 3], [-1, 2, 3], [10 ** 9 + 1, 0, 0], [1, 10 ** 6 + 1, 0]):
+            r = self.member("Abc", healed=bad)
+            self.assertNotIn("healed", r["members"][0], bad)
+
     def test_ch_caps_field_and_limits(self):
         r = self.member("Abc", caps="ch,relic")
         self.assertEqual(r["members"][0]["caps"], "ch,relic")

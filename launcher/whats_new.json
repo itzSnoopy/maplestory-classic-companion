@@ -1,4 +1,9 @@
 {
+ "0.14.1": [
+  "Skill bar: a party member's Heal now shows how much it heals you on average between heals.",
+  "Clerics: your Heal slot shows how much your last Heal healed your party (right-click it for each member). Your friends need this version too.",
+  "Relic hunt: pieces now drop in party quests and parties (kills are counted from the white EXP lines)."
+ ],
  "0.14.0": [
   "Each character keeps its own diary, level times and skill bar setup (hidden skills, corner number), so a new character starts fresh.",
   "Skill bar: Recovery and Nimble Feet show their effect and cooldown. Gold sweeps count to the next tick, dark ones are cooldowns. Skill pictures load for every skill.",

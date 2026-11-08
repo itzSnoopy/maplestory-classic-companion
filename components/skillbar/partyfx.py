@@ -8,12 +8,18 @@ PARTY_SKILLS is the one table to extend. An entry, by skill id:
   event  the name of the usage event (live.json usage.recent) that says it hit me
   level  buff only: skill level assumed for the caster (their real level is not known)
 
+credit_heals(state, members, heal_cast_times, now): the Cleric's side. What a party member's Heal did to
+ME is told by that member (party.json member "healed" = [seq, last, avg], sent by their skill bar); a new seq
+within HEAL_CREDIT_S after my own Heal cast is credited to that cast.
+
 party_slots(party, events, now, my_map, table) -> [{id, name, from, kind, last_t, amount, ends,
 level, dim}], in table order. party = party.json dict, events = live.json usage.recent.
 """
 from gamedata import translate
 
 STALE_S = 30.0          # party.json older than this (or ok false): nobody is in the party
+HEAL_CREDIT_S = 12.0    # a member's healed seq going up counts for my Heal cast at most this long before
+CREDIT_KEEP_S = 300.0   # credits are forgotten after this
 
 PARTY_SKILLS = {
     "2301001": {"name": "Heal", "jobs": ["Cleric", "Priest", "Bishop"], "kind": "heal",
@@ -29,6 +35,39 @@ def duration(sid, level):
     k = translate.skill_kind(sid) or {}
     d = k.get("duration_s") or []
     return d[level - 1] if 0 < level <= len(d) else None
+
+
+def credit_heals(state, members, heal_cast_times, now):
+    """Credit my Heal casts with what party members report. Pure; `state` (a dict, start with {}) is kept
+    by the caller between calls. members = party.json members (dicts with name and healed [seq, last, avg]),
+    heal_cast_times = when my own Heal was cast (seconds, same clock as `now`).
+    - the first sight of a member (or after they were gone from the list, or their seq went down: a new
+      character / restart) is a baseline: no credit;
+    - a member's seq going up while a cast of mine was within HEAL_CREDIT_S before `now` is a credit
+      {name, amount: last, avg, t: now, cast_t: that newest cast};
+    - credits older than CREDIT_KEEP_S are dropped.
+    Returns the credits, oldest first (the same list object every call)."""
+    seen = state.setdefault("seen", {})
+    credits = state.setdefault("credits", [])
+    cast = max((c for c in heal_cast_times or [] if 0 <= now - c <= HEAL_CREDIT_S), default=None)
+    names = set()
+    for m in members or []:
+        if not isinstance(m, dict):
+            continue
+        name, h = m.get("name"), m.get("healed")
+        if not name or not (isinstance(h, (list, tuple)) and len(h) == 3
+                            and all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in h)):
+            continue
+        names.add(name)
+        seq = int(h[0])
+        prev = seen.get(name)
+        seen[name] = seq
+        if prev is not None and seq > prev and cast is not None:
+            credits.append({"name": name, "amount": int(h[1]), "avg": int(h[2]), "t": now, "cast_t": cast})
+    for name in [n for n in seen if n not in names]:
+        del seen[name]
+    credits[:] = [c for c in credits if now - c["t"] <= CREDIT_KEEP_S]
+    return credits
 
 
 def party_slots(party, events, now, my_map=None, table=None):

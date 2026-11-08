@@ -478,6 +478,8 @@ class Usage:
             return [self._ev(t, "hp", "potion", how[1], how[2], to_full=how[3])], tick
         if how[0] == "heal" and how[1] == "Heal":       # ended at max HP: the rise was cut short
             return [self._ev(t, "hp", "heal", "Heal", how[2], to_full=cur >= mx)], tick
+        if how[0] == "heal":                            # a party member's Heal: capped rises are cut short too
+            return [self._ev(t, "hp", "heal", how[1], how[2], to_full=cur >= mx)], tick
         return [self._ev(t, "hp", how[0], how[1], how[2])], tick
 
     # -- results -----------------------------------------------------------------------

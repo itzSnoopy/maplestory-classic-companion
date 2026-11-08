@@ -41,6 +41,7 @@ FLIP_BEFORE_S = 0.3     # ... a flip seen this much before the MP drop counts to
 CLOCK_SAVE_S = 10       # the regen clock's position goes into the character's record this often
 CLOCK_KEEP_S = 90       # ... and is picked up again after a restart / update within this long
 HEAL_RECENT = 30        # own Heal amounts kept per level (the recent average)
+PARTY_HEAL_SEQ_MAX = 10 ** 9   # the relay's limit for the "healed" seq
 # passive recovery skills that tick every 10 s; the bar shows a meter's regen slot only when the
 # character has one of these at level >= 1 (chance-based ones like Critical Recovery don't count)
 BUFF_CAST_S = 3.0           # a buff icon coming on more than this long after a booked cast of it = a cast of its own
@@ -92,6 +93,7 @@ class Feed:
         self.who = None
         self.party_n = 0                    # rows of the party box at the last look (party.py)
         self.heal_dirty = False             # Heal stats changed since the last save
+        self.party_heal_post = None         # (seq, last, avg) for the relay post (a tuple, replaced whole: the link thread reads it)
         self._new_meters()
 
     def _new_meters(self, t=None):
@@ -332,6 +334,7 @@ class Feed:
                 self._write_casts()
             self._log_events(booked)
             self._heal_stats(booked)
+            self._party_heal_stats(booked)
             self._eater_last()
             self._finish(self._decide(t))
             self._watch_max(t, v, ev, prof)
@@ -368,6 +371,7 @@ class Feed:
                     m.anchor, m.anchor_w = c["anchor"], c.get("w", 0.5)
         self.clock_saved = now
         self._seed_eater()
+        self._post_tuple()                      # the stored party Heal record goes out from the first post
 
     def _heal_stats(self, ev):
         """Own Heal rises that did not end at max HP (a capped one is cut short) go into the
@@ -387,6 +391,50 @@ class Feed:
             st["recent"] = ((st.get("recent") or []) + [a])[-HEAL_RECENT:]
             st["last_t"] = round(e["t"], 1)
             self.heal_dirty = True
+
+    def _party_heal_stats(self, ev):
+        """A party member's Heal on me ("Heal (party?)") goes into the character's regen record under
+        "party_heal": {seq, n, sum, min, max, recent[30], last, last_t}. seq counts every one (capped too: the
+        caster's Heal credit goes by it); n / sum / min / max / recent only uncapped rises (a capped one is cut
+        short). Not per level: the caster's level is unknown."""
+        if self.model is None:
+            return
+        for e in ev:
+            if e["kind"] != "heal" or e["name"] != "Heal (party?)" or e["amount"] <= 0:
+                continue
+            st = self.model.data.setdefault("party_heal", {})
+            a = int(e["amount"])
+            st["seq"] = min(PARTY_HEAL_SEQ_MAX, int(st.get("seq") or 0) + 1)
+            st["last"], st["last_t"] = a, round(e["t"], 1)
+            if not e.get("to_full"):
+                st["n"] = int(st.get("n") or 0) + 1
+                st["sum"] = int(st.get("sum") or 0) + a
+                st["min"] = min(a, st.get("min") or a)
+                st["max"] = max(a, st.get("max") or a)
+                st["recent"] = ((st.get("recent") or []) + [a])[-HEAL_RECENT:]
+            self.heal_dirty = True
+        self._post_tuple()
+
+    def _post_tuple(self):
+        """(seq, last, avg) as ints for the party post, or None while no party Heal was received."""
+        st = (self.model.data.get("party_heal") if self.model else None) or {}
+        seq = int(st.get("seq") or 0)
+        if seq <= 0:
+            self.party_heal_post = None
+            return
+        n = int(st.get("n") or 0)
+        avg = int(round(st["sum"] / n)) if n and st.get("sum") else 0
+        self.party_heal_post = (seq, max(0, min(10 ** 6, int(st.get("last") or 0))), max(0, min(10 ** 6, avg)))
+
+    def party_heal_info(self):
+        """live.json usage.party_heal: {avg, n, last, last_t, seq} or None (no party Heal received yet)."""
+        st = (self.model.data.get("party_heal") if self.model else None) or {}
+        seq = int(st.get("seq") or 0)
+        if seq <= 0:
+            return None
+        n = int(st.get("n") or 0)
+        return {"avg": int(round(st["sum"] / n)) if n and st.get("sum") else None, "n": n,
+                "last": st.get("last"), "last_t": st.get("last_t"), "seq": seq}
 
     def _seed_eater(self):
         """The stored last absorb tells the usual size from the first look of a session."""
@@ -538,7 +586,7 @@ class Feed:
         return self._section("hp", now, prof)
 
     def section_usage(self, now, prof):
-        return self.usage.summary()
+        return {**self.usage.summary(), "party_heal": self.party_heal_info()}
 
     def section_skills(self, now, prof):
         self.sync_watch(prof)

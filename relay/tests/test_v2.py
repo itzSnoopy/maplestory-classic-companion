@@ -375,6 +375,22 @@ class TestSync(Base):
         self.assertIn("age_s", a)
         self.assertEqual(d["presence"]["members"][0]["name"], "Bob")        # freshest first
 
+    def test_healed_field(self):
+        rid, alice = self.mk()
+        bob = self.joined(rid, "Bob")
+        self.sync(rid, alice, {"presence": {"healed": [3, 132, 130]}})
+        clock.offset += 0.5
+        rows = {m["name"]: m for m in self.sync(rid, bob, {"presence": {"level": 12}})[1]["presence"]["members"]}
+        self.assertEqual(rows["Alice"]["healed"], [3, 132, 130])
+        for bad in ([1, 2], [1, 2, 3, 4], "1,2,3", [1.5, 2, 3], [True, 2, 3], [-1, 2, 3], [10 ** 9 + 1, 0, 0],
+                    [1, 10 ** 6 + 1, 0], [1, 0, 10 ** 6 + 1], [1, "2", 3], 5, None):
+            clock.offset += 0.5
+            self.sync(rid, alice, {"presence": {"healed": bad, "level": 31}})
+            clock.offset += 0.5
+            rows = {m["name"]: m for m in self.sync(rid, bob, {"presence": {"level": 12}})[1]["presence"]["members"]}
+            self.assertNotIn("healed", rows["Alice"], bad)
+            self.assertEqual(rows["Alice"]["level"], 31)
+
     def test_ttl(self):
         rid, alice = self.mk()
         bob = self.joined(rid, "Bob")

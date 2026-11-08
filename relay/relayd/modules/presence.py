@@ -30,6 +30,9 @@ FIELDS = {
     "channel": lambda v: isinstance(v, (int, str)) and len(str(v)) <= 4,
     "v": lambda v: isinstance(v, str) and len(v) <= 16,
     "caps": lambda v: isinstance(v, str) and len(v) <= 32 and re.match(r"^[a-z0-9,]*$", v),
+    # a party Heal I received: [seq, last amount, average] (the caster's Heal credit, skillbar partyfx)
+    "healed": lambda v: (isinstance(v, list) and len(v) == 3 and all(type(x) is int for x in v)
+                         and 0 <= v[0] <= 10 ** 9 and 0 <= v[1] <= 10 ** 6 and 0 <= v[2] <= 10 ** 6),
 }
 
 

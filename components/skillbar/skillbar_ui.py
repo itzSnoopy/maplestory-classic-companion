@@ -62,6 +62,8 @@ STATUS = DATA / "status.json"        # my map
 GROUP_GAP = 3                        # gap between my skills and the party's skills, in GAPs
 PULSE_GET = (90, 220, 120)           # a party skill landed on me: green
 RECEIVED_S = 15.0                    # the last amount stays under a party Heal this long
+CREDIT_COLOR = (120, 230, 150, 255)  # "+total" my Heal did on others (own Heal slot): green, apart from the red "~avg"
+CREDIT_MENU_CASTS = 3                # casts listed in the own Heal slot's right-click menu
 SLOT, GAP, PAD = 44, 4, 4       # px at 96 dpi
 PULSE_S = 0.9                   # an attack's slot flashes this long after a cast is seen (player, 2026-10-31)
 PULSE_MP, PULSE_HP = (80, 160, 255), (255, 80, 80)   # what the cast cost: MP blue, HP red, both = two rings
@@ -247,6 +249,9 @@ class SkillBar:
         self.party, self.my_map = {}, None      # party.json, status.json map (read with live.json)
         self.pslots = []                # partyfx slots
         self.party_seen = {}            # party skill id -> last_t already pulsed
+        self.heal_casts = []            # when my own Heal cast was seen (cast_n went up), last 20
+        self.credit_state, self.credits = {}, []     # partyfx.credit_heals state / its credits
+        self.credit_seen = None         # t of the newest credit already pulsed
         self.pulses = {}                # skill id -> when its pulse started (a new cast seen)
         self.icons = {}                 # path -> PIL image (slot size)
         self.photo = None
@@ -308,6 +313,7 @@ class SkillBar:
             self.live, self.live_t = demo_live(), time.time()
             self._new_casts()
             self._demo_party(self.live_t)
+            self._credit(self.live_t)
         else:
             try:
                 st = LIVE.stat()
@@ -334,6 +340,28 @@ class SkillBar:
         self.my_map = self._json(STATUS).get("map")
         ev = ((self.live or {}).get("usage") or {}).get("recent") or []
         self._set_party(partyfx.party_slots(self.party, ev, time.time(), self.my_map))
+        self._credit(time.time())
+
+    def _credit(self, now):
+        """My own Heal slot (only when my skills list has Heal): credit the party members' reports to my casts."""
+        if not any(sk.get("id") == HEAL_ID for sk in (self.live or {}).get("skills") or []):
+            self.credit_state, self.credits = {}, []
+            return
+        p = self.party if isinstance(self.party, dict) else {}
+        ok = bool(p.get("ok")) and now - float(p.get("t") or 0) <= partyfx.STALE_S
+        self.credits = partyfx.credit_heals(self.credit_state, (p.get("members") or []) if ok else [],
+                                            self.heal_casts, now)
+        if self.credits and self.credits[-1]["t"] != self.credit_seen:
+            if self.credit_seen is not None:
+                self.pulses["heal_credit"] = now        # a new credit: green pulse (the first read only remembers)
+            self.credit_seen = self.credits[-1]["t"]
+
+    def _credit_total(self):
+        """(total, newest credit time) for the latest cast with credits, or None."""
+        if not self.credits:
+            return None
+        cast = self.credits[-1]["cast_t"]
+        return sum(c["amount"] for c in self.credits if c["cast_t"] == cast), self.credits[-1]["t"]
 
     def _set_party(self, slots):
         """Keep the slots; a newer matching event than the one seen starts the green pulse
@@ -351,7 +379,10 @@ class SkillBar:
         Haste (its real duration) is cast again when it runs out."""
         self.party = {"ok": True, "t": now, "members": [
             {"name": "FakeCleric", "job": "Cleric", "map": "Demo"},
-            {"name": "FakeSin", "job": "Assassin", "map": "Demo"}]}
+            {"name": "FakeSin", "job": "Assassin", "map": "Demo"},
+            # a healed player: its seq rises ~1.5 s after each of the demo's own Heal casts (every 4 s)
+            {"name": "FakeBob", "job": "Fighter", "map": "Demo",
+             "healed": [max(0, int((now - 1.5) / 4)), 128 + int((now - 1.5) / 4) * 7 % 9, 130]}]}
         self.my_map = "Demo"
         dur = partyfx.duration("4101001", 5) or 140
         t0 = getattr(self, "demo_t0", None) or now
@@ -377,6 +408,8 @@ class SkillBar:
         if seen is not None:
             for sid, n in counts.items():
                 sk = skills.get(sid)
+                if sid == HEAL_ID and n > seen.get(sid, n):
+                    self.heal_casts = (self.heal_casts + [now])[-20:]
                 if sk and (sk.get("kind") == "attack" or sk.get("attacks")) and n > seen.get(sid, n):
                     self.pulses[sid] = now
         self.cast_seen = {**(seen or {}), **counts}
@@ -549,8 +582,11 @@ class SkillBar:
                                    mid=f"{math.ceil(left)}", pulse=pulse), cap)
             return self._slot(icon, dim=True, pulse=pulse), cap
         t = ps["last_t"]
+        ph = (((self.live or {}).get("usage") or {}).get("party_heal")) or {}
         if t is not None and now - t < RECEIVED_S and ps["amount"]:
             cap = self._caption(f"+{ps['amount']}", (255, 140, 140, 255), "cross")
+        elif ph.get("avg"):                 # what party Heals did to me on average (uncapped ones)
+            cap = self._caption(f"~{ph['avg']}", (255, 140, 140, 255), "cross")
         return self._slot(icon, dim=ps["dim"], pulse=pulse), cap
 
     def render(self):
@@ -650,10 +686,15 @@ class SkillBar:
                 continue
             hl = sk.get("heal") if sk.get("id") == HEAL_ID else None
             if sk.get("id") == HEAL_ID:         # Heal: its average rise under the slot (? until one is seen)
-                cap = f"~{hl['avg']}" if hl else "?"
-                slots.append((self._slot(icon, corner=corner, dim=casts == 0, corner_color=color,
-                                         pulse=self._pulse(sk, now)),
-                              self._caption(cap, (255, 140, 140, 255), "cross")))
+                cap = self._caption(f"~{hl['avg']}" if hl else "?", (255, 140, 140, 255), "cross")
+                pulse = self._pulse(sk, now)
+                ct = self._credit_total()
+                if ct and now - ct[1] < RECEIVED_S:     # what my last Heal did on the party: green "+total"
+                    cap = self._caption(f"+{ct[0]}", CREDIT_COLOR, "cross")
+                    cp = self.pulses.get("heal_credit")
+                    if cp is not None and now - cp < PULSE_S:
+                        pulse = ((now - cp) / PULSE_S, [PULSE_GET])
+                slots.append((self._slot(icon, corner=corner, dim=casts == 0, corner_color=color, pulse=pulse), cap))
                 ids.append(sk.get("id"))
                 continue
             if show == "mp" and sk.get("mp"):
@@ -782,6 +823,15 @@ class SkillBar:
                 m.add_radiobutton(label=label, value=val, variable=gs,
                                   command=lambda v=val: self.put_char(guard_show=v))
             m.add_separator()
+        if sid == HEAL_ID and self.credits:       # what my Heal did on the others, newest cast first
+            casts = sorted({c["cast_t"] for c in self.credits}, reverse=True)[:CREDIT_MENU_CASTS]
+            for cast in casts:
+                for c in sorted((c for c in self.credits if c["cast_t"] == cast), key=lambda c: c["name"]):
+                    m.add_command(label=f"{c['name']} +{c['amount']}" + (f" (avg ~{c['avg']})" if c["avg"] else ""),
+                                  state="disabled")
+                if cast != casts[-1]:
+                    m.add_separator()
+            m.add_separator()
         if sid:
             m.add_command(label=f"Remove {names.get(sid) or 'skill'} from the bar",
                           command=lambda: self.set_hidden(sid, True))
@@ -837,6 +887,7 @@ class SkillBar:
 def demo_live():
     t = time.time()
     return {"t": t, "character": "Demo", "who": None,
+            "usage": {"party_heal": {"avg": 131, "n": 5, "last": 133, "last_t": t - 20, "seq": 6}},
             "mp": {"cur": 412, "max": 606, "tick": 6, "period": 10.0, "next": t - (t % 10) + 6.3},
             "hp": {"cur": 380, "max": 408, "tick": 9, "period": 10.0, "next": t - (t % 10) + 7},
             "regen": {"mp": {"skill": "Improved MP Recovery", "level": 5, "icon": None}},  # no HP skill

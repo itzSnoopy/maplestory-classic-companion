@@ -2,7 +2,8 @@
 (components/skillbar/feed.py). Publishes the hp / mp / regen / skills / usage sections of live.json,
 which the skill bar over the game reads.
 
-Subscribes: service_start (builds the feed), facts_begin, fact (vitals, away, party).
+Subscribes: service_start (builds the feed), facts_begin, fact (vitals, away, party), relay_post (link thread:
+extra["healed"] = [seq, last, avg] of the party Heals that landed on me, "_fast" once per new one).
 Offers: hub.ask("usage") (mpuse.Usage; the training component prices it).
 Asks: hub.ask("mp_price") / hub.ask("price_of") (training) for the skills list.
 Between quick looks it runs the regen clock's bursts (hub.on_idle).
@@ -47,6 +48,21 @@ class SkillbarComponent(Component):
         hub.on("service_start", self.on_start)
         hub.on("facts_begin", self.on_begin)
         hub.on("fact", self.on_fact)
+        hub.on("relay_post", self.on_post)
+        self._posted_seq = 0
+
+    def on_post(self, extra=None, **_):
+        """Party link THREAD, before each post: tell the party what party Heals landed on me
+        (extra["healed"] = [seq, last, avg]); the first post after a new one asks for a quick next
+        post so the Cleric sees it within about a second. Reads one tuple the tracker thread replaced whole."""
+        feed = self.feed
+        h = feed.party_heal_post if feed is not None else None
+        if h is None or extra is None:
+            return
+        extra["healed"] = list(h)
+        if h[0] != self._posted_seq:
+            self._posted_seq = h[0]
+            extra["_fast"] = True
 
     def on_start(self, **_):
         from components.skillbar import feed     # here, not at the top: the helper loads this module for ui() and must stay light

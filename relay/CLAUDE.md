@@ -21,7 +21,7 @@ side is `components/party/partylink.py`.
 ## Protocol (with `partylink.py`)
 - `POST /v1/party/<code>` body = JSON of your state; reply `{members: [...], server_t}`. `GET` same path = read only. `GET /health` = `{ok: true}`.
 - Code: `[A-Za-z0-9_-]{6,64}`; name `[A-Za-z0-9]{1,16}`; wrong code (not in `PARTY_CODES`) -> 403, bad name -> 400, junk fields dropped.
-- Fields the client sends: `name, state, level, job, map, exp_cur, exp_need, exp_pct, exp_hr, eta, hp, mp, channel, v`. Each member comes back as its fields + `name` + `age_s`. The client drops itself from the list and writes the rest to `party.json`.
+- Fields the client sends: `name, state, level, job, map, exp_cur, exp_need, exp_pct, exp_hr, eta, hp, mp, channel, v, caps, healed` (`healed` = list of exactly 3 ints `[seq 0..10^9, last 0..10^6, avg 0..10^6]`, other shapes dropped; also a presence field in v2: keep both `FIELDS` in step). Each member comes back as its fields + `name` + `age_s`. The client drops itself from the list and writes the rest to `party.json`.
 - Env: `PORT` (8787), `BIND` (0.0.0.0), `PARTY_CODES` (comma allowlist; empty = any), `MAX_MEMBERS` (0 = no limit).
 - Plain HTTP unless behind TLS; the code travels in the URL. Data is low-sensitivity (names + game numbers).
 - A change to `FIELDS` must stay in step with `own_state()` in `partylink.py`.

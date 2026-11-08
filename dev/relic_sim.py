@@ -156,6 +156,16 @@ def rise(kills, map=MAP, exp=15):
         hub.emit("exp_rise", t=time.time(), map=map, d=exp, party=False, gap=1.0)
 
 
+SETTLE_WAIT = 3.8                                            # > kills_read.SETTLE_S + one link post
+PQ = "1st Accompaniment <Bonus>"
+
+
+def gain(own=True, party_bonus=0, t=None, map=None):
+    """One message-corner EXP line (the real event the engine emits)."""
+    FakeTracker.map = map or FakeTracker.map
+    hub.emit("exp_gain", t=t or time.time(), base=26, party_bonus=party_bonus, overflow=False, own=own)
+
+
 def raw_rise(d, map=MAP, party=False):
     hub.emit("exp_rise", t=time.time(), map=map, d=d, party=party, gap=1.0)
 
@@ -180,8 +190,30 @@ try:
     FakeTracker.level = 8
     raw_rise(7)                                              # 7 EXP: no mob or pair of mobs here (a quest, a share)
     raw_rise(15, party=True)                                 # partied, no challenge component: never guessed
-    time.sleep(1.0)
+    time.sleep(SETTLE_WAIT)                                  # bar rises are held 2.5 s, then settled by the next post
     check(rc.hunt.acc == 0 and state()[1]["found_count"] == 0, "out-of-band level, unknown map, no-kill rise, party share: 0 kills", (rc.hunt.acc, state()[1]["found_count"]))                                    # in band for every mob of the map
+    # 2a: EXP lines are the kills; the bar is only a fallback (a PQ map weighs 1, so one line = one piece)
+    FakeTracker.map = PQ
+    fc = lambda: state()[1]["found_count"]  # noqa: E731
+    gain(own=False, party_bonus=8)                           # (b) a yellow line (teammate's share) counts 0
+    time.sleep(SETTLE_WAIT)
+    check(fc() == 0 and rc.hunt.acc == 0, "a yellow EXP line counts 0", (fc(), rc.hunt.acc))
+    gain(own=True, party_bonus=8)                            # (a) a white line while partied: 1 kill
+    check(wait(lambda: fc() == 1), "a white EXP line while partied counts 1 kill (a piece)", fc())
+    t0 = time.time()                                         # (c) one white line + its matching bar rise: exactly 1
+    gain(own=True, t=t0, party_bonus=8)
+    hub.emit("exp_rise", t=t0, map=PQ, d=26, party=True, gap=1.0)
+    check(wait(lambda: fc() == 2), "a white line + its rise: the kill counts", fc())
+    time.sleep(SETTLE_WAIT)
+    check(fc() == 2 and rc.hunt.acc == 0, "...and the covered rise is not counted twice", (fc(), rc.hunt.acc))
+    raw_rise(26, map=PQ)                                     # an uncovered rise right after a party-bonus line: partied, 0
+    time.sleep(SETTLE_WAIT)
+    check(fc() == 2, "an uncovered rise within 10 s of a party-bonus line counts 0 (partied, never guessed)", fc())
+    time.sleep(max(0.0, t0 + 10.6 - time.time()))
+    raw_rise(26, map=PQ)                                     # (d) a rise no line covers: the fallback counts it
+    check(fc() == 2, "an uncovered rise is held, not counted at once", fc())
+    check(wait(lambda: fc() == 3), "...then counted by the fallback after the settle delay", fc())
+    FakeTracker.map = MAP
     presence(tok2, MAP, 3)                                   # Tester2 stands with me (same map and channel)
     presence(tok3, "Ellinia", 3)                             # Tester3 is elsewhere
     toaster = toast_mod.Toaster(type("Sh", (), {"root": None, "settings": lambda s, n: {"toast": True, "enabled": True},
@@ -190,27 +222,27 @@ try:
     toaster.show = lambda text, now, found=None, total=None: shown.append((text, found, total))
     toaster.tick()                                           # first look only syncs the sequence number
     rise(5)
-    check(wait(lambda: state()[1]["found_count"] == 5), "5 mobs' worth in band: 5 pieces (every roll succeeds in this sim)", state()[1]["found_count"])
-    check(wait(lambda: rj().get("found_count") == 5 and len(rj().get("found_ids") or []) == 5), "relic.json: found count and my ids", rj())
+    check(wait(lambda: state()[1]["found_count"] == 8), "5 more mobs' worth in band: 5 pieces (every roll succeeds in this sim)", state()[1]["found_count"])
+    check(wait(lambda: rj().get("found_count") == 8 and len(rj().get("found_ids") or []) == 8), "relic.json: found count and my ids", rj())
     check(rj()["together"] == {"n": 2, "bonus_pct": 5}, "together bonus from presence (same map + channel)", rj().get("together"))
     check(rj()["next_chance_pct"] and rj()["toast"] and rj()["toast"]["text"].startswith("+ Relic piece"), "next chance and toast text in relic.json", rj())
-    check(found_events and sum(len(e["ids"]) for e in found_events) == 5, "relic_found events carry the ids", found_events[:1])
+    check(found_events and sum(len(e["ids"]) for e in found_events) == 8, "relic_found events carry the ids", found_events[:1])
     toaster.last_check = 0
     toaster.tick()
-    check(shown and shown[-1][0].startswith("+ Relic piece") and shown[-1][1] == 5 and shown[-1][2],
+    check(shown and shown[-1][0].startswith("+ Relic piece") and shown[-1][1] == 8 and shown[-1][2],
           "the toast fires on the new sequence number, with found / total", shown)
     pic = toast_mod.Toaster.image(type("T", (), {"shell": None})(), shown[-1][1], shown[-1][2])
     check(pic.mode == "RGBA" and pic.width > 150, "the notice draws (piece + two lines)", pic.size)
     FakeTracker.level = 40                                   # a PQ map: its mobs are far below Lv 40, still counted
     rise(1, "1st Accompaniment <Bonus>", exp=26)
-    check(wait(lambda: state()[1]["found_count"] == 6), "a party quest map counts my kill whatever the mobs' level", state()[1]["found_count"])
+    check(wait(lambda: state()[1]["found_count"] == 9), "a party quest map counts my kill whatever the mobs' level", state()[1]["found_count"])
     FakeTracker.level = 8
     rise(6)
     check(wait(lambda: state()[1]["found_count"] == 12), "the deck finishes after exactly 12 drops", state()[1]["found_count"])
     st = state()[1]
     check(sorted(p["id"] for p in st["pieces"] if p["state"] == "found") == list(range(12)), "...no duplicates")
     rise(5)
-    time.sleep(0.8)
+    time.sleep(SETTLE_WAIT)
     check(state()[1]["found_count"] == 12 and rj().get("pending") == 0, "...and nothing more drops", rj().get("pending"))
 
     # 2b: the rise_kills service (challenge component, its own hub) ------------------------------------------

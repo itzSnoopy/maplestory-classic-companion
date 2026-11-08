@@ -1,7 +1,10 @@
 """relic component: the room's relic hunt on the player's side.
 
-Tracker side: every EXP rise becomes ELIGIBLE kills (gamedata/relic.py: mobs' worth x the map's in-band share for
-your level), added up while a hunt is running and sent as the `relic` part of the party link's sync
+Tracker side: kills come from the game's message-corner EXP lines (`exp_gain`: a WHITE line = one of my kills,
+yellow = a teammate's share, 0), each weighed by gamedata/relic.py (1 on a party quest map, else the map's in-band
+share for your level). An EXP bar rise (`exp_rise`) is only a fallback: held 2.5 s (kills_read.py), dropped if an
+EXP line covers it, else read as whole mob kills (the challenge component's `rise_kills` service). Added up while
+a hunt is running and sent as the `relic` part of the party link's sync
 (relay_post extra["_parts"]["relic"] = {"kills": x}). The relay rolls the drops; its answer comes back in
 relay_reply parts["relic"]. Writes relic.json for the helper (status, found ids, next chance, together, the toast
 trigger) and emits relic_found. Runs the Start / Stop commands the rooms panel writes (relic_cmd.json): a v2
@@ -9,7 +12,7 @@ room only, through the relay_link service's call().
 Helper side (ui): a 3 s toast over the game corner when a piece is found, the menu entry "Open relic hunt" (the
 relay's table page, the member token in the URL FRAGMENT so it never reaches a server log), Settings > General.
 
-Subscribes: service_start, service_stop, exp_rise, relay_post, relay_reply. Emits: relic_found.
+Subscribes: service_start, service_stop, exp_gain, exp_rise, relay_post, relay_reply. Emits: relic_found.
 Asks: relay_link (party).
 """
 import threading
@@ -37,6 +40,9 @@ class RelicComponent(Component):
         self.stop_ev = threading.Event()
         hub.on("service_start", self.on_start)
         hub.on("service_stop", self.on_stop)
+        from components.relic import kills_read
+        self.reads = kills_read.KillsRead()
+        hub.on("exp_gain", self.on_gain)
         hub.on("exp_rise", self.on_rise)
         hub.on("relay_post", self.on_post)
         hub.on("relay_reply", self.on_reply)
@@ -58,24 +64,50 @@ class RelicComponent(Component):
     def on_stop(self, **_):
         self.stop_ev.set()
 
+    def on_gain(self, t=None, party_bonus=0, own=False, **_):
+        """One EXP line from the message corner: white (own) = one of my kills, yellow = a teammate's share (0).
+        Every line is remembered so it can cover a bar rise."""
+        with perf.timed("relic"):
+            if not self._enabled():
+                return
+            t = time.time() if t is None else t
+            self.reads.gain(t, party_bonus)
+            level = self.hub.state.level
+            if own and level:
+                from gamedata import relic
+                self.hunt.add(relic.eligible(self.hub.state.map, 1, level))
+            self._settle()
+
     def on_rise(self, t, map, d, party=False, **_):
+        """An EXP bar rise: held (kills_read.SETTLE_S); only counted by the fallback if no EXP line covered it."""
         with perf.timed("relic"):
             if not self._enabled():
                 return
             level = self.hub.state.level
             if not level:
                 return
-            from gamedata import kills, relic
-            read = self.hub.ask("rise_kills")              # the duel's reading: my whole kills, white EXP only
+            self.reads.rise(t, map, d, party, level)
+            self._settle()
+
+    def _settle(self):
+        """Count the held rises no EXP line covered: the duel's `rise_kills` reading if present, else solo whole kills."""
+        todo = self.reads.settle()
+        if not todo:
+            return
+        from gamedata import kills, relic
+        read = self.hub.ask("rise_kills")                  # my whole kills, 0 for an unsure party read
+        for r, partied in todo:
             if read is not None:
-                n = read(map, d, party)
-            else:                                           # no challenge component: solo whole kills only
-                n = 0 if party else kills.whole_kills(map, d, 2)
-            self.hunt.add(relic.eligible(map, n, level))
+                n = read(r["map"], r["d"], partied)
+            else:
+                n = 0 if partied else kills.whole_kills(r["map"], r["d"], 2)
+            self.hunt.add(relic.eligible(r["map"], n, r["level"]))
 
     def on_post(self, extra, mode="v1", **_):           # link thread
         if mode != "v2" or not self._enabled():
             return
+        with perf.timed("relic"):
+            self._settle()
         part = self.hunt.post_part()
         if part:
             extra.setdefault("_parts", {})["relic"] = part

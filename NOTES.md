@@ -988,3 +988,13 @@ Classic's status bar shows **"Swordsman"** for a 1st-job warrior (log: `job read
 while equipment requirements and the job lists say "Warrior" (player). `gamedata/translate.JOB_ALIASES` maps the status-bar
 names to one canonical name each (Swordsman/Swordman -> Warrior; Archer -> Bowman, Rogue -> Thief as guesses, unseen yet),
 so `job_name` snaps them and the advancement is caught (next check within `PENDING_EVERY_S` 5 min).
+
+
+## 2026-11-07: party Heal, both ends (who got how much)
+- **Receiver** (the healed player): an unexplained HP rise with the party box >1 rows is booked `Heal (party?)` (mpuse, `to_full` now set like own Heal). feed keeps `party_heal` in the regen record
+  `{seq, n, sum, min, max, recent[30], last, last_t}`: `seq` counts every one (capped too), the rest only uncapped rises; not per level (the caster's level is unknown). Sent in every party post as
+  `healed = [seq, last, avg]` (presence field; v1 flat, v2 presence), `_fast` once when seq changed.
+- **Cleric** (`partyfx.credit_heals`): a member's `healed` seq going up while the player's own Heal was cast within `HEAL_CREDIT_S` (12 s; relay + two 3 s link loops make the latency up to ~7 s) is credited to that
+  cast: slot caption `+total` (sum for the newest cast), right-click lists "Name +amount (avg ~N)". First sight of a member, a vanished member or a falling seq = baseline, no credit.
+- **Limits:** the receiver only knows a heal landed, not whose, so two Clerics in one party cannot be told apart: a second Cleric's Heal inside the 12 s after the player's own cast is credited to the
+  player too (and both count in the receiver's seq / average). A Heal that healed nobody (full HP, no rise) gives no credit. `"_fast"` shortens the gap to the next post; the first post with a new seq still waits for the link loop (<= 3 s).
