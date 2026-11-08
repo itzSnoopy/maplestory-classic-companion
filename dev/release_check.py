@@ -27,19 +27,19 @@ FIXTURE = ROOT / "dev" / "fixtures" / "levelup_lv5"
 ORIG_FIXTURE = ROOT / "sessions" / "20261023_021038" / "levelups" / "Lv5_021225"
 EXPECT_REGULAR = "Lv 4 84.78% -> Lv 5 20.74%, +42 EXP, 1 level-up(s)"   # svc_sim baseline
 # player/local files that must never be committed or packaged
-PRIVATE = re.compile(r"(^|/)(config\.json|helper_settings\.json|glyphs(_level|_ui|_hud|_msg|_buff)?\.json|crash\.log)$|"
+PRIVATE = re.compile(r"(^|/)(config\.json|helper_settings\.json|glyphs(_level|_ui|_hud|_msg|_buff)?\.json|glyph_seed\.json|game_install\.json|crash\.log)$|"
                      r"^(digest\.json|status\.json|journal\.md|diary\.(md|html)|album\.html)$|(^|/)(history|sessions|"
                      r"screenshots|templates|assets|crops|glyphs|game_icons|dev/fixtures|build|dist)/|"
                      r"\.(png|jpe?g|gif|bmp|log|zip|exe)$", re.I)
 # never inside the release zip (game imagery, player data, third-party art)
-ZIP_FORBIDDEN = re.compile(r"(^|/)(config\.json|helper_settings\.json|party\.json|live\.json|glyphs(_level|_ui|_hud|_msg|_buff)?\.json|"
+ZIP_FORBIDDEN = re.compile(r"(^|/)(config\.json|helper_settings\.json|party\.json|live\.json|glyphs(_level|_ui|_hud|_msg|_buff)?\.json|glyph_seed\.json|game_install\.json|"
                            r"minimap_(world|header)\.png|nametag\.png|crash\.log|"
                            r"captions_custom\.json|placeholder_source\.jpg)$|(^|/)(history|sessions|"
                            r"screenshots|templates|assets|crops|glyphs|game_icons|fixtures)/|\.jpe?g$", re.I)
 ALLOWED_IMAGES ={"discord_icon.png", "art/icon.png"}     # original art from the player's artist friend
 CODE_DIRS = {"base", "launcher", "engine", "gamedata", "hub", "components"}
 # root JSON files that are the player's own (never shipped)
-LOCAL_JSON = {"config.json", "helper_settings.json", "glyphs.json", "glyphs_level.json", "glyphs_ui.json", "glyphs_hud.json", "glyphs_msg.json", "glyphs_buff.json", "live.json", "party.json",
+LOCAL_JSON = {"config.json", "helper_settings.json", "glyphs.json", "glyphs_level.json", "glyphs_ui.json", "glyphs_hud.json", "glyphs_msg.json", "glyphs_buff.json", "glyph_seed.json", "game_install.json", "live.json", "party.json",
               "digest.json", "status.json"}
 
 results = []
@@ -528,6 +528,11 @@ def check_buffs():
           + (" (SKIPPED: no frames/icons here)" if skipped else ""), ok, note)
     ok, note, _ = buffs_check.run_party()
     check("skill bar: party Haste slot from the buff list (lit, exact / estimated end, recast, left party)", ok, note)
+    ok, note, _ = buffs_check.run_bless()
+    check("skill bar: Bless as a party buff and as my own timer (own vs party rule, level learning, captions)", ok, note)
+    ok, note, skipped = buffs_check.run_bless_frames()
+    check("buff icons: the Bless picture is never found in the local burst recordings (negative set)"
+          + (" (SKIPPED: no frames/picture here)" if skipped else ""), ok, note)
 
 
 def main():

@@ -287,6 +287,38 @@ def game_window_state(cls="MapleStoryClass"):
         return "absent"
 
 
+STEAM_APP_ID = 216150            # MapleStory on Steam; Classic World lives in its MSCW folder
+
+
+def launch_target(found):
+    """How to start the game from a gamefiles.find_install() result: a steam:// URL for a Steam
+    install, else None (no menu entry). Steam only: it's the one we can test. The Nexon launcher
+    probably needs its own way (not running MapleStory.exe directly); add it once known."""
+    if not found:
+        return None
+    if found.get("how") == "steam" or "steamapps" in str(found.get("data", "")).lower():
+        return f"steam://rungameid/{STEAM_APP_ID}"
+    return None
+
+
+def game_focused(cls="MapleStoryClass"):
+    """True when the game window or one of this process's own windows (helper, panels, menus) is in
+    front. Only reads which window is in front (passive). True on any error (panels stay)."""
+    try:
+        import ctypes
+        u = ctypes.windll.user32
+        fg = u.GetForegroundWindow()
+        if not fg:
+            return True
+        if fg == u.FindWindowW(cls, None):
+            return True
+        pid = ctypes.c_ulong()
+        u.GetWindowThreadProcessId(fg, ctypes.byref(pid))
+        return pid.value == os.getpid()
+    except Exception:
+        return True
+
+
 def menu_items(app):
     """The helper's menu, shared by the tray icon and right-clicking the helper window:
     [(label or fn() -> label, command, checked fn | None, enabled fn | None, visible fn | None)],
@@ -294,25 +326,25 @@ def menu_items(app):
     entries come in at two slots (shell.add_menu): the panel toggles and the "Open ..." entries."""
     sh = app.shell
     return [
-        ("Show / hide window", "toggle", None, None, None),
+        ("Settings…", "settings", None, None, None),
         ("Details", "details", lambda: app.details, None, None),
         ("Always on top", "topmost", lambda: app.topmost, None, None),
-        ("Settings…", "settings", None, None, None),
-        ("Run setup…", "setup", None, None, None),
+        ("Hide panels when the game isn't focused", "hide_unfocused", lambda: app.hide_unfocused,
+         None, None),
         None,
+        ("Hide all panels", "hide_panels", lambda: app.hide_panels, None, None),
         *sh.menus["panels"],
-        (lambda: f"Restart to update to {app.update_label()}", "update", None, None,
-         lambda: app.update_ready is not None),
-        None,
-        ("Start tracker", "start", None, lambda: not app.running, None),
-        ("Stop tracker", "stop", None, lambda: app.running, None),
         None,
         *sh.menus["open"],
         ("Open journal", "journal", None, None, None),
         ("Open folder", "folder", None, None, None),
         None,
-        ("Exit helper", "exit", None, None, None),
-        ("Exit and stop tracker", "exit_all", None, None, None),
+        (lambda: f"Restart to update to {app.update_label()}", "update", None, None,
+         lambda: app.update_ready is not None),
+        ("Launch game", "launch_game", None, lambda: app.game_state == "absent",
+         lambda: app.launch_target() is not None),
+        ("Show / hide window", "toggle", None, None, None),
+        ("Exit helper", "exit_all", None, None, None),        # also stops the tracker
     ]
 
 
@@ -392,6 +424,9 @@ class App:
         self.auto_compacted = False    # the icon came from a game close / minimize (not the player)
         self.last_toggle = -1e9        # monotonic time of the last manual toggle (1 s debounce)
         self.game_state = None         # last game_window_state() reading
+        self.hide_panels = bool(ui.get("hide_panels", False))        # menu "Hide all panels"
+        self.hide_unfocused = bool(ui.get("hide_unfocused", False))  # ... when the game isn't in front
+        self.game_in_front = True      # last game_focused() reading
         self.icon = None               # the icon's Toplevel (built on first use)
         self.icon_color = None         # tracker state colour (used when the ring follows the state)
         self.icon_ring_preview = None  # ring colour shown while Settings is open, before Save
@@ -633,6 +668,7 @@ class App:
         write_json(UI_STATE, {"x": x, "y": y,
                               "details": self.details, "topmost": self.topmost,
                               "visible": self.visible, "compact": self.compact,
+                              "hide_panels": self.hide_panels, "hide_unfocused": self.hide_unfocused,
                               "alpha": float(self.root.attributes("-alpha"))})
 
     # ---------------------------------------------------------------- interactions
@@ -930,6 +966,7 @@ class App:
         """Game closed / minimized -> icon, back when it returns (only on a change, never fights the player)."""
         state, prev = game_window_state(), self.game_state
         self.game_state = state
+        self.game_in_front = game_focused() if self.hide_unfocused else True
         if prev is None or state == prev:
             return
         opts = self.settings.get("window", {})
@@ -941,6 +978,37 @@ class App:
         elif state == "shown" and self.auto_compacted and self.compact and self.visible:
             self.auto_compacted = False
             self.set_compact(False)
+
+    def panels_off(self):
+        """Panels over the game hidden by the menu: "Hide all panels", or the game isn't in front."""
+        return self.hide_panels or (self.hide_unfocused and not self.game_in_front)
+
+    _launch = (0.0, None)            # (when checked, launch_target) for the menus
+
+    def launch_target(self):
+        """The game's launch target, or None; re-checked at most every 30 s (the tray asks often)."""
+        t, target = self._launch
+        if self.demo:
+            return None
+        if time.time() - t > 30:
+            try:
+                from gamedata import gamefiles
+                target = launch_target(gamefiles.find_install())
+            except Exception:
+                target = None
+            self._launch = (time.time(), target)
+        return target
+
+    def launch_game(self):
+        """Menu "Launch game": start it through Steam. Only while the game window is absent."""
+        target = self.launch_target()
+        if not target or game_window_state() != "absent":
+            return
+        try:
+            os.startfile(target)
+            self.notify("Starting the game…")
+        except Exception as ex:
+            self.flash_note(f"Could not start the game: {ex}")
 
     def open_setup(self):
         """First-run setup / recalibration. The tracker (re)starts when it finishes, so it loads
@@ -1044,6 +1112,14 @@ class App:
                     self.open_settings()
                 elif cmd == "setup":
                     self.open_setup()
+                elif cmd == "hide_panels":
+                    self.hide_panels = not self.hide_panels
+                    self.save_ui()
+                elif cmd == "hide_unfocused":
+                    self.hide_unfocused = not self.hide_unfocused
+                    self.save_ui()
+                elif cmd == "launch_game":
+                    self.launch_game()
                 elif cmd == "journal":
                     self.open(JOURNAL)
                 elif cmd == "folder":

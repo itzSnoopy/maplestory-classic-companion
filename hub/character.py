@@ -16,7 +16,11 @@ frame. So one read is enough when it's consistent; only reads that don't add up 
 matching read:
   - stats: STR+DEX+INT+LUK+AP = 25 + 5 x (level - 1) (true at Lv 12 and Lv 14 for the player), or
     no stat went down since the last accepted read
-  - skills: a level that didn't go down and isn't above the skill's max level
+  - skills: a level that didn't go down and isn't above the skill's max level, of a skill the
+    character's job line can have (translate.skill_fits_job): a character switch is noticed seconds
+    late, and the other character's Skill/Stat windows read in that gap went to the wrong record
+    (2026-11-07: a Warrior got the Cleric's skills). Foreign rows are ignored, a Stat window from
+    another job line waits JOB_SURE_S, and stored foreign skills move to `skills_dropped` at load
   - AP / SP / HP / MP max / fame: taken with the window read they came in
 Values go down only with reset items, so a drop needs two matching reads (a tooltip over "77"
 can't make it "7" by itself).
@@ -33,6 +37,7 @@ import json
 import time
 from datetime import datetime
 
+from gamedata import translate
 from hub import history as H
 
 LABEL = {"level": "Level", "str": "STR", "dex": "DEX", "int": "INT", "luk": "LUK", "ap": "AP",
@@ -67,6 +72,7 @@ def stats_add_up(level, stats, ap):
 
 
 COMMIT_SCORE = 8      # a screenshot scoring this (of 10) or more is kept at once
+JOB_SURE_S = 30       # a Stat window from another job line counts only after showing this long
 MIN_SCORE = 4         # below this a screenshot is never used, even if the next one agrees
 
 
@@ -165,6 +171,8 @@ class Profile:
         self.log = log or self.note                 # scores / waiting: tracker log only
         self.db = H.read_json(self._path(), {}) or {}
         self.db.setdefault("characters", {})
+        for c in self.db["characters"].values():
+            self._drop_foreign_skills(c)
         self.pending = {}           # (who, section, key) -> value seen once
         self.queue = []             # facts held while it's not settled who is playing
         self.who_pending = None     # new character fingerprint waiting for the next screenshot
@@ -299,6 +307,15 @@ class Profile:
         c = self.char()
         saved = {k: (v or {}).get("value") for k, v in (c.get("stats") or {}).items()}
         sc, why = score_stat(r, saved)
+        if r.get("job") and not translate.same_job_line(c.get("job"), r["job"]):
+            # another character's window while a switch isn't noticed yet (seconds), or a wrong stored
+            # job: the second only if the new job keeps showing for JOB_SURE_S
+            pk = (self.who, "job", r["job"])
+            first = self.pending.setdefault(pk, t)
+            if t - first < JOB_SURE_S:
+                sc, why = 0, why + [f"job {r['job']} can't be this {c.get('job')} (another character's window?)"]
+            else:
+                self.pending.pop(pk, None)
         trusted = self._scored(t, "stat", sc, why)
         if sc < MIN_SCORE:
             return
@@ -307,6 +324,7 @@ class Profile:
             c.pop("name_guess", None)
         if r.get("job"):
             c["job"] = r["job"]
+            self._drop_foreign_skills(c)
         new = {k: r.get(k) for k in ("level", "str", "dex", "int", "luk", "ap", "fame")}
         if r.get("hp") and r["hp"][0] <= r["hp"][1]:
             new["hp_max"] = r["hp"][1]
@@ -326,9 +344,13 @@ class Profile:
         trusted = self._scored(t, "skills", sc, why)
         if sc < MIN_SCORE:
             return
+        foreign = []
         for s in r.get("skills", []):
             lv = s.get("level")
             if not s.get("id") or lv is None:
+                continue
+            if not translate.skill_fits_job(s["id"], c.get("job")):
+                foreign.append(s["name"])       # another character's Skill window (switch not noticed yet)
                 continue
             if s.get("max") and lv > s["max"]:
                 continue                        # impossible: a misread
@@ -338,6 +360,10 @@ class Profile:
                 continue                        # a maxed skill never goes down: a misread
             self._keep("skills", s["id"], lv, t, s["name"], trusted,
                        {"name": s["name"], "job": s.get("job"), "max": s.get("max")})
+        if foreign:
+            self.log(f"skills window: ignored {', '.join(foreign)} (not a {c.get('job')} skill)")
+            if len(foreign) * 2 >= len(r.get("skills", [])):
+                return                          # mostly foreign: its SP is another character's too
         if r.get("sp") is not None:
             self._keep("stats", "sp", r["sp"], t, LABEL["sp"], trusted)
         c["skills_seen"] = _iso(t)
@@ -406,6 +432,19 @@ class Profile:
         self._change(t, "Channel", f"{o['world'] or ''} ch {o['first']}".strip(), _ch_text(c["channel"]))
         self.dirty = True
 
+    def _drop_foreign_skills(self, c):
+        """Move stored skills the character's job can't have (saved while a character switch wasn't
+        noticed yet, 2026-11-07) to `skills_dropped`, so every reader sees only its own skills."""
+        sk = c.get("skills") or {}
+        bad = [sid for sid in sk if not translate.skill_fits_job(sid, c.get("job"))]
+        if not bad:
+            return
+        for sid in bad:
+            c.setdefault("skills_dropped", {})[sid] = sk.pop(sid)
+        self.log(f"{self._name(c)}: removed {len(bad)} skill(s) of another job line: "
+                 + ", ".join(sorted({(c['skills_dropped'][x] or {}).get('name') or x for x in bad})))
+        self.dirty = True
+
     def _tick(self, now):
         o = self.ch_open
         if o and now - o["t"] > max(WINDOW_GAP_S, SWITCH_DARK_S):
@@ -417,7 +456,7 @@ class Profile:
         """A skill level worked out from what its casts cost (mpuse.levels_seen): stored like a
         Skill window read, but only upwards (SP is never taken back) and marked "from casts"."""
         c = self.char()
-        if c is None or not self.settled:
+        if c is None or not self.settled or not translate.skill_fits_job(sid, c.get("job")):
             return False
         old = ((c.get("skills") or {}).get(sid) or {}).get("value") or 0
         if level <= old:

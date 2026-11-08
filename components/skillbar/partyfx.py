@@ -9,6 +9,11 @@ PARTY_SKILLS is the one table to extend. An entry, by skill id:
   level  buff only: skill level assumed for the caster (their real level is not known)
   same_as  another entry's id with the same picture (Haste 4201001 = 4101001): no slot of its own, its jobs count for
          that entry's ONE slot (keyed and hidden by the first id)
+  caption  buff only: what the slot shows under it, from the skill text at the level: {"re": regex with one group,
+         "fmt": format for it ("+{}" / "-{}%"), "mark": a skillbar_ui.MARKS name or None}; `caption(sid, level)`
+  detail   buff only: [(regex, fmt), ...] -> the right-click line ("Speed +16" / "damage taken -7%, Heal +3%"); `details()`
+  own    buff only, True: the player can have the skill too (Bless): while it is mine (a booked own cast just before
+         the icon came on / refreshed it) the state goes to my own skill's slot (live.json skills "timer") and not here
   icon   buff only, True: the buff's state comes from the game's buff list (live.json usage.party_buffs, read by
          engine/buffs.py find_loose), not from usage events: lit while the icon shows, exact seconds left when its
          countdown digits were read (the last 60 s) or the minutes digit changed, else an estimate: first seen + duration at
@@ -34,9 +39,20 @@ PARTY_SKILLS = {
     # Haste (same picture for both): level 7 = 160 s (the player's Haste from a party member gave Speed +16 = level 7,
     # skills_classic.json); a caster's real level is not known
     "4101001": {"name": "Haste", "jobs": ["Assassin", "Hermit", "Night Lord"], "kind": "buff",
-                "event": "Haste (party?)", "level": 7, "icon": True},
+                "event": "Haste (party?)", "level": 7, "icon": True,
+                "caption": {"re": r"speed \+(\d+)", "fmt": "+{}", "mark": "boot"},
+                "detail": [(r"speed \+(\d+)", "Speed +{}")]},
     "4201001": {"name": "Haste", "jobs": ["Bandit", "Chief Bandit", "Shadower"], "kind": "buff",
-                "event": "Haste (party?)", "level": 7, "icon": True, "same_as": "4101001"},
+                "event": "Haste (party?)", "level": 7, "icon": True, "same_as": "4101001",
+                "caption": {"re": r"speed \+(\d+)", "fmt": "+{}", "mark": "boot"},
+                "detail": [(r"speed \+(\d+)", "Speed +{}")]},
+    # Bless: no measured caster yet. Level 10 (190 s, -10 %) assumed: the middle of 1-20, so the worst caption error is
+    # about 5 points; the minutes digit at the first fresh cast narrows it (1: L1-2, 2: L3-8, 3: L9-14, 4: L15-19, 5: L20)
+    "2301003": {"name": "Bless", "jobs": ["Cleric", "Priest", "Bishop"], "kind": "buff",
+                "event": "Bless (party?)", "level": 10, "icon": True, "own": True,
+                "caption": {"re": r"reduced by (\d+)%", "fmt": "-{}%", "mark": "shield"},
+                "detail": [(r"reduced by (\d+)%", "damage taken -{}%"),
+                           (r"Heal skill is increased by (\d+)%", "Heal +{}%")]},
 }
 
 # demo only (skillbar_ui --demo): a timed buff, to see how one looks. Not in the real table.
@@ -44,13 +60,42 @@ DEMO_BUFF = {"4101001": {"name": "Haste", "jobs": ["Assassin", "Night Lord", "Sh
                          "kind": "buff", "event": "Haste (party?)", "level": 5}}
 
 
-def speed(sid, level):
-    """The "Speed +N" its skill text states at `level` (Haste), or None."""
-    import re
+def _text(sid, level):
     sk = next((s for s in translate.skills() if s["id"] == sid), None)
     lv = (sk or {}).get("levels") or []
-    m = re.search(r"speed \+(\d+)", lv[level - 1], re.I) if 0 < level <= len(lv) else None
-    return int(m.group(1)) if m else None
+    return lv[level - 1] if 0 < level <= len(lv) else ""
+
+
+def caption(sid, level, table=None):
+    """(text, mark) the entry's `caption` rule gives from its skill text at `level` ("+16", "boot" / "-7%", "shield"),
+    or None (no rule / not in the text)."""
+    import re
+    rule = (table or PARTY_SKILLS).get(sid, {}).get("caption")
+    m = re.search(rule["re"], _text(sid, level), re.I) if rule else None
+    return (rule["fmt"].format(m.group(1)), rule.get("mark")) if m else None
+
+
+def details(sid, level, table=None):
+    """The right-click line from the entry's `detail` rules ("Speed +16", "damage taken -7%, Heal +3%"), or ""."""
+    import re
+    out = []
+    for rx, fmt in (table or PARTY_SKILLS).get(sid, {}).get("detail") or []:
+        m = re.search(rx, _text(sid, level), re.I)
+        if m:
+            out.append(fmt.format(m.group(1)))
+    return ", ".join(out)
+
+
+def speed(sid, level):
+    """The "Speed +N" its skill text states at `level` (Haste), or None (kept for Haste callers / tests)."""
+    c = caption(sid, level)
+    return int(c[0].lstrip("+")) if c and c[0].startswith("+") else None
+
+
+def own_ids(table=None):
+    """Ids of the icon buffs the player can own too (Bless): their state can belong to my own slot."""
+    return sorted(k for k, e in (table or PARTY_SKILLS).items()
+                  if e.get("own") and e.get("icon") and not e.get("same_as"))
 
 
 def duration(sid, level):
@@ -144,6 +189,8 @@ def party_slots(party, events, now, my_map=None, table=None, buffs=None):
         jobs = group_jobs(table, sid)
         who = [m for m in members if m.get("job") in jobs]
         b = (buffs or {}).get(sid) if isinstance(buffs, dict) and e["kind"] == "buff" and e.get("icon") else None
+        if b and b.get("mine"):         # my own cast (Bless): it is on my skill's slot, not a party buff
+            b = None
         if not who and not b:
             continue
         last = None
@@ -169,7 +216,9 @@ def party_slots(party, events, now, my_map=None, table=None, buffs=None):
             lv = (b or {}).get("level") or e.get("level") or 1
             dur = duration(sid, lv)
             slot["on"], slot["dur"], slot["level"] = bool(b), dur, lv
-            slot["speed"] = speed(sid, lv)                  # Haste: "+16" under the slot (at the learned / assumed level)
+            cp = caption(sid, lv)                           # Haste "+16" / Bless "-7%" under the slot (at the learned / assumed level)
+            slot["cap"], slot["mark"] = (cp[0], cp[1]) if cp else (None, None)
+            slot["detail"] = details(sid, lv)
             if b:
                 slot["lvl_src"] = "learned" if b.get("src") == "learned" else "assumed"
                 slot["last_t"] = b.get("since")             # a new "since" = a (re)cast: the bar pulses

@@ -55,15 +55,16 @@ HIDDEN = ["launcher.setup_ui", "hub.settings_ui", "engine.calibrate", "component
           "components.hangout.join", "hub.relay_room",
           "components.challenge.component", "components.challenge.duel", "components.challenge.board",
           "components.challenge.bulbs", "components.challenge.sprites", "components.challenge.partyexp", "components.challenge.settings_page", "components.challenge.invite_ui",
-          "components.gains.component", "components.relic.component", "components.relic.hunt", "components.relic.kills_read", "components.relic.toast", "gamedata.relic",
+          "components.gains.component", "components.meso.component", "components.meso.meso_ui", "components.relic.component", "components.relic.hunt", "components.relic.kills_read", "components.relic.toast", "gamedata.relic",
           "gamedata.kills",
           "hub.pages", "hub.ui.shell", "hub.ui.overlay", "hub.ui.theme", "hub.ui.layered", "hub.ui.art",
           "engine.hudtext", "engine.levelup_shot", "gamedata.translate", "gamedata.parse", "gamedata.maplist",
           "engine.sources.wgc", "engine.sources.screen", "engine.sources.csv_replay", "windows_capture",
-          "win32gui", "pystray._win32"]
+          "win32gui", "pystray._win32",
+          "gamedata.gamefiles", "engine.seed", "PIL.ImageFont", "PIL.ImageDraw"]   # game files + Arial seeding (lazy imports)
 EXCLUDE = ["cv2",        # only used by windows-capture to save files; replaced by rthook_cv2.py
            "pkg_resources", "setuptools"]   # not used; its runtime hook breaks the build
-FORBIDDEN = ["config.json", "helper_settings.json", "glyphs.json", "glyphs_level.json", "glyphs_ui.json", "glyphs_hud.json", "glyphs_msg.json", "glyphs_buff.json",
+FORBIDDEN = ["config.json", "helper_settings.json", "glyphs.json", "glyphs_level.json", "glyphs_ui.json", "glyphs_hud.json", "glyphs_msg.json", "glyphs_buff.json", "glyph_seed.json", "game_install.json",
              "party.json", "live.json", "challenge.json", "challenge_cmd.json", "relic.json", "relic_cmd.json",
              "minimap_world.png", "minimap_header.png", "nametag.png"]
 

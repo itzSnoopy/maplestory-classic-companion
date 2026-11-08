@@ -61,7 +61,7 @@ class SetupWindow:
         self.body = tk.Frame(w, bg=BG)
         self.body.pack(fill="both", expand=True, padx=self.px(24), pady=(self.px(18), self.px(8)))
 
-        self.steps = [self.step_welcome, self.step_capture, self.step_digits, self.step_done]
+        self.steps = [self.step_welcome, self.step_capture, self.step_game, self.step_digits, self.step_done]
         self.i = 0
         self.show()
         w.after(50, lambda: (w.lift(), w.focus_force()))
@@ -222,6 +222,42 @@ class SetupWindow:
             self.cap_msg.configure(text="Capture the game with the minimap open first.", fg=RED)
             return False
         return True
+
+    # ---------------------------------------------------------------- 2b game files (skippable)
+    def step_game(self):
+        from tkinter import filedialog
+        from gamedata import gamefiles
+        found = gamefiles.find_install(refresh=True)       # the game is running now: its exe is found
+        self.title("Game files")
+        self.game_msg = self.text("")
+        self.game_msg.pack(fill="x")
+        if found:
+            self.game_msg.configure(text="Game files found: %s" % found["data"], fg=GREEN)
+            return
+        self.text("The app can read digit shapes and skill icons from your own MapleStory install. "
+                  "It wasn't found automatically. Pick MapleStory.exe or the game folder, or skip "
+                  "this: everything still works, it just learns while you play.",
+                  muted=True).pack(fill="x", pady=(self.px(6), self.px(10)))
+
+        def apply(path):
+            text, ok = gamefiles.choose(path)
+            self.game_msg.configure(text=text, fg=GREEN if ok else RED)
+        self.game_apply = apply                            # tests call it with a path
+
+        def browse():
+            p = filedialog.askopenfilename(parent=self.w, title="Select MapleStory.exe",
+                                           filetypes=[("MapleStory.exe", "*.exe"), ("All files", "*.*")])
+            if p:
+                apply(p)
+
+        def folder():
+            p = filedialog.askdirectory(parent=self.w, title="Select the game folder (or its Data folder)")
+            if p:
+                apply(p)
+        row = tk.Frame(self.body, bg=BG)
+        row.pack(anchor="w")
+        self.button(row, "Browse...", browse).pack(side="left", padx=(0, self.px(8)))
+        self.button(row, "Folder...", folder).pack(side="left")
 
     # ---------------------------------------------------------------- 3 digits
     def step_digits(self):

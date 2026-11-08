@@ -10,6 +10,7 @@ The engine (engine/) reads pixels and text and knows no game names. It is handed
     snap_skill(text)       OCR'd skill name -> the candidate skills (skills_classic.json), cached
     skill_kind(id)         skill id -> {kind, sub, target, duration_s, until, attacks, name} (skill_kinds_classic.json), or None
     exp_needed(level)      EXP needed at that level (exp_table_classic.json), or None
+    game_canvas / game_children / game_stamp / game_install   the player's own game files (gamefiles.py), None on any problem
 """
 import difflib
 import functools
@@ -78,6 +79,55 @@ def job_name(text):
 def next_job_level(job):
     """Level from which `job` can advance (None: unknown job or the last tier)."""
     return NEXT_ADVANCE.get(TIER.get(job, -1))
+
+
+# game job ids: a skill id's first digits are its job's id (2301001 = Heal = 230 Cleric, 0001000 = 0 Beginner)
+JOB_IDS = {
+    "Beginner": 0,
+    "Warrior": 100, "Fighter": 110, "Crusader": 111, "Hero": 112, "Page": 120, "White Knight": 121,
+    "Paladin": 122, "Spearman": 130, "Dragon Knight": 131, "Dark Knight": 132,
+    "Magician": 200, "Wizard (F/P)": 210, "Mage (F/P)": 211, "Arch Mage (F/P)": 212,
+    "Wizard (I/L)": 220, "Mage (I/L)": 221, "Arch Mage (I/L)": 222, "Cleric": 230, "Priest": 231,
+    "Bishop": 232,
+    "Bowman": 300, "Hunter": 310, "Ranger": 311, "Bowmaster": 312, "Crossbowman": 320, "Sniper": 321,
+    "Marksman": 322,
+    "Thief": 400, "Assassin": 410, "Hermit": 411, "Night Lord": 412, "Bandit": 420, "Chief Bandit": 421,
+    "Shadower": 422,
+    "Pirate": 500, "Brawler": 510, "Marauder": 511, "Buccaneer": 512, "Gunslinger": 520, "Outlaw": 521,
+    "Corsair": 522,
+}
+
+
+def _on_path(older, newer):
+    """True when job id `older` is `newer` or one of the jobs before it (0 -> 200 -> 230 -> 231)."""
+    if older == 0 or older == newer:
+        return True
+    if older // 100 != newer // 100:
+        return False
+    b_old, b_new = older % 100 // 10, newer % 100 // 10
+    return (b_old == 0 or b_old == b_new) and older % 10 <= newer % 10 and older <= newer
+
+
+def skill_fits_job(sid, job):
+    """Can a character of `job` have skill `sid`? The skill's job and `job` must be on one
+    advancement path, either way round: a stored job can lag behind an advancement (the Stat window
+    not opened since), so a "Magician" may already have Cleric skills, but a Warrior never has
+    them. True when the job or the skill id is unknown: only a sure mismatch says no."""
+    j = JOB_IDS.get(job)
+    try:
+        s = int(str(sid)[:-4] or 0)
+    except ValueError:
+        return True
+    return True if j is None else (_on_path(s, j) or _on_path(j, s))
+
+
+def same_job_line(a, b):
+    """Could jobs `a` and `b` be one character at two times (one advanced from the other)?
+    True when either is unknown."""
+    ja, jb = JOB_IDS.get(a), JOB_IDS.get(b)
+    if ja is None or jb is None:
+        return True
+    return _on_path(ja, jb) or _on_path(jb, ja)
 
 
 # ------------------------------------------------------------------ skill names
@@ -152,3 +202,42 @@ def exp_table():
 def exp_needed(level):
     """EXP needed to finish `level` (Classic World), or None if it isn't in the table."""
     return exp_table().get(level)
+
+
+# ------------------------------------------------------------------ the player's own game files (gamefiles.py)
+# The engine may import only base, so it reaches these through the injected translator. Never raise.
+def game_canvas(pack_rel, img, path):
+    """Rows of (r, g, b, a) of one canvas in the player's install (e.g. 'UI/UI_000.wz', 'StatusBar.img',
+    'gauge/number/5'), or None."""
+    try:
+        from gamedata import gamefiles
+        return gamefiles.canvas(pack_rel, img, path)
+    except Exception:
+        return None
+
+
+def game_children(pack_rel, img, path=""):
+    """Child names of a node in the player's install, or None."""
+    try:
+        from gamedata import gamefiles
+        return gamefiles.children(pack_rel, img, path)
+    except Exception:
+        return None
+
+
+def game_stamp():
+    """Size + mtime of the game files read (changes with a game update), or None."""
+    try:
+        from gamedata import gamefiles
+        return gamefiles.stamp()
+    except Exception:
+        return None
+
+
+def game_install():
+    """The player's install ({data, exe, exe_version, how}) or None."""
+    try:
+        from gamedata import gamefiles
+        return gamefiles.find_install()
+    except Exception:
+        return None

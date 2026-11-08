@@ -441,13 +441,27 @@ class SkillBar:
 
     # ---------------------------------------------------------------- drawing
     def _skill_pic(self, sid, cut):
-        """Picture path for a skill: my own cut (templates/skill_icons, via feed) first, else the one
-        downloaded from MeowDB (skillicons.py; starts the download if allowed), else None (initials)."""
-        if cut:
-            return cut
-        own = DATA / "templates" / "skill_icons" / f"{sid}.png"
-        if own.exists():
-            return str(own)
+        """Picture path for a skill: the game's own iconMouseOver (skillicons.hover_path), else my cut from the
+        Skill window (templates/skill_icons, via feed), else the MeowDB / game icon (skillicons.path; starts the
+        download if allowed), else None (initials)."""
+        if skillicons is not None and sid:
+            try:
+                h = skillicons.hover_path(sid)
+            except Exception:
+                h = None
+            if h:
+                return str(h)
+        learned = cut
+        if not learned:
+            own = DATA / "templates" / "skill_icons" / f"{sid}.png"
+            learned = str(own) if own.exists() else None
+        if learned:
+            try:
+                from gamedata import gamefiles
+                gamefiles.note_fallback("learned", sid, why=gamefiles.why_not(sid))
+            except Exception:
+                pass
+            return learned
         if skillicons is not None and sid:
             try:
                 p = skillicons.path(sid)
@@ -573,9 +587,9 @@ class SkillBar:
         nl = 6 if ps.get("est") else 7              # names a letter shorter when the "~" takes room
         who = ", ".join(n[:nl] for n in ps["from"][:2]) + ("+" if len(ps["from"]) > 2 else "")
         cap = self._caption(("~" if ps.get("est") else "") + who, (170, 220, 180, 255))   # ~ = time left is an estimate
-        if ps.get("speed"):                 # a speed buff (Haste): "+16" with the boot mark; "~" = level assumed, not learned
-            cap = self._caption(("" if ps.get("lvl_src") == "learned" else "~") + f"+{ps['speed']}",
-                                PULSE_SPEED + (255,), "boot")
+        if ps.get("cap"):                   # a buff's text (Haste "+16" + boot, Bless "-7%" + shield); "~" = level assumed, not learned
+            cap = self._caption(("" if ps.get("lvl_src") == "learned" else "~") + ps["cap"],
+                                PULSE_SPEED + (255,), ps.get("mark"))
         pk = self.pulses.get("party:" + ps["id"])
         pulse = None
         if pk is not None and now - pk < PULSE_S:
@@ -688,6 +702,17 @@ class SkillBar:
                         kw["pulse"] = (beat / NIMBLE_PULSE_S, [PULSE_SPEED])
                     cap = self._caption(f"+{tm['speed']}" if tm.get("speed") else "+?",
                                         PULSE_SPEED + (255,), "boot")
+                slots.append((self._slot(icon, **kw), cap))
+                ids.append(sk.get("id"))
+                continue
+            tm = sk.get("timer")
+            if tm and tm.get("ends"):           # own Bless while its icon shows (my cast): sweep + seconds left, "-N%" + shield
+                left = tm["ends"] - now
+                kw = dict(corner=corner, dim=False, corner_color=color, pulse=self._pulse(sk, now))
+                if left > 0 and tm.get("dur"):
+                    kw.update(frac_left=min(1.0, left / tm["dur"]), sweep=SWEEP_TICK,
+                              mid=("~" if tm.get("est") else "") + _secs(left))
+                cap = self._caption(tm["cap"], PULSE_SPEED + (255,), tm.get("mark"))                     if tm.get("cap") else None
                 slots.append((self._slot(icon, **kw), cap))
                 ids.append(sk.get("id"))
                 continue
@@ -843,9 +868,15 @@ class SkillBar:
         if ps and ps.get("on") is not None and ps.get("level"):      # a party buff read from the buff list: its level
             m.add_command(label=f"{ps['name']} Lv {ps['level']} ({ps['dur']} s, "
                                 f"{'learned' if ps.get('lvl_src') == 'learned' else 'assumed'})"
-                                + (f", Speed +{ps['speed']}" if ps.get("speed") else ""), state="disabled")
+                                + (", " + ps["detail"] if ps.get("detail") else ""), state="disabled")
             if ps.get("from"):
                 m.add_command(label="From " + ", ".join(ps["from"]), state="disabled")
+            m.add_separator()
+        sk = next((k for k in (self.live or {}).get("skills") or [] if sid and k.get("id") == sid), None)
+        tm = (sk or {}).get("timer")
+        if tm and tm.get("level"):                # my own Bless running: its level is my skill level
+            m.add_command(label=f"{names.get(sid) or 'Buff'} Lv {tm['level']} ({tm['dur']} s, own cast)"
+                                + (", " + tm["detail"] if tm.get("detail") else ""), state="disabled")
             m.add_separator()
         if sid:
             m.add_command(label=f"Remove {names.get(sid) or 'skill'} from the bar",
@@ -920,6 +951,9 @@ def demo_live():
                        {"id": "2301001", "name": "Heal", "level": 3, "mp": 40, "casts": 12,
                         "kind": "buff", "attacks": "undead", "cast_n": int(t / 4),
                         "heal": {"avg": 135, "recent": 136, "n": 4, "level": 3}},
+                       {"id": "2301003", "name": "Bless", "level": 5, "mp": 21, "casts": 28, "kind": "buff",
+                        "timer": {"ends": t - (t % 140) + 140, "est": False, "dur": 140, "level": 5, "cap": "-7%", "mark": "shield",
+                                  "detail": "damage taken -7%, Heal +3%"}},   # demo: a Bless every 140 s
                        {"id": "2300000", "name": "MP Eater", "level": 1, "mp": None, "casts": None,
                         "eater": {"last": 9 + int(t // 8) % 3, "t": 8 * int(t // 8) + 1.5, "cd": 5.0}},   # an absorb every 8 s, 5 s cooldown
                        {"id": "2001000", "name": "Magic Guard", "level": 2, "mp": 8, "casts": 52,

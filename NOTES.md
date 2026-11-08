@@ -1113,3 +1113,72 @@ shipped json named glyph|digit|mask|font (allow list `GLYPH_ALLOWED`, empty).
   until then the minutes / estimate path is used. Limits: a run needs the start of the last minute SEEN (looks <= 1.6 s apart) and a tens change
   seen with looks <= 0.95 s apart: at the default 2 looks/s fine, at 1 look/s a tens change may not qualify; digits 3-5 of the minutes digit are
   learned only when a 3 -> 2 (4 -> 3 ...) step is watched; other UI sizes unmeasured (crops are rescaled to 1x before cutting).
+
+**2026-11-08: Bless (2301003) on the skill bar, party and own** (no recording with a Bless exists yet: everything below is synthetic tests + a negative set).
+- **One table, generic captions.** `partyfx.PARTY_SKILLS` entries now carry `caption` {re, fmt, mark} and `detail` [(re, fmt)] rules read from the skill
+  text at the level (`partyfx.caption/details`), so no Haste-specific code is left: Haste `+16` + boot, Bless `-7%` + shield. Bless entry: Cleric / Priest /
+  Bishop, `icon` True, `own` True, assumed level **10** (190 s, -10 %): the middle of 1-20, worst caption error ~5 points, and the minutes digit at the first
+  fresh cast narrows it (1: L1-2, 2: L3-8, 3: L9-14, 4: L15-19, 5: L20) before the cast teaches the exact level (same `party_levels` store, same PARTY_OFF_S
+  rule as Haste). Durations are 100 + 10 (L-1) s, L20 300 s (skill_kinds `duration_s`).
+- **Own vs party (the rule).** The two share one icon. `Feed._party_buff` keeps one record per icon id in `party_buff` (live.json `usage.party_buffs`, new key
+  `mine`). It is **mine** when I own Bless (`usage.level > 0`) and an own cast was booked by mpuse (MP cost, `usage.last_cast`) from `BUFF_CAST_S` 3 s before to
+  `OWN_AFTER_S` 3 s after the icon came on (the MP drop and the icon are separate looks, so a cast booked up to 3 s after the first sight adopts it). A booked
+  cast more than 3 s after the icon came on **refreshes** it (restart from that cast). A recast shown by the digits (minutes digit up / digits gone) with no own
+  cast within 3 s before it is a **party** Bless (mine -> False). Icon on with no cast of mine near it = party Bless, shown in the party slot. Mine: level = my
+  skill level, source `own`, nothing is learned, the digits still make the end exact. Own slot: live.json skills entry `timer` {ends, est, dur, level, cap, mark,
+  detail} (sweep + seconds, `~` while the end is an estimate, caption `-N%` + shield, right-click `Bless Lv 5 (140 s, own cast), damage taken -7%, Heal +3%`);
+  `partyfx.party_slots` skips a `mine` record.
+- **Owned path reads digits now.** The owned path (`buffs.find` with the Skill-window cut) never read the countdown. `Source.watch_buffs(ids, folder, digits=)`: an
+  owned id in `digits` whose MeowDB picture is in `folder` goes through the loose path instead (same icon art), so it gets `left` / `mins` and the glyph learning
+  like a party Haste. Feed passes `digits` = owned own-able ids and fetches the picture (`skillicons.path`); an owned Bless with no cut yet is watched by its picture
+  alone. Without the picture it falls back to the cut (no digits, estimate only). Rule tested in `dev/buffs_check.py run_bless` with dummy pictures.
+- **Heal average free of Bless.** `Feed._heal_stats` skips own Heal rises while a Bless record exists (own or party; Bless adds 1-10 % Heal recovery): the average
+  stays the plain one. Only a watched icon counts (a party Bless is watched only while in a party).
+- **skill_kinds `target` for Bless is `self`** (`dev/make_skill_kinds.py`: target = party only when the text says "party"; Bless's text does not). In the game Bless
+  is a party buff. Nothing in the app reads `target` for this (only the skill review page shows it), so the generated file was NOT changed; add a `TARGET` override
+  in the generator if the page should say party.
+- **Negative set** (`dev/buffs_check.py run_bless_frames`; MeowDB 2301003.png fetched the way skillicons does into a scratch data folder, `MAPLE_BLESS_ICONS`):
+  searched together with Haste over 1641 frames (every n-th, <= 150 per folder) of all 11 burst fixtures: **0 Bless hits**, best scene score 0.63
+  (20261024_223406/0113.13_223559) vs thresholds 0.68 full / 0.75 outer = thin margin (0.05); Haste still found on both Haste recordings. A synthetic positive
+  (picture pasted at 85 % over a strip) scores 1.0; the real translucent / dimmed game rendering (the Haste picture scored 0.78-0.83 / 0.87-1.00 there) is
+  **untested for Bless**: if live it is missed, look at the score with `buffs.find_loose(..., detail=)` before lowering anything.
+
+## 2026-11-08: message corner on bright maps (Perion Street Corner)
+Fixture `dev/fixtures/burst/20261108_110613` (360 frames, 3 fps, solo Lv11, no vitals.csv). Ground truth: meso 6215 -> 6383 = +168. Before: the live tracker read 1 of 69 EXP bursts and 0 meso
+lines; cold replay read 2 EXP + 1 meso. After (`python -m engine.msgcorner test DIR --cold`): **10 of 10 EXP lines** (+10 x7, +21 x3, all white = own) and **8 meso lines = 145** (+25@26.7, +28@59.5, +13@60.1,
++13@68.2, +14@74.5, +13@81.9, +28@94.2, +11@102.9), no invented line. Checked by eye on the frames: these are ALL the meso lines the corner ever shows (windows 12-15, 19-30, 56-64, 66-77, 79-86,
+92-98, 100-106 s all looked at); the other **23 meso of the 168 never appear in the corner** in the 120 s (picked up before the recording, or not shown), so no reader can get them.
+Warm replay gives the same facts. Dark fixtures unchanged (222236: matched 16 missed 0, 8 meso, own 9/19; 230602: matched 3, 1 overflow group, 9 meso; 012726: 8 exp, 1 meso, own 2/8).
+What was wrong and what fixed it (all in `engine/msgcorner.py`):
+- **Mask flooded by pale rock** (1400-2700 mask px in slots 2-5, a real line is ~300): `_outlined` keeps colour-mask pixels with a dark pixel (G <= 90) in the 3x3 neighbourhood at least 80 below
+  them (text has a 1 px dark outline). Faded lines lose this contrast earlier (that is fine, they are old). Looser values (110/60 .. 140/30) gave MORE false new lines.
+- **Binarize flooded the line with background:** `_binarize` is now also limited to `_dilate(mask)`.
+- **Rock ridges / cloud edges inside the mask:** ink strokes are 1 px, so no 2x2 block is ink; `_thin` drops every mask pixel in a 2x2 block (slot presence still uses the plain outline mask: a
+  stricter "dark on both sides" thin test killed letters like `u` and made lines vanish). The reading uses the thinned mask.
+- **Label match:** speckle far left of the line made the label 270 px wide instead of ~140. `_text_cols` counts ink columns from the right while gaps stay <= 9 px; `_match_label` compares
+  right-aligned with a dilated tolerance and +-8 px width (cut-off letters).
+- **Tracking was creating ~40 false "new" lines** (a static 3-line stack counted as new again and again, which re-read the same `+13` as new facts), because on a busy, scrolling background
+  slot shapes flicker: slot-to-slot match now allows 15% of the ink to differ (was 3%), the number part is compared by the learned digit cells (`_shape_number`, loose tolerance 7 px / margin 2,
+  falls back to "digits followed by +" when the `)` flickers; same number read on both sides = same line), else <= 4 px flicker per digit cell for the last 3 cells (different digits are >= 5 px
+  apart in the learned templates), else the old exact compare. new_lines 92 -> 55, resync 23 -> 11, unread 74 -> 27.
+- Lines on Perion barely fade in 3.5 s (peak 255 -> ~235) while the colour mask fades out; new lines were first seen at peak 250-255 there.
+Cost: warm median 0.8 ms/frame, busy 0.9 ms (cold 0.84). Warm p95 ~285 ms on this fixture is item lines (Tree Branch, Leaf, Arrows for Bows): whole-line Tesseract, <= 3 calls per look, 93 calls warm
+(the text cache is per run, not stored). Tried and dropped: slot shape bits from `_dilate(mask)` (too much junk), exact digit compare only (flicker of `1` strokes), looser outline thresholds.
+Left over: item names still misread now and then ("Tree Brangh"); 27 lines stay unread, all of them item lines or lines that faded before a second agreeing Tesseract read.
+
+## 2026-11-08 · HUD glyph tables pre-filled from the game install (engine/seed.py)
+- The EXP bar / HP-MP / level badge digits are bitmap fonts in `UI/UI_000.wz`: `StatusBar.img gauge/number/<0-9 slash % . ,>` (EXP, HUD) and `Basic.img LevelNo/<d>` (outlinks, resolved by gamefiles). Ink = alpha > 128 and min(r,g,b) >= 230 (EXP, HUD) / 240 (level), the readers' white_min. Key = ink columns only, 7 rows from the set's common top ink row (HUD: 2 blank rows on top first), padded to `glyphs.BAND` 9.
+- Checked against the player's learned tables: all 13 / 11 / 10 entries reproduced exactly (same key, same char), nothing the player had not already learned. Brackets are green runs (not glyphs), so none are seeded; the EXP table has no '/', the HUD one no ',', '.', '%'.
+- `seed_hud(translate)` runs in `ScreenSource.__init__`; sidecar `glyph_seed.json` {stamp, tables} makes later starts a stat + 3 small json reads (~0.4 ms). Merge drops a learned key whose char is seeded but whose shape is not (a mis-learn; the fonts have one shape per char) and logs to `history/glyph_sources.jsonl`; learned keys for other chars stay. Learning is unchanged and still the fallback (fresh-install checks pass with `MAPLE_GAME_DIR=none`, which now means "no game at all" in `gamefiles.find_install`).
+- Open: if the game's UI Size option scales the HUD font, shapes at other sizes are not these; a learned key of a seeded char at another size would be dropped. Not seen so far (player's tables match at the current size).
+
+## 2026-11-08 · own buffs match the game icon first (watch_buffs prefer_loose)
+- `Source.watch_buffs(..., prefer_loose=)`: ids with a picture in the icon folder (game icon via `skillicons.game_path`, same art as MeowDB) go through `find_loose`; the Skill-window cut is only the fallback. Replaces `feed.BAD_CUTS`/`_loose_digits` (which abused `digits=` and made the engine read countdowns). `digits` now means only 'read the countdown'; prefer_loose own ids skip `bglyphs.look`.
+
+## 2026-11-08 · Arial 12 glyph seed: window text + message corner (engine/seed.py)
+- **Finding:** the Stat/Skill window text and the message-corner text are Arial, 12 px, no smoothing. Pillow `ImageFont.truetype(%WINDIR%/Fonts/arial.ttf, 12)`, `ImageDraw.fontmode = "1"`, trimmed to the ink box, equals every learned `glyphs_ui.json` key (digits, `% ( ) /`) and the clean message-corner digit samples. The font is read from the system and never copied or shipped; `MAPLE_NO_ARIAL=1` (or no arial.ttf) = nothing seeded, learning as before.
+- **UI keys** (`ui_set`): each char rendered alone black-on-white and keyed THROUGH `panels.segments` + `panels._shape` (trimmed rows, `#`/`.`, `/`), so the format can't drift. 19 chars `0-9 % ( ) / , . : - +`. `seed_ui` merges into `DATA/glyphs_ui.json` (source `arial12`), sidecar `glyph_seed.json["ui"]` {font size+mtime stamp, keys}; no-change start = one stat + 2 small json reads. Player's table: 14 of 15 entries reproduced with the same char, the 15th is the 21x14 blob under '0' (a mis-learn): the only one dropped; 5 added (chars the player had not met yet).
+- **merge drop rule changed** (also for the HUD tables): a learned key of a seeded char goes only when it has the SAME height and width as that char's seeded key (another UI Size legitimately has other-size shapes), plus "a seeded shape under another char" and "wider than 2x the widest seeded glyph". `seed_hud` now keeps the other sidecar keys (`ui`, `msg`) when it writes.
+- **Message corner** (`seed_msg`, `msg_set`): digits 0-9 and `+` as 13x5 bool cells (glyph left-aligned in the cell; top row 1, read from the clean learned samples, else 1; `+` keeps its offset from the digit cap line: row 3), labels `You received EXP` / `Bonus EXP for PARTY` / `You have gained mesos` rendered on the digits' baseline (top row 1) as 13xw bits that END with the blank columns the store has before the `(` (measured on clean learned labels: exp 3, bonus 2, meso 3; `_match_label` right-aligns). Written into `glyphs_msg.json` (v1 format): seeded cells FIRST per char, labels first; learned samples stay as variants except those with < 3 ink pixels or closer (Hamming) to another char's seeded cell than to their own. `_classify` untouched. Rendered vs clean learned label: 1-2 px different (kerning), well inside `_match_label`.
+- **Player's store** (copied, read-only): per digit 1 learned sample equals the seed exactly (`+` too), 9 learned digit samples dropped (neighbour specks nearer another char), the rest kept as variants. Learned label kinds: the clean ones (width 98/121/135 incl. trailing blanks) are 1-2 px from the render; the dirty ones (extra rows/specks, `other`) are 33-88 px away and just stay.
+- **Fixtures, `msgcorner test`, empty store vs store seeded by seed_msg only** (Tesseract calls / p95 ms): 222236 matched 16 missed 0, 29 -> 8 calls, p95 276 -> 3 ms; 230602 matched 3 + 1 overflow group, 16 -> 1, 306 -> 3 ms; 012726 (no vitals.csv) 8 exp, mesos 1 -> 3 (the two `+7` at 71.18 are on screen and were missed with the empty store), 44 -> 6 calls; 110613 10 exp, 8 meso (145), 126 -> 100 calls (the bright-map line shapes differ a little: 4 digit variants still get learned). No wrong reads anywhere.

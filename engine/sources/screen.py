@@ -23,6 +23,7 @@ from engine import buffs
 from engine import charname
 from engine import deathbox
 from engine import glyphs
+from engine import seed
 from engine import hpbar
 from engine import jobread
 from engine import levelup_shot
@@ -167,6 +168,8 @@ class ScreenSource(Source):
         self.cfg = cfg
         self.translate = translate          # gamedata.translate: game names for what is read
         panels.use(translate)
+        seed.seed_hud(translate)            # HUD digit tables from the game install (seed.py), before any is read
+        seed.seed_arial()                   # window-text + message-corner glyphs rendered from the system's Arial 12 (seed.py)
         self.frames = frames                # sources/wgc.WgcFrames live, ImageFrames in tests
         self.name = f"screen/{self.frames.name}"
         self.retry_s = cfg.get("service", {}).get("source_retry_s", 20)
@@ -207,6 +210,8 @@ class ScreenSource(Source):
         self.buff_try = None                # (t first seen, set) of a change waiting for its second look
         self.hud_lum = 1.0                  # brightest HP/MP strip lately (fade guard in _buffs)
         self.buff_want, self.loose_dir = [], None   # every id asked for / the folder of pictures for ones without a cut
+        self.buff_prefer = set()            # ids matched through the folder picture when it exists (watch_buffs prefer_loose)
+        self.buff_digits = set()            # owned ids also read through the loose path for their countdown digits (watch_buffs)
         self.loose_ids = []                 # asked ids with no cut of their own but a picture in loose_dir (buffs.find_loose)
         self.loose_icons = {}               # {scale key: {id: LooseIcon}}
         self.loose_hint = {}                # {id: (x, y)} where each was found last
@@ -525,21 +530,33 @@ class ScreenSource(Source):
         return True
 
     # ---- buff icons (buffs.py)
-    def watch_buffs(self, ids, folder=None):
+    def watch_buffs(self, ids, folder=None, digits=(), prefer_loose=()):
         """Skill ids whose buff icon to watch (Source.watch_buffs). Icons come from templates/skill_icons/<id>.png (the
         player's own cuts: buffs.find); ids without a cut but with <folder>/<id>.png (MeowDB pictures of skills the
         player does not own, e.g. a party member's Haste) are found with buffs.find_loose and also give the seconds
-        left. A changed list or a newly arrived icon starts over (the next look sends the set again)."""
+        left. `digits` = ids the player owns (a cut exists) whose countdown digits should be read too (Bless): when their
+        MeowDB picture is in `folder` they go through the loose path (same icon art) instead of the cut's.
+        `prefer_loose` = ids matched through their <folder> picture (the game's own icon, always right) even when a
+        cut exists; the cut is used only when there is no picture. They do not get their digits read (only `digits` do). A changed
+        list or a newly arrived icon starts over (the next look sends the set again)."""
         self.buff_want = [str(i) for i in ids]
+        self.buff_digits = {str(i) for i in digits or ()}
+        self.buff_prefer = {str(i) for i in prefer_loose or ()}
         self.loose_dir = folder
         self._sync_icons(True)
+
+    def buff_prefer_all(self):
+        """Ids matched through the folder picture when it exists: prefer_loose plus the countdown ones."""
+        return self.buff_digits | self.buff_prefer
 
     def _sync_icons(self, force=False):
         from base.paths import DATA
         own = DATA / "templates" / "skill_icons"
-        have = [i for i in self.buff_want if (own / f"{i}.png").exists()]
-        loose = [i for i in self.buff_want if i not in have and self.loose_dir
-                 and (Path(self.loose_dir) / f"{i}.png").exists()]
+        def pic(i):
+            return bool(self.loose_dir) and (Path(self.loose_dir) / f"{i}.png").exists()
+        have = [i for i in self.buff_want if (own / f"{i}.png").exists()
+                and not (i in self.buff_prefer_all() and pic(i))]
+        loose = [i for i in self.buff_want if i not in have and pic(i)]
         if have != self.buff_ids or loose != self.loose_ids:
             self.buff_ids, self.loose_ids = have, loose
             self.buff_icons, self.loose_icons, self.loose_hint = {}, {}, {}
@@ -557,7 +574,8 @@ class ScreenSource(Source):
             if lum < 0.6 * self.hud_lum:
                 self.buff_try = None
                 return
-            if len(self.buff_want) > len(self.buff_ids) + len(self.loose_ids) and t - self.loose_check_t >= 5.0:
+            if ((len(self.buff_want) > len(self.buff_ids) + len(self.loose_ids) or self.buff_prefer_all().intersection(self.buff_ids))
+                    and t - self.loose_check_t >= 5.0):
                 self.loose_check_t = t              # a wanted picture may have arrived (downloaded)
                 self._sync_icons()
             s = self.size[0] / buffs.REF_W
@@ -565,7 +583,6 @@ class ScreenSource(Source):
             on, left, mins, seen = set(), {}, {}, False
             if self.buff_ids:
                 if key not in self.buff_icons:
-                    from base.paths import DATA
                     self.buff_icons[key] = buffs.load_icons(DATA / "templates" / "skill_icons", self.buff_ids, s)
                 on = buffs.find(img, self.buff_icons[key])
             if self.loose_ids and (self.loose_hint or t - self.loose_t >= LOOSE_SCAN_S):
@@ -573,7 +590,7 @@ class ScreenSource(Source):
                     self.loose_icons[key] = buffs.load_loose(self.loose_dir, self.loose_ids, s)
                 got = buffs.find_loose(img, self.loose_icons[key], hints=self.loose_hint)
                 self.loose_hint = dict(got)
-                seen = bool(got)
+                seen = any(not (sid in self.buff_prefer and sid not in self.buff_digits) or not (DATA / 'templates' / 'skill_icons' / f'{sid}.png').exists() for sid in got)
                 if not got:
                     self.loose_t = t
                 for sid in self.loose_ids:
@@ -581,6 +598,8 @@ class ScreenSource(Source):
                         self.bglyphs.lost(sid, t)
                 for sid, (x, y) in got.items():
                     on.add(sid)
+                    if sid in self.buff_prefer and sid not in self.buff_digits and (DATA / "templates" / "skill_icons" / f"{sid}.png").exists():
+                        continue                    # an owned buff matched by its game icon only: no countdown wanted
                     v, mn = self.bglyphs.look(sid, t, img, x, y, s)       # None until that digit is learned
                     if v:
                         left[sid] = v

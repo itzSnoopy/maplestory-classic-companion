@@ -50,6 +50,8 @@ PARTY_OFF_S = 3.0           # a party buff icon must have been off this long bef
 PARTY_LEVEL_TOL = 4.0       # a measured Haste duration must be this near a table duration (s) to give a level
 PARTY_M0_S = 3.0            # the minutes digit counts as read "at the cast" up to this long after it
 BUFF_CAST_S = 3.0           # a buff icon coming on more than this long after a booked cast of it = a cast of its own
+OWN_AFTER_S = 3.0           # Bless: an own cast booked up to this long after its icon came on still belongs to that icon (the MP drop
+                            # and the icon are separate looks); a later one refreshes it
 REGEN_SKILLS = {"hp": ["1000000"],                          # Improved HP Recovery (Warrior)
                 "mp": ["2000000", "1110000", "1210000"]}    # Improved MP Recovery (Magician,
                                                             # Crusader, White Knight)
@@ -177,13 +179,28 @@ class Feed:
 
     # -- buff icons: what an ambiguous cast was (Energy Bolt and Magic Guard both cost 8 MP) ------
     def _watch_ids(self, prof):
-        """Owned buff skills whose icon file exists (the source can only look for those)."""
+        """Owned buff skills whose icon file exists (the source can only look for those): the player's cut, or the
+        game's own icon (skillicons.game_path; no cut needed)."""
         c = (prof.char() if prof is not None else None) or {}
         out = []
         for sid, s in (c.get("skills") or {}).items():
-            if (s.get("value") or 0) > 0 and (translate.skill_kind(sid) or {}).get("kind") == "buff"                     and (DATA / "templates" / "skill_icons" / f"{sid}.png").exists():
-                out.append(sid)
+            if (s.get("value") or 0) > 0 and (translate.skill_kind(sid) or {}).get("kind") == "buff":
+                if (DATA / "templates" / "skill_icons" / f"{sid}.png").exists() or skillicons.game_path(sid):
+                    out.append(sid)
+        for sid in partyfx.own_ids():           # Bless: owned and no cut yet = its game / MeowDB picture does
+            s = (c.get("skills") or {}).get(sid) or {}
+            if (s.get("value") or 0) > 0 and sid not in out:
+                if skillicons.path(sid):        # also starts the download when missing and allowed
+                    out.append(sid)
         return sorted(out)
+
+    def _icon_ids(self):
+        """Buff ids whose state the feed keeps in `party_buff`: the party ones (while in a party) and my own Bless."""
+        own = [i for i in (self.watch_sent or []) if i in partyfx.own_ids()]
+        return sorted(set(self.party_watch) | set(own))
+
+    def _owns(self, sid):
+        return sid in partyfx.own_ids() and (self.usage.level(sid) or 0) > 0
 
     def _party_ids(self):
         """Party buffs whose icon to look for in the buff list: the partyfx entries read from it, only while the party
@@ -209,12 +226,17 @@ class Feed:
             self.buff_on = {k: v for k, v in self.buff_on.items() if k in ids}
         if party != self.party_watch:
             self.party_watch = party
-            self.party_buff = {k: v for k, v in self.party_buff.items() if k in party}
+            self.party_buff = {k: v for k, v in self.party_buff.items() if k in self._icon_ids()}
             self.party_off_t = {}
+        elif ids != getattr(self, "_icons_ids_seen", None):
+            self._icons_ids_seen = ids
+            self.party_buff = {k: v for k, v in self.party_buff.items() if k in self._icon_ids()}
         if (ids, party) != self.watch_all_sent:
             self.watch_all_sent = (ids, party)
             try:
-                src.watch_buffs(ids + [i for i in party if i not in ids], folder=skillicons.folder())
+                src.watch_buffs(ids + [i for i in party if i not in ids], folder=skillicons.folder(),
+                                digits=[i for i in ids if i in partyfx.own_ids()],
+                                prefer_loose=[i for i in ids if skillicons.game_path(i)])
             except Exception:
                 pass
 
@@ -230,7 +252,7 @@ class Feed:
                     self.usage.last_cast[sid] = round(t, 2)     # icon came on with no cast booked: that's the cast
             self.buff_on[sid] = now_on
         left, mins = (v or {}).get("left") or {}, (v or {}).get("mins") or {}
-        for sid in self.party_watch:           # party buffs: lit while the icon shows; the end from the best source
+        for sid in self._icon_ids():           # party buffs + my Bless: lit while the icon shows; the end from the best source
             if sid not in on:
                 self.party_buff.pop(sid, None)
                 self.party_off_t.setdefault(sid, t)
@@ -259,13 +281,26 @@ class Feed:
                 return lv, "learned"
         return (partyfx.PARTY_SKILLS.get(sid) or {}).get("level") or 1, "assumed"
 
-    def _party_cast(self, sid, d, t, fresh):
+    def _party_cast(self, sid, d, t, fresh, mine_t=None):
         """A cast starts at t: `fresh` = seen happen (the icon came on after being seen off, or a recast the minutes
-        digit / the digit swap showed), so t0 is its start and the duration can be learned. Not fresh = no t0."""
-        d.update(fresh=fresh, t0=t if fresh else None, m0=None, learned=False)
+        digit / the digit swap showed), so t0 is its start and the duration can be learned. Not fresh = no t0.
+        `mine_t` = my own cast of this skill (Bless) booked at that time made it: my skill level, the cast time is the
+        start, nothing is learned (the level is known)."""
+        d.update(fresh=fresh and mine_t is None, t0=t if fresh and mine_t is None else None, m0=None, learned=False,
+                 mine=mine_t is not None)
+        if mine_t is not None:
+            d["level"], d["src"] = self.usage.level(sid) or 1, "own"
+            dur = partyfx.duration(sid, d["level"])
+            d["est_end"] = mine_t + dur if dur else None
+            return
         d["level"], d["src"] = self._party_prior(sid)
         dur = partyfx.duration(sid, d["level"])
         d["est_end"] = d["since"] + dur if dur else None
+
+    def _own_cast(self, sid, lo, hi):
+        """The time of my last booked cast of an own-able buff (Bless) when it lies in [lo, hi], else None."""
+        lc = self.usage.last_cast.get(sid) if self._owns(sid) else None
+        return lc if lc is not None and lo <= lc <= hi else None
 
     def _party_range(self, sid, d):
         """The minutes digit at a fresh cast (m0) says duration is in [60 m0, 60 m0 + 59]: a level whose duration is
@@ -311,8 +346,23 @@ class Feed:
             d = self.party_buff[sid] = {"since": round(t, 2), "ends": None, "est": True, "mins": None, "t": t, "miss": 0,
                                         "est_end": None, "anch": False}
             off = self.party_off_t.pop(sid, None)
-            self._party_cast(sid, d, t, off is not None and t - off >= PARTY_OFF_S)
+            d["lc"] = self.usage.last_cast.get(sid)
+            self._party_cast(sid, d, t, off is not None and t - off >= PARTY_OFF_S,
+                             self._own_cast(sid, t - BUFF_CAST_S, t))
         recast = fresh = exact = False
+        lc = self.usage.last_cast.get(sid) if self._owns(sid) else None
+        if lc is not None and lc != d.get("lc"):
+            # a new booked cast of my own Bless while its icon shows: just around the icon coming on it is the cast
+            # that made it (the MP drop and the icon are separate looks); later it refreshes the buff (restart)
+            d["lc"] = lc
+            if lc >= d["since"] - BUFF_CAST_S:
+                if lc <= d["since"] + OWN_AFTER_S and not d.get("mine"):
+                    self._party_cast(sid, d, t, False, lc)
+                    d.update(ends=None, est=True, anch=False)
+                elif lc > d["since"] + OWN_AFTER_S:
+                    d.update(since=round(lc, 2), ends=None, est=True, miss=0, anch=False, mins=None)
+                    self._party_cast(sid, d, t, False, lc)
+                    left = mins = None
         if left:
             d["ends"], d["est"], d["miss"], exact = round(t + left, 2), False, 0, True
         elif mins:
@@ -330,7 +380,7 @@ class Feed:
                 recast = True
         if recast:
             d.update(since=round(t, 2), ends=None, est=True, miss=0, anch=False, mins=None)
-            self._party_cast(sid, d, t, fresh)
+            self._party_cast(sid, d, t, fresh, self._own_cast(sid, t - BUFF_CAST_S, t))
             exact = False
         if mins:
             d["mins"] = mins
@@ -528,6 +578,8 @@ class Feed:
         for e in ev:
             if e["kind"] != "heal" or e["name"] != "Heal" or e.get("to_full") or e["amount"] <= 0:
                 continue
+            if any(b in self.party_buff for b in partyfx.own_ids()):
+                continue                        # Bless (mine or a party's) is on: Heal recovers a few % more, not the plain average
             lv = str(self.usage.level(mpuse.HEAL_ID) or 0)
             st = self.model.data.setdefault("heal", {}).setdefault(lv, {})
             a = int(e["amount"])
@@ -639,6 +691,19 @@ class Feed:
         live = t is not None and now - t <= max(dur, cd)
         return {"t": t if live else None, "dur": dur, "cd": cd, "speed": int(m.group(1)) if m else None}
 
+    def own_timer(self, sid):
+        """live.json skills entry "timer" of an own-able icon buff (Bless): while its icon shows and it is MY cast (a booked
+        cast just around the icon coming on / refreshing it; else it is a party member's and goes to the party slot):
+        {ends, est, dur, level, cap, mark, detail}; ends = exact from the digits / minutes digit, else an estimate (cast +
+        duration at my level). None otherwise."""
+        d = self.party_buff.get(sid)
+        if not d or not d.get("mine"):
+            return None
+        cp = partyfx.caption(sid, d["level"])
+        return {"ends": d["ends"] or d["est_end"], "est": d["ends"] is None, "dur": partyfx.duration(sid, d["level"]),
+                "level": d["level"], "cap": cp[0] if cp else None, "mark": cp[1] if cp else None,
+                "detail": partyfx.details(sid, d["level"])}
+
     def heal_info(self):
         """live.json skills entry of Heal: {avg, recent, n, level} or None (no uncapped Heal yet)."""
         lv = self.usage.level(mpuse.HEAL_ID)
@@ -735,7 +800,7 @@ class Feed:
     def section_usage(self, now, prof):
         return {**self.usage.summary(), "party_heal": self.party_heal_info(),
                 "party_buffs": {k: {"since": v["since"], "ends": v["ends"] or v["est_end"], "est": v["ends"] is None, "mins": v["mins"],
-                                    "level": v["level"], "src": v["src"]}
+                                    "level": v["level"], "src": v["src"], "mine": bool(v.get("mine"))}
                                 for k, v in self.party_buff.items()}}
 
     def section_skills(self, now, prof):
@@ -792,6 +857,7 @@ class Feed:
                            "eater": self.eater_info() if eater else None,
                            "recovery": self.recovery_info(now) if sid == mpuse.RECOVERY_ID else None,
                            "nimble": self.nimble_info(now) if sid == mpuse.NIMBLE_ID else None,
+                           "timer": self.own_timer(sid) if sid in partyfx.own_ids() else None,
                            "cast_n": counts.get(sid, 0),
                            "active": self.buff_on.get(sid),     # buff icon showing (None: not watched / not seen yet)
                            "max": d.get("max"), "mp": cost,

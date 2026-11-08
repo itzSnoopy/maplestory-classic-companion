@@ -26,7 +26,8 @@ The helper (hub/helper_ui.py App) owns one Shell. Components call, from ui(shell
   shell.post(cmd), shell.notify(text), shell.root, shell.k, shell.px(n), shell.at, shell.demo,
   shell.visible, shell.panels_hidden, shell.log_error(where)
                                     (panels_hidden: the helper is an icon and the setting window.icon_hides_panels
-                                    is on; the panels over the game and the diary pop-ups wait)
+                                    is on, or the menu's "Hide all panels" / "Hide panels when the game isn't
+                                    focused" applies; the panels over the game and the diary pop-ups wait)
 
 Nothing here draws; a component builds its own widgets with the root and the settings window's
 helpers. Without a window (the page server's own process) the Shell is "headless": root is None
@@ -76,9 +77,12 @@ class Shell:
 
     @property
     def panels_hidden(self):
-        """True while the helper is the floating icon and "icon hides panels" is on."""
+        """True while the helper is the floating icon and "icon hides panels" is on, or the menu
+        hides the panels ("Hide all panels", "Hide panels when the game isn't focused")."""
         if not self.app:
             return False
+        if getattr(self.app, "panels_off", None) and self.app.panels_off():
+            return True
         return bool(self.app.compact and self.app.settings.get("window", {}).get("icon_hides_panels"))
 
     def px(self, n):

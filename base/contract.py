@@ -87,13 +87,13 @@ class Source:
         fact. False when this source can't (default)."""
         return False
 
-    def watch_buffs(self, ids, folder=None):
+    def watch_buffs(self, ids, folder=None, digits=(), prefer_loose=()):
         """Skill ids (strings) whose buff icon at the top right of the game window should be watched. The source
         then adds a 'buffs' fact {"on": [ids showing], "left": {id: seconds}, "mins": {id: n}} once at start and whenever the set
         changes (ids it has no icon for are never reported; calling again with the same ids is cheap). `folder` =
         pictures <folder>/<id>.png for ids the player has no cut of (a party member's Haste): those are found by
         correlation and, in the last 60 s of the buff, their seconds-left digits are read into "left" (only ids
-        whose digits could be read; "mins" = the small white minutes digit, read while 60 s or more are left: n means n*60 .. n*60+59 s; an update about once a second while such a buff shows). Default: no-op."""
+        whose digits could be read; "mins" = the small white minutes digit, read while 60 s or more are left: n means n*60 .. n*60+59 s; an update about once a second while such a buff shows). `digits` = owned ids (they have a cut) that should also get their digits read, through their <folder> picture (Bless). `prefer_loose` = ids matched through their <folder> picture (the game's own icon) even when a cut exists, the cut only when there is no picture; no digits are read for them unless also in `digits`. Default: no-op."""
 
     def take_facts(self):
         """Long-lived character facts seen since the last call: [(t, kind, value)], kind 'stat' |

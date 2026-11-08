@@ -238,10 +238,55 @@ class SettingsWindow:
             except Exception:
                 self.app.log_error("settings General extra")
         tk.Frame(f, bg=BG, height=self.px(10)).pack()
+        self.setup_row(f)
+        self.game_folder_row(f)
         self.capture_row(f)
         self.map_check_row(f)
         self.regen_check_row(f)
         return f
+
+    def setup_row(self, f):
+        """First-run setup / recalibration (was in the right-click menu until 2026-11-08)."""
+        self.label(f, "Setup", muted=True).pack(anchor="w", pady=(self.px(4), 0))
+        row = tk.Frame(f, bg=BG)
+        row.pack(fill="x", pady=(self.px(2), self.px(10)))
+        self.button(row, "Run setup…", lambda: self.app.post("setup")).pack(side="left")
+        self.label(row, "  the first-run steps again (game window, capture)", muted=True).pack(side="left")
+
+    def game_folder_row(self, f):
+        """Where the game is installed (shapes and skill icons are read from it). Applies at once; not a
+        helper_settings value, so Save is not needed."""
+        from tkinter import filedialog
+        from gamedata import gamefiles
+        self.label(f, "Game folder", muted=True).pack(anchor="w", pady=(self.px(4), 0))
+        self.game_msg = self.label(f, "", wrap=self.px(560))
+        self.game_msg.pack(anchor="w", pady=(self.px(2), self.px(4)))
+
+        def show(text, ok):
+            self.game_msg.configure(text=text, fg=GREEN if ok else MUTED)
+
+        def apply(path=None, refresh=False):
+            show(*gamefiles.choose(path, refresh))
+
+        def browse():
+            p = filedialog.askopenfilename(parent=self.w, title="Select MapleStory.exe",
+                                           filetypes=[("MapleStory.exe", "*.exe"), ("All files", "*.*")])
+            if p:
+                apply(p)
+
+        def folder():
+            p = filedialog.askdirectory(parent=self.w, title="Select the game folder (or its Data folder)")
+            if p:
+                apply(p)
+        self.game_apply = apply                    # tests call it with a path
+        row = tk.Frame(f, bg=BG)
+        row.pack(anchor="w")
+        for text, cmd in (("Browse...", browse), ("Folder...", folder),
+                          ("Detect again", lambda: apply(refresh=True))):
+            self.button(row, text, cmd).pack(side="left", padx=(0, self.px(6)))
+        self.label(f, "Applies at once; the tracker picks it up within a minute or on restart.",
+                   muted=True, size=8).pack(anchor="w", pady=(self.px(2), self.px(10)))
+        apply()
 
     def icon_size_row(self, f):
         """Slider: size of the floating icon the - button minimizes to (shown live, kept on Save)."""

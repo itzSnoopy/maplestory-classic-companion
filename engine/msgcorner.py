@@ -67,11 +67,16 @@ KEEP_S = 6.0                          # a tracked line older than this can't sti
 LEFT_TOL = 3
 CONTAIN = 0.70
 B_SHAPE = 140                         # both looks at least this bright: compare exact shapes
+CELL_FLICKER = 4                      # px of flicker allowed per digit cell (busy backgrounds); different digits differ >= 5
 NUM_X, NUM_ABS = 290, 5               # the number part of a line (digit cells, "+", parentheses) must agree almost exactly
-SHAPE_ABS, SHAPE_REL = 10, 0.03       # allowed differing pixels (JPEG noise) for the same line
+SHAPE_ABS, SHAPE_REL = 10, 0.15       # allowed differing pixels (JPEG noise) for the same line
+
+GAP_COLS = 9                          # wider ink-free gap = not part of the line
+OUT_DARK, OUT_DROP = 90, 80           # outline test (see _outlined)
 
 LABELS = {"exp": "You received EXP", "bonus": "Bonus EXP for PARTY", "meso": "You have gained mesos"}
 LABEL_FUZZ = 0.78
+LABEL_W_TOL = 8                       # label width may differ this much from the learned one (cut-off letters)
 
 # Item pickups: `Squishy Liquid x1 earned. (Etc)` (seen on burst/20261030_222236, frames 0063.1-0066.1): name, "x<count>",
 # "earned.", "(<tab>)"; proportional text with no "(+N)" tail, so the digit-cell reader does not apply and the line is
@@ -98,6 +103,31 @@ def _colour_mask(a):
     return (r >= 100) & (g * 100 >= 88 * r) & (g * 100 <= 118 * r) & (b * 100 <= 115 * g)
 
 
+def _outlined(a):
+    """Text has a dark 1 px outline: keep only pixels whose 3x3 neighbourhood holds a dark pixel (G <= 90) at least 80
+    below them. Pale rock / clouds match the colour mask in big areas but have no such edge (NOTES 2026-11-08)."""
+    g = a[..., 1]
+    p = np.pad(g, 1, mode="edge")
+    lo = g.copy()
+    for dy in range(3):
+        for dx in range(3):
+            lo = np.minimum(lo, p[dy:dy + g.shape[0], dx:dx + g.shape[1]])
+    return (lo <= OUT_DARK) & (g - lo >= OUT_DROP)
+
+
+def _thin(m):
+    """Strokes are 1 px, so ink never holds a 2x2 block: drop every mask pixel that sits in one (bright rock
+    ridges, cloud edges and other wide bright shapes)."""
+    h, w = m.shape
+    blk = m[:-1, :-1] & m[1:, :-1] & m[:-1, 1:] & m[1:, 1:]
+    bad = np.zeros_like(m)
+    bad[:-1, :-1] |= blk
+    bad[1:, :-1] |= blk
+    bad[:-1, 1:] |= blk
+    bad[1:, 1:] |= blk
+    return m & ~bad
+
+
 def _dilate(m):
     p = np.pad(m, 1)
     d = np.zeros_like(m)
@@ -108,7 +138,7 @@ def _dilate(m):
 
 
 class _Slot:
-    __slots__ = ("present", "left", "bright", "mask", "dil", "rows", "bits", "peak")
+    __slots__ = ("present", "left", "bright", "mask", "dil", "rows", "bits", "peak", "num")
 
     def __init__(self):
         self.present = False
@@ -117,6 +147,7 @@ class _Slot:
         self.mask = self.dil = self.bits = None
         self.peak = 0.0
         self.rows = 0
+        self.num = None             # the number read from the shape with the learned digit templates (None = unknown)
 
 
 class _Line:
@@ -217,13 +248,14 @@ class MsgCorner:
             self.t_prev = t
             return []
         a16 = a.astype(np.int16)
-        m = _colour_mask(a16)
+        m = _thin(_colour_mask(a16) & _outlined(a16))
         g = a16[..., 1]
         cur = [self._slot(m, g, k) for k in range(SLOTS)]
+        mt = m
         self.out = []
         gap = None if self.t_prev is None else t - self.t_prev
         self._track(t, cur, gap)
-        self._read_pending(t, a16, m, g)
+        self._read_pending(t, a16, mt, g)
         self._schedule(t)
         if self._dirty:
             self._dirty = False
@@ -251,7 +283,23 @@ class MsgCorner:
         gs = g[y1:y1 + H]
         s.bits = sl & (gs >= 0.7 * float(np.percentile(gs[sl], 95)))      # brightness-free shape of the line
         s.rows = y1
+        if self.digits:
+            s.num = self._shape_number(s.bits)
         return s
+
+    def _shape_number(self, b):
+        """The "(+N)" number of a slot's shape by the learned digit cells, as a string; None if not that shape / not learned."""
+        n = self._find_number(b)
+        if n is None:                       # the ")" flickers on busy backgrounds: look for digits followed by a "+" instead
+            for k in range(1, 5):
+                x0 = DIGIT_X0 - CELL_PITCH * k
+                if self._classify(b[:, x0:x0 + CELL_W], 7, 2) == "+" and all(self._classify(self._cell(b, i), 7, 2) for i in range(k)):
+                    n = k
+                    break
+            if n is None:
+                return None
+        chars = [self._classify(self._cell(b, i), 7, 2) for i in range(n)]      # looser than the reader: thin strokes lose pixels
+        return None if None in chars else "".join(reversed(chars))
 
     # ================================================================ stack tracking
     def _match(self, p, c):
@@ -262,8 +310,15 @@ class MsgCorner:
             return 3
         if p.bright >= B_SHAPE and c.bright >= B_SHAPE:
             lo = max(0, min(p.left, c.left) - 2)
-            d = int((p.bits[:, lo:] != c.bits[:, lo:]).sum())
+            pb, cb = p.bits[:, lo:], c.bits[:, lo:]
+            d = int((pb & ~_dilate(cb)).sum() + (cb & ~_dilate(pb)).sum())     # a pixel flipping next to ink is noise
             dn = int((p.bits[:, NUM_X:] != c.bits[:, NUM_X:]).sum())      # the number: a different digit shows here
+            if dn > NUM_ABS and p.num is not None and p.num == c.num:
+                dn = 0        # both read the same number with the learned digit cells (thin strokes lose pixels on busy backgrounds)
+            if dn > NUM_ABS and all(int((p.bits[:, DIGIT_X0 - CELL_PITCH * k:DIGIT_X0 - CELL_PITCH * k + CELL_W]
+                                         != c.bits[:, DIGIT_X0 - CELL_PITCH * k:DIGIT_X0 - CELL_PITCH * k + CELL_W]).sum()) <= CELL_FLICKER
+                                    for k in range(3)):
+                dn = 0        # the last cells (digits / "+") agree within flicker: two different digits are >= 5 px apart
             if d <= max(SHAPE_ABS, SHAPE_REL * int(p.bits[:, lo:].sum())) and dn <= NUM_ABS:
                 return 0
             return 1.5 if (d <= 2 * SHAPE_ABS and dn <= 2 * NUM_ABS) else 3
@@ -388,7 +443,7 @@ class MsgCorner:
     @staticmethod
     def _binarize(gs, ms):
         pk = float(np.percentile(gs[ms], 95)) if ms.any() else 0.0
-        return gs >= 0.78 * pk, pk
+        return (gs >= 0.78 * pk) & _dilate(ms), pk      # only near the text (bright backgrounds)
 
     def _find_number(self, b):
         """Digit count n from the '(' descender (rows 10-11 are inked only by parentheses); None if not
@@ -409,7 +464,7 @@ class MsgCorner:
         x0 = DIGIT_X0 - CELL_PITCH * i
         return b[:, x0:x0 + CELL_W]
 
-    def _classify(self, cell):
+    def _classify(self, cell, tol=4, margin=3):
         best = (99, None)
         second = 99
         for ch, pats in self.digits.items():
@@ -421,27 +476,31 @@ class MsgCorner:
                     best = (d, ch)
                 elif ch != best[1] and d < second:
                     second = d
-        if best[1] is not None and best[0] <= 4 and second - best[0] >= 3:
+        if best[1] is not None and best[0] <= tol and second - best[0] >= margin:
             return best[1]
         return None
 
     def _label_bits(self, b, n):
         x0p = DIGIT_X0 - CELL_PITCH * n - 4
         reg = b[:, :max(0, x0p - 2)]
-        cols = np.where(reg.any(0))[0]
+        cols = _text_cols(reg)
         if len(cols) < 10:
             return None
         return reg[:, cols.min():]
 
     def _match_label(self, bits):
+        """Learned label shapes, right-aligned. A pixel flipping next to ink is noise (bright, busy backgrounds
+        leave specks and take bits out of the letters), so the miss / extra counts use the dilated other side."""
         best = None
         for kind, ref in self.labels:
-            w = min(ref.shape[1], bits.shape[1])
-            if abs(ref.shape[1] - bits.shape[1]) > 1:
+            if abs(ref.shape[1] - bits.shape[1]) > LABEL_W_TOL:
                 continue
-            d = int((ref[:, -w:] != bits[:, -w:]).sum())
-            if d <= max(6, 0.12 * int(ref.sum())) and (best is None or d < best[0]):
-                best = (d, kind)
+            w = min(ref.shape[1], bits.shape[1])
+            r, q = ref[:, -w:], bits[:, -w:]
+            d = int((r & ~_dilate(q)).sum() + (q & ~_dilate(r)).sum())
+            d_exact = int((r != q).sum())
+            if (d_exact <= max(6, 0.12 * int(ref.sum())) or d <= max(6, 0.08 * int(ref.sum()))) and (best is None or d_exact < best[0]):
+                best = (d_exact, kind)
         return best[1] if best else None
 
     def _try_read(self, t, ln, gs, ms, tess_budget):
@@ -490,7 +549,7 @@ class MsgCorner:
     def _try_text(self, t, ln, b, tess_budget):
         """A line without the "(+N)" tail: an item pickup (or something new). Whole-line Tesseract, two agreeing
         reads (the text is cached by the line's pixels, so a repeat of the same item costs nothing)."""
-        cols = np.where(b.any(0))[0]
+        cols = _text_cols(b)
         if len(cols) < 10:
             ln.state = "unknown"
             self.stats["unknown"] += 1
@@ -633,6 +692,16 @@ class MsgCorner:
         ln.emitted = True
 
 
+def _text_cols(b):
+    """Columns with ink, counted from the right while the gaps stay word-sized: speckles of background far to the
+    left of the line (rock, clouds) are cut off (a space is <= 6 px)."""
+    cols = np.where(b.any(0))[0]
+    if len(cols) < 2:
+        return cols
+    gaps = np.where(np.diff(cols) > GAP_COLS)[0]
+    return cols[gaps[-1] + 1:] if len(gaps) else cols
+
+
 def _is_white(rgb, gs, ms):
     """First look of an EXP line: white (True) or yellow (False). Blue/red over the brightest 30% of the mask
     pixels (G at or above the 70th percentile): white 0.87-0.96, yellow 0.54-0.59 (NOTES.md 2026-11-01)."""
@@ -751,6 +820,12 @@ def _test(folder, store, cold):
         for t, tot, v in gains:
             print(f"  {t:6.2f}s +{v['base']}/{v['party_bonus']}{' own' if v['own'] else ''}{' (overflow)' if v['overflow'] else ''}")
         print(f"own {sum(1 for g in gains if g[2]['own'])} of {len(gains)} gains")
+        print("mesos:", ", ".join(f"+{v}@{t:.2f}{'!' if o else ''}" for t, v, o in mesos) or "none", f"(sum {sum(v for _, v, _ in mesos)})")
+        print("items:", ", ".join(f"{v['name']} x{v['count']}@{t:.2f}" for t, k, v in facts if k == "item_gain") or "none")
+        print("stats:", mc.stats)
+        busy = [x for x in ms if x > 0.4]
+        print(f"ms/frame median {statistics.median(ms):.2f}  busy median {statistics.median(busy or [0]):.2f}  "
+              f"p95 {sorted(ms)[int(0.95 * (len(ms) - 1))]:.2f}  max {max(ms):.2f}  tesseract calls {mc.stats['tess_calls']}")
         return 0, 0, 0, 0
     # EXP rises (consecutive increasing rows merge into one event); a level-up (exp drops) is flagged
     events, prev, cur = [], vit[0], None

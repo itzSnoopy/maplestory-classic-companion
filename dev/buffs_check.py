@@ -110,9 +110,11 @@ class _Src:
     def __init__(self):
         self.watched = None
 
-    def watch_buffs(self, ids, folder=None):
+    def watch_buffs(self, ids, folder=None, digits=(), prefer_loose=()):
+        self.prefer = list(prefer_loose)
         self.watched = list(ids)
         self.folder = folder
+        self.digits = list(digits)
 
 
 class _Hub:
@@ -515,7 +517,7 @@ def run_party():
         bad.append("Haste speed per level")
     sl = partyfx.party_slots({}, [], 100.0, buffs={"4101001": {"since": 90.0, "ends": 250.0, "est": True, "level": 7,
                                                                 "src": "assumed"}})
-    if not sl or sl[0].get("speed") != 16:
+    if not sl or sl[0].get("cap") != "+16" or sl[0].get("mark") != "boot" or partyfx.speed("4101001", 7) != 16:
         bad.append(f"Haste slot speed: {sl}")
     f, _ = _feed()
     p = _prof_who()
@@ -525,12 +527,13 @@ def run_party():
         bad.append(f"solo: watched {f.hub.source.watched} party {f.party_watch}")
     f.party_n = 3
     f.sync_watch(p)
-    if f.hub.source.watched != [GUARD, "4101001"] or f.party_watch != ["4101001"]:     # one id per picture
+    if f.hub.source.watched != [GUARD, "2301003", "4101001"] or f.party_watch != ["2301003", "4101001"]:   # one id per picture
         bad.append(f"party: watched {f.hub.source.watched}")
     # --- first sight (the app starts with the icon on: no t0), exact digits
     f.fact(10.0, "buffs", {"on": ["4101001"], "left": {}, "mins": {}}, None)
     pb = f.section_usage(10.0, None)["party_buffs"]
-    if pb.get("4101001") != {"since": 10.0, "ends": 170.0, "est": True, "mins": None, "level": 7, "src": "assumed"}:
+    if pb.get("4101001") != {"since": 10.0, "ends": 170.0, "est": True, "mins": None, "level": 7, "src": "assumed",
+                              "mine": False}:
         bad.append(f"first sight (level 7 = 160 s): {pb}")
     f.fact(40.0, "buffs", {"on": ["4101001"], "left": {"4101001": 57}}, None)
     f.fact(41.0, "buffs", {"on": ["4101001"], "left": {"4101001": 56}}, None)
@@ -664,6 +667,245 @@ def run_party():
     return (not bad), ("party buff logic ok" if not bad else "; ".join(bad)), False
 
 
+BLESS = "2301003"
+
+
+def bless_icons(given=None):
+    """Folder with the MeowDB Bless picture (skillicons' assets/skill_icons), or None."""
+    from base import paths
+    for c in (Path(given) if given else None,
+              Path(os.environ["MAPLE_BLESS_ICONS"]) if os.environ.get("MAPLE_BLESS_ICONS") else None,
+              paths.DATA / "assets" / "skill_icons",
+              Path(os.environ.get("LOCALAPPDATA", "")) / "MapleClassicCompanion" / "assets" / "skill_icons"):
+        if c and (c / f"{BLESS}.png").exists():
+            return c
+    return None
+
+
+def run_bless_frames(icons=None):
+    """Negative set: the Bless picture (searched together with Haste) over every burst fixture: no frame may show it
+    (none of the recordings has a Bless; the Haste ones show only Haste). Reports the best score seen (margin to
+    LOOSE_MIN) and, informationally, a synthetic positive (the picture pasted translucent over a strip). Skips without
+    fixtures / the picture."""
+    folder = bless_icons(icons)
+    root = ROOT / "dev" / "fixtures" / "burst"
+    dirs = [d for d in sorted(root.iterdir()) if any(d.glob("*.jpg"))] if root.is_dir() else []
+    if not dirs or folder is None:
+        return True, "skipped: needs dev/fixtures/burst and assets/skill_icons/2301003.png (MAPLE_BLESS_ICONS)", True
+    from PIL import Image
+    from engine import buffs
+    hf = haste_icons(icons)
+    n, hits, best, haste_n, haste_found = 0, [], (-1.0, ""), 0, 0
+    for d in dirs:
+        fs = sorted(d.glob("*.jpg"))
+        size = Image.open(fs[0]).size
+        sc = size[0] / buffs.REF_W
+        ic = buffs.load_loose(folder, [BLESS], sc)
+        both = {**ic, **(buffs.load_loose(hf, list(HASTE_IDS), sc) if hf else {})}
+        for f in fs[::max(1, len(fs) // 150)]:
+            im = Image.open(f).convert("RGB")
+            st = im.crop(buffs.strip_box(im.size))
+            det = {}
+            got = buffs.find_loose(st, both, detail=det)
+            n += 1
+            if BLESS in got:
+                hits.append(f"{d.name}/{f.name}")
+            if det[BLESS][0] > best[0]:
+                best = (det[BLESS][0], f"{d.name}/{f.name}")
+            if d.name in (HASTE_FRAMES.name, HASTE_FRAMES2.name):
+                haste_n += 1
+                haste_found += any(h in got for h in HASTE_IDS)
+    bad = []
+    if hits:
+        bad.append("Bless found in: " + ", ".join(hits[:4]))
+    if haste_n and haste_found < 0.95 * haste_n:
+        bad.append(f"Haste found on {haste_found}/{haste_n} frames of its recordings when searched with Bless")
+    # informational positive: the picture pasted at 85 % over a strip (the game's own rendering differs)
+    f0 = sorted(dirs[0].glob("*.jpg"))[0]
+    im = Image.open(f0).convert("RGB")
+    st = im.crop(buffs.strip_box(im.size)).copy()
+    pic = Image.open(folder / f"{BLESS}.png").convert("RGBA")
+    pic.putalpha(pic.getchannel("A").point(lambda v: int(v * 0.85)))
+    st.paste(pic, (150 + 3, 3 + 3), pic)
+    det = {}
+    got = buffs.find_loose(st, buffs.load_loose(folder, [BLESS], im.size[0] / buffs.REF_W), detail=det)
+    pos = f"synthetic positive {'found' if BLESS in got else 'NOT found'} (score {det[BLESS][0]})"
+    return (not bad), (f"{n} frames of {len(dirs)} recordings: no Bless hit, best score {best[0]:.2f} at {best[1]} "
+                       f"(needs {buffs.LOOSE_MIN['full']}/{buffs.LOOSE_MIN['outer']}); {pos}" if not bad else "; ".join(bad)), False
+
+
+class _BlessProf(_Prof):
+    def char(self):
+        return {"skills": {"2001000": {"value": 2}, BLESS: {"value": 5}}}
+
+
+def _bless_feed(own=True, party_n=1):
+    from components.skillbar import feed
+    f = feed.Feed(hub=_Hub())
+    f._watch_ids = lambda prof: [GUARD, BLESS] if own else [GUARD]
+    f._write_casts = lambda: None
+    f._log_events = lambda ev: None
+    f.party_n = party_n
+    p = _BlessProf() if own else _Prof()
+    f.begin(p, 0.0)
+    f.sync_watch(p)
+    return f, p
+
+
+def _pb(f, t=0.0):
+    return f.section_usage(t, None)["party_buffs"].get(BLESS)
+
+
+def _heal_n(f):
+    return sum(v.get("n", 0) for v in (f.model.data.get("heal") or {}).values())
+
+
+def run_bless():
+    """Bless as a party buff (Cleric/Priest/Bishop) and as my own skill: captions, party slot, level learning, the own-vs-party
+    rule, own timer, Heal average kept free of Bless, the engine's `digits` rule."""
+    from components.skillbar import partyfx
+    bad = []
+    # captions / details at levels 1, 5, 20 (the skill text), Haste unchanged
+    want = {1: ("-5%", "damage taken -5%, Heal +1%"), 5: ("-7%", "damage taken -7%, Heal +3%"),
+            20: ("-15%", "damage taken -15%, Heal +10%")}
+    for lv, (c, dt) in want.items():
+        got = partyfx.caption(BLESS, lv)
+        if got != (c, "shield") or partyfx.details(BLESS, lv) != dt:
+            bad.append(f"caption L{lv}: {got} / {partyfx.details(BLESS, lv)}")
+    if [partyfx.duration(BLESS, lv) for lv in (1, 5, 20)] != [100, 140, 300] or partyfx.caption("4101001", 7) != ("+16", "boot"):
+        bad.append("durations / Haste caption")
+    # --- party Bless: slot from the icon alone (no relay), assumed level 10 = 190 s, "-10%"
+    sl = partyfx.party_slots({"ok": True, "t": 50.0, "members": [{"name": "Cler", "job": "Cleric", "map": "A"}]}, [], 50.0, "A",
+                             buffs={BLESS: {"since": 40.0, "ends": None, "est": True}})
+    sl = [x for x in sl if x["id"] == BLESS]            # (a Cleric in the party also gives the Heal slot)
+    h = sl[0] if sl else {}
+    if len(sl) != 1 or h["id"] != BLESS or h["from"] != ["Cler"] or not h["on"] or h["level"] != 10 or h["dur"] != 190 \
+            or h["cap"] != "-10%" or h["mark"] != "shield" or h["ends"] != 230.0 or not h["est"] or h["lvl_src"] != "assumed":
+        bad.append(f"party Bless slot: {sl}")
+    sl = partyfx.party_slots(None, [], 50.0, "A", buffs={BLESS: {"since": 40.0, "ends": 300.0, "est": False, "level": 5, "src": "learned"}})
+    if not sl or sl[0]["cap"] != "-7%" or sl[0]["lvl_src"] != "learned" or sl[0]["ends"] != 300.0 or sl[0]["from"] != ["Bless"]:
+        bad.append(f"party Bless slot, learned level 5: {sl}")
+    if partyfx.party_slots(None, [], 50.0, "A", buffs={BLESS: {"since": 40.0, "mine": True}}):
+        bad.append("my own Bless must not be a party slot")
+    # --- level learning on a fresh party cast, like Haste
+    for lv in (1, 5, 20):
+        g, _ = _bless_feed(own=False, party_n=3)
+        if BLESS not in g.party_watch:
+            bad.append(f"Bless not watched in a party: {g.party_watch}")
+            break
+        _cast_run(g, lv, sid=BLESS)
+        if _learned(g, BLESS) != {"?": lv}:
+            bad.append(f"learn Bless L{lv}: {_learned(g, BLESS)}")
+    g, _ = _bless_feed(own=False, party_n=3)
+    g.fact(5.0, "buffs", {"on": [], "left": {}, "mins": {}}, None)
+    g.fact(10.0, "buffs", {"on": [BLESS], "left": {}, "mins": {BLESS: 2}}, None)           # 120-179 s: L3-8 -> a middle one
+    pb = _pb(g, 10.0)
+    if pb["mine"] or pb["src"] != "range" or pb["level"] not in (5, 6):
+        bad.append(f"party Bless minutes 2 at the cast: {pb}")
+    # --- own Bless (level 5 = 140 s, 21 MP)
+    f, p = _bless_feed()
+    if BLESS not in (f.hub.source.watched or []) or f.hub.source.digits != [BLESS]:
+        bad.append(f"own Bless watch: {f.hub.source.watched} digits {getattr(f.hub.source, 'digits', None)}")
+    f.fact(1.0, "buffs", {"on": []}, None)
+    f.fact(1.5, "vitals", {"hp": [600, 600], "mp": [100, 100]}, None)
+    f.fact(2.0, "vitals", {"hp": [600, 600], "mp": [79, 100]}, None)                         # -21: Bless L5
+    if f.usage.last_cast.get(BLESS) != 2.0:
+        bad.append(f"Bless cast not booked: {f.usage.last_cast} {_casts(f)}")
+    f.fact(2.5, "buffs", {"on": [BLESS]}, None)                                                # icon 0.5 s later: mine
+    pb = _pb(f, 2.5)
+    if not pb or not pb["mine"] or pb["level"] != 5 or pb["src"] != "own" or not pb["est"] or pb["ends"] != 142.0:
+        bad.append(f"own Bless from a booked cast + icon: {pb}")
+    sk = next((x for x in f.section_skills(3.0, p) if x["id"] == BLESS), None)
+    tm = (sk or {}).get("timer") or {}
+    if tm.get("ends") != 142.0 or tm.get("cap") != "-7%" or tm.get("dur") != 140 or tm.get("level") != 5 or "Heal +3%" not in tm.get("detail", ""):
+        bad.append(f"own timer: {sk and sk.get('timer')}")
+    if partyfx.party_slots(None, [], 3.0, "A", buffs=f.section_usage(3.0, None)["party_buffs"]):
+        bad.append("own Bless showed in the party slot")
+    f.fact(20.0, "buffs", {"on": [BLESS], "left": {}, "mins": {BLESS: 2}}, None)
+    f.fact(120.0, "buffs", {"on": [BLESS], "left": {BLESS: 22}, "mins": {}}, None)            # the digits make the end exact
+    pb = _pb(f, 120.0)
+    if pb["est"] or pb["ends"] != 142.0 or not pb["mine"]:
+        bad.append(f"own Bless exact end from the digits: {pb}")
+    # a cast booked 0.4 s AFTER the icon was first seen still makes it mine
+    f2, _p2 = _bless_feed()
+    f2.fact(1.0, "buffs", {"on": []}, None)
+    f2.fact(4.5, "vitals", {"hp": [600, 600], "mp": [100, 100]}, None)
+    f2.fact(5.0, "buffs", {"on": [BLESS]}, None)
+    pb = dict(_pb(f2, 5.0))
+    f2.fact(5.4, "vitals", {"hp": [600, 600], "mp": [79, 100]}, None)
+    f2.fact(6.0, "buffs", {"on": [BLESS], "left": {}, "mins": {}}, None)
+    pb2 = _pb(f2, 6.0)
+    if pb["mine"] or not pb2["mine"] or pb2["ends"] != 5.4 + 140:
+        bad.append(f"cast booked just after the icon: {pb} -> {pb2}")
+    # a refresh (own cast again, icon stays) restarts the timer
+    f.fact(125.0, "vitals", {"hp": [600, 600], "mp": [100, 100]}, None)
+    f.fact(126.0, "vitals", {"hp": [600, 600], "mp": [79, 100]}, None)
+    f.fact(127.0, "buffs", {"on": [BLESS]}, None)
+    pb = _pb(f, 127.0)
+    if not pb["mine"] or pb["since"] != 126.0 or pb["ends"] != 126.0 + 140 or not pb["est"]:
+        bad.append(f"refresh by my own cast: {pb}")
+    # a party recast over my Bless (digit up, no cast of mine near it) is a party Bless from then on
+    f.fact(130.0, "buffs", {"on": [BLESS], "left": {}, "mins": {BLESS: 1}}, None)
+    f.fact(135.0, "buffs", {"on": [BLESS], "left": {}, "mins": {BLESS: 2}}, None)
+    pb = _pb(f, 135.0)
+    if pb["mine"]:
+        bad.append(f"a party recast over my Bless stayed mine: {pb}")
+    # a party Bless while I own the skill: icon on with no booked cast near it -> party slot, no own timer
+    f3, p3 = _bless_feed()
+    f3.fact(1.0, "buffs", {"on": []}, None)
+    f3.fact(300.0, "buffs", {"on": [BLESS], "left": {}, "mins": {BLESS: 3}}, None)
+    pb = _pb(f3, 300.0)
+    sk = next((x for x in f3.section_skills(300.0, p3) if x["id"] == BLESS), None)
+    sl = partyfx.party_slots(None, [], 300.0, "A", buffs=f3.section_usage(300.0, None)["party_buffs"])
+    if pb["mine"] or (sk or {}).get("timer") or len(sl) != 1 or not sl[0]["on"]:
+        bad.append(f"party Bless while I own it: {pb} timer {sk and sk.get('timer')} slots {sl}")
+    # --- Heal average free of Bless
+    h = {"kind": "heal", "name": "Heal", "amount": 100, "t": 1.0}
+    f4, _ = _bless_feed()
+    f4._heal_stats([h])
+    n1 = _heal_n(f4)
+    f4.fact(2.0, "buffs", {"on": [BLESS]}, None)
+    f4._heal_stats([h])
+    n2 = _heal_n(f4)
+    f4.fact(3.0, "buffs", {"on": []}, None)
+    f4._heal_stats([h])
+    n3 = _heal_n(f4)
+    if (n1, n2, n3) != (1, 1, 2):
+        bad.append(f"Heal average with Bless on: {(n1, n2, n3)} (want 1, 1, 2)")
+    # --- engine: `digits` ids (owned: a cut exists) go through the loose path when their picture is there
+    import shutil
+    import tempfile
+    from PIL import Image
+    from base import paths
+    from launcher import compose
+    from engine.sources.screen import ImageFrames
+    tmp = Path(tempfile.mkdtemp(prefix="bless_digits_"))
+    try:
+        (tmp / "templates" / "skill_icons").mkdir(parents=True)
+        (tmp / "pics").mkdir()
+        for q in (tmp / "templates" / "skill_icons" / f"{BLESS}.png", tmp / "templates" / "skill_icons" / f"{GUARD}.png",
+                  tmp / "pics" / f"{BLESS}.png"):
+            Image.new("RGBA", (34, 35), (90, 90, 160, 255)).save(q)         # dummy pictures, not game art
+        old = paths.DATA
+        paths.DATA = tmp
+        try:
+            src = compose.screen_source(paths.load_config(), ImageFrames([]))
+            src.watch_buffs([GUARD, BLESS], folder=str(tmp / "pics"), digits=[BLESS])
+            a = (src.buff_ids, src.loose_ids)
+            src.watch_buffs([GUARD, BLESS], folder=str(tmp / "pics"))
+            b = (src.buff_ids, src.loose_ids)
+            src.watch_buffs([GUARD, BLESS], folder=str(tmp / "nopics"), digits=[BLESS])
+            c = (src.buff_ids, src.loose_ids)
+        finally:
+            paths.DATA = old
+        if a != ([GUARD], [BLESS]) or b != ([GUARD, BLESS], []) or c != ([GUARD, BLESS], []):
+            bad.append(f"engine digits rule: {a} {b} {c}")
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+    return (not bad), ("Bless logic ok (captions, party slot, learning, own vs party, own timer, Heal, engine rule)" if not bad
+                       else "; ".join(bad)), False
+
+
 if __name__ == "__main__":
     a = sys.argv[1:]
     kw = {}
@@ -671,7 +913,7 @@ if __name__ == "__main__":
         kw["frames"] = a[a.index("--frames") + 1]
     if "--icons" in a:
         kw["icons"] = a[a.index("--icons") + 1]
-    for name, fn in (("frames", lambda: run_frames(**kw)), ("logic", run_logic), ("haste", run_haste), ("glyphs", run_glyphs), ("learn", run_learn), ("party", run_party)):
+    for name, fn in (("frames", lambda: run_frames(**kw)), ("logic", run_logic), ("haste", run_haste), ("glyphs", run_glyphs), ("learn", run_learn), ("party", run_party), ("bless", run_bless), ("bless_frames", run_bless_frames)):
         ok, note, skipped = fn()
         print(f"{'SKIP' if skipped else 'PASS' if ok else 'FAIL'}  {name}: {note}")
         if not ok:
