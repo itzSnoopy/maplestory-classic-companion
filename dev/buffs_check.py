@@ -8,7 +8,13 @@
 2. logic: components/skillbar/feed.py with synthetic facts: 8 MP drop + icon flip 0.5 s later = Magic Guard
    cast; drop without a flip = Energy Bolt after ~1.4 s (no attack pulse before); Guard off without an MP drop =
    state change only.
-Used by dev/release_check.py (run_frames / run_logic return (ok, note, skipped)).
+3. haste (run_haste): a party member's Haste (4101001 / 4201001, one picture) is read from the buff list with the
+   MeowDB picture (assets/skill_icons, not the player's own cuts) in dev/fixtures/burst/20261107_215426: found on
+   every non-faded frame, countdown digits read exactly at verified frames (59 ... 28 s), never found in any other
+   fixture folder under dev/fixtures/burst (every n-th frame, <= 150 per folder). SKIPS without frames / picture.
+4. party logic (run_party): feed facts {on, left} -> usage.party_buffs; partyfx slots (lit, exact vs estimated end,
+   recast restart, not in a party = not watched).
+Used by dev/release_check.py (run_frames / run_logic / run_haste / run_party return (ok, note, skipped)).
 """
 import os
 import sys
@@ -104,8 +110,9 @@ class _Src:
     def __init__(self):
         self.watched = None
 
-    def watch_buffs(self, ids):
+    def watch_buffs(self, ids, folder=None):
         self.watched = list(ids)
+        self.folder = folder
 
 
 class _Hub:
@@ -192,6 +199,471 @@ def run_logic():
     return (not bad), ("A-D ok" if not bad else "; ".join(bad)), False
 
 
+HASTE_FRAMES = ROOT / "dev" / "fixtures" / "burst" / "20261107_215426"
+HASTE_FRAMES2 = ROOT / "dev" / "fixtures" / "burst" / "20261107_221755"     # 240 s, Haste on throughout, recast twice, no big digits
+HASTE_IDS = ("4101001", "4201001")
+# frame index (sorted by name) -> seconds left read by eye from the crops (57 at 30 s, 47 at 40 s, 32 at 55 s ...)
+HASTE_LEFT = {56: 59, 60: 57, 64: 55, 68: 53, 70: 53, 72: 51, 76: 49, 80: 47, 84: 45, 88: 43, 90: 42, 92: 41, 96: 39,
+              100: 37, 104: 35, 108: 33, 110: 32, 116: 29, 118: 28}
+
+
+def haste_icons(given=None):
+    from base import paths
+    for c in (Path(given) if given else None, paths.DATA / "assets" / "skill_icons"):
+        if c and any((c / f"{i}.png").exists() for i in HASTE_IDS):
+            return c
+    return None
+
+
+def _file_t(path):
+    import re
+    return float(re.match(r"(\d+\.\d+)_", path.name).group(1))
+
+
+def _walk(files, ic, ids, fn, lum_guard=True):
+    """Feed the frames of a recording in order the way the source does: find the icon (last spot as a hint), skip faded
+    frames, `fn(k, t, strip, x, y)` for each frame with the icon, `fn(k, t, None, 0, 0)` when it is not found."""
+    import numpy as np
+    from PIL import Image
+    from engine import buffs, vitals
+    lum = [float(np.asarray(Image.open(f).convert("L").crop(vitals.strip_box((1920, 1080)))).mean()) for f in files]
+    med = float(np.median(lum))
+    hint = {}
+    for k, f in enumerate(files):
+        if lum_guard and lum[k] < 0.95 * med:
+            hint = {}
+            continue
+        st = Image.open(f).convert("RGB").crop(buffs.strip_box((1920, 1080)))
+        got = buffs.find_loose(st, ic, hints=hint)
+        hint = dict(got)
+        if set(got) == set(ids):
+            fn(k, _file_t(f), st, *got[ids[0]])
+        else:
+            fn(k, _file_t(f), None, 0, 0)
+
+
+def run_haste(frames=None, icons=None):
+    frames = Path(frames) if frames else HASTE_FRAMES
+    folder = haste_icons(icons)
+    files = sorted(frames.glob("*.jpg")) if frames.is_dir() else []
+    if not files or folder is None:
+        return True, "skipped: needs dev/fixtures/burst/20261107_215426 and assets/skill_icons/4101001.png", True
+    from PIL import Image
+    from engine import buffs
+    ids = [i for i in HASTE_IDS if (folder / f"{i}.png").exists()]
+    ic = buffs.load_loose(folder, ids)
+    bad = []
+    st_ = {"found": 0, "n": 0, "ms": 0.0}
+
+    def one(k, t, st, x, y):
+        st_["n"] += 1
+        if st is not None:
+            st_["found"] += 1
+        else:
+            bad.append(f"frame {k}: not found")
+    _walk(files, ic, ids, one)
+    # nothing found anywhere else (those folders have no Haste; the 1366x768 one at its own scale)
+    f2 = sorted(HASTE_FRAMES2.glob("*.jpg")) if HASTE_FRAMES2.is_dir() else []
+    n2 = []
+    if f2:
+        _walk(f2, ic, ids, lambda k, t, st, x, y: n2.append(st is not None))
+        if sum(n2) < 0.99 * len(n2):
+            bad.append(f"221755: found on {sum(n2)} of {len(n2)} frames")
+    others, n_other = [], 0
+    for d in sorted((ROOT / "dev" / "fixtures" / "burst").iterdir()):
+        fs = sorted(d.glob("*.jpg"))
+        if d == frames or d == HASTE_FRAMES2 or not fs:
+            continue
+        size = Image.open(fs[0]).size
+        icl = buffs.load_loose(folder, ids, size[0] / buffs.REF_W)
+        for f in fs[::max(1, len(fs) // 150)]:
+            im = Image.open(f).convert("RGB")
+            n_other += 1
+            if buffs.find_loose(im.crop(buffs.strip_box(im.size)), icl):
+                others.append(f"{d.name}/{f.name}")
+    if others:
+        bad.append("Haste found in other recordings: " + ", ".join(others[:4]))
+    return (not bad), (f"215426: {st_['found']}/{st_['n']} non-faded frames found, 221755: {sum(n2)}/{len(n2)}, "
+                       f"{n_other} frames of other recordings clean" if not bad else "; ".join(bad[:6])), False
+
+
+_GLYPH_CACHE = {}
+
+
+def _scratch():
+    import tempfile
+    d = Path(tempfile.gettempdir()) / "maple_buffs_check"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _learn_from_scratch(folder):
+    """Learn the countdown digits from nothing on the two recordings, in order, into a scratch file. Returns
+    (path, info) with info = {"pass1": [(k, left, mins)], "learned": [(t, kind, digit)], "t_big": first big-digit
+    time, "t_rec2": ...}; cached for the other checks of this run."""
+    if "x" in _GLYPH_CACHE:
+        return _GLYPH_CACHE["x"]
+    from engine import buffs
+    path = _scratch() / "glyphs_buff.json"
+    if path.exists():
+        path.unlink()
+    ids = [i for i in HASTE_IDS if (folder / f"{i}.png").exists()]
+    ic = buffs.load_loose(folder, ids)
+    g = buffs.BuffGlyphs(path)
+    sid = ids[0]
+    info = {"pass1": [], "t_big": None, "rec2_start": None}
+    files1 = sorted(HASTE_FRAMES.glob("*.jpg"))
+
+    def one1(k, t, st, x, y):
+        if st is None:
+            g.lost(sid, t)
+            return
+        l, m = g.look(sid, t, st, x, y)
+        info["pass1"].append((k, l, m))
+        if info["t_big"] is None and k >= 56:
+            info["t_big"] = t
+    _walk(files1, ic, ids, one1)
+    g.lost(sid, 1e6)
+    n1 = len(g.learned)
+    files2 = sorted(HASTE_FRAMES2.glob("*.jpg"))
+
+    def one2(k, t, st, x, y):
+        if info["rec2_start"] is None:
+            info["rec2_start"] = t
+        if st is None:
+            g.lost(sid, 1000.0 + t)
+            return
+        g.look(sid, 1000.0 + t, st, x, y)           # later in time than the first recording
+    _walk(files2, ic, ids, one2)
+    g.lost(sid, 1e6)
+    info["learned"], info["n1"] = list(g.learned), n1
+    _GLYPH_CACHE["x"] = (path, info)
+    return path, info
+
+
+def run_glyphs(icons=None):
+    """The countdown digits are LEARNED (engine/buffs.py BuffGlyphs -> glyphs_buff.json, never shipped): from nothing on
+    20261107_215426 (+ 221755 for the small minutes digit 2) into a scratch file. Checks: reads before a digit is
+    learned are None and never wrong; after learning, the 19 frames verified by eye read exactly, from the saved
+    file, in a fresh run; a store holding only digits 4 and 5 never reads a wrong number. Reports learning times."""
+    folder = haste_icons(icons)
+    f1 = sorted(HASTE_FRAMES.glob("*.jpg")) if HASTE_FRAMES.is_dir() else []
+    f2 = sorted(HASTE_FRAMES2.glob("*.jpg")) if HASTE_FRAMES2.is_dir() else []
+    if not f1 or not f2 or folder is None:
+        return True, "skipped: needs the 20261107_215426 / 221755 frames and assets/skill_icons/4101001.png", True
+    from engine import buffs
+    path, info = _learn_from_scratch(folder)
+    bad = []
+    learned = info["learned"]
+    secs = {d for _, kind, d in learned if kind == "seconds"}
+    mins = {d for _, kind, d in learned if kind == "minutes"}
+    if secs != set("0123456789"):
+        bad.append(f"seconds digits learned {sorted(secs)} (expected 0-9)")
+    if mins != {"1", "2"}:
+        bad.append(f"minutes digits learned {sorted(mins)} (expected 1, 2)")
+    # pass 1: while learning, a read is None or right
+    first_read = None
+    for k, l, m in info["pass1"]:
+        if l is not None:
+            first_read = first_read if first_read is not None else k
+            if k in HASTE_LEFT and l != HASTE_LEFT[k]:
+                bad.append(f"learning pass: frame {k} read {l} expected {HASTE_LEFT[k]}")
+    reads = [(k, l) for k, l, m in info["pass1"] if l is not None]
+    if any(b[1] > a[1] for a, b in zip(reads, reads[1:])) or any(a[1] - b[1] > 2 for a, b in zip(reads, reads[1:])):
+        bad.append("learning pass: reads not a steady countdown")
+    if first_read is None or first_read < 80:
+        bad.append(f"first seconds read at frame {first_read}: digits cannot be known before the first tens change")
+    # pass 2: a fresh run loading the saved file
+    g = buffs.BuffGlyphs(path)
+    ic = buffs.load_loose(folder, [i for i in HASTE_IDS if (folder / f"{i}.png").exists()])
+    ids = [i for i in HASTE_IDS if (folder / f"{i}.png").exists()]
+    got2, mins1 = {}, []
+
+    def two(k, t, st, x, y):
+        if st is not None:
+            l, m = g.look(ids[0], 5000.0 + t, st, x, y)
+            got2[k] = l
+            if k < 56 and m is not None:
+                mins1.append(m)
+    _walk(f1, ic, ids, two)
+    wrong = {k: (got2.get(k), v) for k, v in HASTE_LEFT.items() if got2.get(k) != v}
+    if wrong:
+        bad.append(f"after learning: {len(wrong)} of {len(HASTE_LEFT)} verified frames wrong/None {dict(list(wrong.items())[:4])}")
+    if any(m != 1 for m in mins1) or len(mins1) < 40:
+        bad.append(f"minutes digit on 215426 before the last minute: {len(mins1)} reads, values {sorted(set(mins1))}")
+    # the minutes digit sequence on 221755
+    seq = ""
+
+    def three(k, t, st, x, y):
+        nonlocal seq
+        if st is not None:
+            _, m = g.look(ids[0], 9000.0 + t, st, x, y)
+            if m and (not seq or seq[-1] != str(m)):
+                seq += str(m)
+    _walk(f2, ic, ids, three)
+    if seq != "121212":
+        bad.append(f"221755 minutes digit runs {seq} (expected 121212)")
+    # a store with only 4 and 5 learned: unlearned digits read None, never a wrong number
+    part = buffs.BuffGlyphs(_scratch() / "glyphs_part.json")
+    part.t["seconds"] = {k: v for k, v in g.t["seconds"].items() if v in ("4", "5")}
+    part.t["minutes"] = {}
+    seen = []
+
+    def four(k, t, st, x, y):
+        if st is not None and k >= 56:
+            l, m = part.look(ids[0], 7000.0 + t, st, x, y)
+            seen.append(l)
+    _walk(f1, ic, ids, four)
+    ok_vals = {44, 45, 54, 55}
+    if any(l is not None and l not in ok_vals for l in seen) or not any(l is not None for l in seen):
+        bad.append(f"partial store (4, 5 only) read {sorted({l for l in seen if l is not None})}")
+    # when each digit became readable (looks are fed in file time; the recording's big digits start at t_big)
+    tb = info["t_big"]
+    when = {}
+    for t, kind, d in learned:
+        if kind == "seconds":
+            when.setdefault(d, t - tb)
+        elif t < 1000:
+            when.setdefault("m" + d, t - tb)
+        else:
+            when.setdefault("m" + d, t - 1000.0 - info["rec2_start"])
+    order = ", ".join(f"{d} {v:.0f}s" for d, v in sorted(when.items(), key=lambda kv: kv[1]))
+    return (not bad), (f"learned from scratch, seconds into the countdown: {order} (m1 = minutes 1, m2 = minutes 2 counted "
+                       f"from the start of 221755); first seconds read at frame {first_read}; 19 verified frames exact after "
+                       f"learning, none wrong before; partial store reads None" if not bad else "; ".join(bad[:6])), False
+
+
+def run_learn(frames=None, icons=None):
+    """Replay 20261107_221755 through ScreenSource._buffs + Feed (what the tracker does) with the countdown digits
+    learned from scratch (run_glyphs): the icon is on at frame 0 (mid-buff: nothing learned from it), the first recast
+    (minutes digit up) is a fresh cast whose minutes-digit sync at 2 -> 1 gives its end: 160 s = Haste level 7, stored
+    for the caster "?"; the next cast starts from it."""
+    frames = Path(frames) if frames else HASTE_FRAMES2
+    folder = haste_icons(icons)
+    files = sorted(frames.glob("*.jpg")) if frames.is_dir() else []
+    if not files or folder is None or not HASTE_FRAMES.is_dir():
+        return True, "skipped: needs dev/fixtures/burst/20261107_221755 + 215426 and assets/skill_icons/4101001.png", True
+    from PIL import Image
+    from base import paths
+    from launcher import compose
+    from engine import buffs, vitals
+    from engine.sources.screen import ImageFrames
+    gpath, _info = _learn_from_scratch(folder)
+    src = compose.screen_source(paths.load_config(), ImageFrames([]))
+    src.bglyphs = buffs.BuffGlyphs(gpath)           # the digits learned from scratch (a scratch file, not the player's)
+    src.watch_buffs(["4101001"], folder=str(folder))
+    f, _ = _feed()
+    f.party_n = 3
+    f.sync_watch(_prof_who())
+    bad, seen = [], []
+    t0 = 1000.0
+    for k, fl in enumerate(files):
+        im = Image.open(fl).convert("RGB")
+        src._buffs(t0 + k * 0.5, im.crop(buffs.strip_box(im.size)), im.crop(tuple(vitals.strip_box(im.size, (1920, 1080)))))
+        for tt, kind, v in src.take_facts():
+            f.fact(tt, kind, v, None)
+        pb = f.section_usage(0, None)["party_buffs"].get("4101001")
+        if pb:
+            seen.append((k, pb["level"], pb["src"], pb["est"]))
+    lv = ((f.model.data.get("party_levels") or {}).get("4101001") or {}).get("?", {}).get("level")
+    if lv != 7:
+        bad.append(f"learned level {lv} (expected 7 = 160 s)")
+    first = next((x for x in seen if x[2] == "learned"), None)
+    if first is None or first[0] < 100:
+        bad.append(f"first learned at frame {first} (expected after the first 2 -> 1 sync, frame ~126)")
+    if any(x[2] == "learned" for x in seen if x[0] < 120):
+        bad.append("learned from the mid-buff start")
+    return (not bad), (f"level 7 learned at frame {first[0]} (t {first[0] / 2:.0f} s), stored for \"?\"" if not bad
+                       else "; ".join(bad)), False
+
+
+def _prof_who():
+    p = _Prof()
+    p.who = "tester"
+    return p
+
+
+def _cast_run(f, level, start=10.0, err=0.0, mid_way=False, off_first=True, sid="4101001"):
+    """Feed one Haste at `level` (duration from the skill table + err) as the source would: an off fact, the icon on at
+    `start`, a fact each second with the small minutes digit (60 s or more left) or the big digits (under 60 s).
+    mid_way = the app starts with the icon already on (no off fact first, and the cast began before `start`)."""
+    from components.skillbar import partyfx
+    D = partyfx.duration(sid, level) + err
+    if off_first and not mid_way:
+        f.fact(start - 5.0, "buffs", {"on": [], "left": {}, "mins": {}}, None)     # off long enough (PARTY_OFF_S)
+    k = 0
+    skip = 25 if mid_way else 0                      # mid-way: the first look is 25 s into the buff
+    while D - k - skip > 0:
+        left = D - k - skip
+        t = start + k
+        if left >= 60:
+            f.fact(t, "buffs", {"on": [sid], "left": {}, "mins": {sid: int(left // 60)}}, None)
+        else:
+            f.fact(t, "buffs", {"on": [sid], "left": {sid: int(left)}, "mins": {}}, None)
+        k += 1
+    f.fact(start + k, "buffs", {"on": [], "left": {}, "mins": {}}, None)
+
+
+def _learned(f, sid="4101001"):
+    return {k: v["level"] for k, v in ((f.model.data.get("party_levels") or {}).get(sid) or {}).items()}
+
+
+def run_party():
+    from components.skillbar import feed, partyfx
+    bad = []
+    if [partyfx.speed("4101001", lv) for lv in (1, 7, 19, 20)] != [10, 16, 28, 30]:
+        bad.append("Haste speed per level")
+    sl = partyfx.party_slots({}, [], 100.0, buffs={"4101001": {"since": 90.0, "ends": 250.0, "est": True, "level": 7,
+                                                                "src": "assumed"}})
+    if not sl or sl[0].get("speed") != 16:
+        bad.append(f"Haste slot speed: {sl}")
+    f, _ = _feed()
+    p = _prof_who()
+    f.party_n = 1                                       # alone: nothing asked for
+    f.sync_watch(p)
+    if f.hub.source.watched != [GUARD] or f.party_watch:
+        bad.append(f"solo: watched {f.hub.source.watched} party {f.party_watch}")
+    f.party_n = 3
+    f.sync_watch(p)
+    if f.hub.source.watched != [GUARD, "4101001"] or f.party_watch != ["4101001"]:     # one id per picture
+        bad.append(f"party: watched {f.hub.source.watched}")
+    # --- first sight (the app starts with the icon on: no t0), exact digits
+    f.fact(10.0, "buffs", {"on": ["4101001"], "left": {}, "mins": {}}, None)
+    pb = f.section_usage(10.0, None)["party_buffs"]
+    if pb.get("4101001") != {"since": 10.0, "ends": 170.0, "est": True, "mins": None, "level": 7, "src": "assumed"}:
+        bad.append(f"first sight (level 7 = 160 s): {pb}")
+    f.fact(40.0, "buffs", {"on": ["4101001"], "left": {"4101001": 57}}, None)
+    f.fact(41.0, "buffs", {"on": ["4101001"], "left": {"4101001": 56}}, None)
+    pb = f.section_usage(41.0, None)["party_buffs"]["4101001"]
+    if pb["ends"] != 97.0 or pb["est"] or _learned(f):
+        bad.append(f"digits / mid-way start learned something: {pb} {_learned(f)}")
+    # --- slots
+    party = {"ok": True, "t": 50.0, "members": [{"name": "Sin", "job": "Assassin", "map": "A"}]}
+    pbs = f.section_usage(41.0, None)["party_buffs"]
+    sl = partyfx.party_slots(party, [], 50.0, "A", buffs=pbs)
+    h = sl[0] if sl else {}
+    if len(sl) != 1 or h["id"] != "4101001" or h["from"] != ["Sin"] or not h["on"] or h["ends"] != 97.0 or h["est"] or h["dim"]:
+        bad.append(f"slot exact (one caster): {sl}")
+    sl = partyfx.party_slots(None, [], 50.0, "A", buffs=pbs)          # no party link at all: still a slot
+    if len(sl) != 1 or sl[0]["from"] != ["Haste"] or not sl[0]["on"]:
+        bad.append(f"slot without the relay: {sl}")
+    two = {"ok": True, "t": 50.0, "members": [{"name": "Sin", "job": "Assassin"}, {"name": "Bo", "job": "Bandit"}]}
+    sl = partyfx.party_slots(two, [], 50.0, "A", buffs=pbs)
+    if len(sl) != 1 or sl[0]["from"] != ["Haste"]:
+        bad.append(f"two casters = one Haste slot: {sl}")
+    bandit = {"ok": True, "t": 50.0, "members": [{"name": "Bo", "job": "Bandit", "map": "A"}]}
+    sl = partyfx.party_slots(bandit, [], 50.0, "A", buffs=pbs)
+    if len(sl) != 1 or sl[0]["id"] != "4101001" or sl[0]["from"] != ["Bo"]:
+        bad.append(f"a Bandit's Haste is the same slot: {sl}")
+    sl = partyfx.party_slots(bandit, [], 50.0, "A", buffs={})
+    if len(sl) != 1 or sl[0]["on"] or sl[0]["ends"] is not None:
+        bad.append(f"caster but no icon = off slot: {sl}")
+    if partyfx.party_slots(None, [], 50.0, "A", buffs={}) or partyfx.party_slots({"ok": True, "t": 50.0, "members": []}, [], 50.0, "A", buffs=None):
+        bad.append("nothing known and no icon must give no slot")
+    if partyfx.casters(bandit, "4201001", 50.0) != ["Bo"] or partyfx.casters(bandit, "4101001", 50.0) != ["Bo"]:
+        bad.append("casters of the twin ids")
+    est = {"4101001": {"since": 10.0, "ends": None}}
+    h = partyfx.party_slots(party, [], 50.0, "A", buffs=est)[0]
+    if not h["on"] or not h["est"] or h["ends"] != 10.0 + 160 or partyfx.duration("4101001", 7) != 160:
+        bad.append(f"slot estimate: {h}")
+    # --- learning the level from a fresh cast, every table end of the range
+    for lv in (1, 7, 19, 20):
+        g, _ = _feed()
+        g.party_n = 3
+        g.sync_watch(_prof_who())
+        _cast_run(g, lv)
+        want = {"?": lv}
+        if _learned(g) != want:
+            bad.append(f"learn level {lv}: stored {_learned(g)}")
+    g, _ = _feed()
+    g.party_n = 3
+    g.sync_watch(_prof_who())
+    _cast_run(g, 7, err=5.0)                         # 165 s is 5 s from both 160 and 170 (+-4): unknown
+    if _learned(g):
+        bad.append(f"5 s off the table was learned: {_learned(g)}")
+    _cast_run(g, 7, err=3.0, start=300.0)            # 163 s: within +-4
+    if _learned(g) != {"?": 7}:
+        bad.append(f"3 s off the table not snapped: {_learned(g)}")
+    g, _ = _feed()
+    g.party_n = 3
+    g.sync_watch(_prof_who())
+    _cast_run(g, 7, mid_way=True)                    # app started mid-buff: no t0, nothing learned
+    if _learned(g):
+        bad.append(f"mid-way start learned {_learned(g)}")
+    # a missed look mid-buff (icon off for under PARTY_OFF_S) is not a fresh cast: nothing learned from what is left
+    g, _ = _feed()
+    g.party_n = 3
+    g.sync_watch(_prof_who())
+    g.fact(10.0, "buffs", {"on": ["4101001"], "left": {}, "mins": {"4101001": 2}}, None)
+    g.fact(40.0, "buffs", {"on": [], "left": {}, "mins": {}}, None)
+    g.fact(41.0, "buffs", {"on": ["4101001"], "left": {}, "mins": {"4101001": 2}}, None)
+    g.fact(142.0, "buffs", {"on": ["4101001"], "left": {"4101001": 59}, "mins": {}}, None)   # end 201 = 160 s after the false t0: would read as L7
+    if _learned(g):
+        bad.append(f"a missed look was taken for a fresh cast: {_learned(g)}")
+    # the estimate before the end is known: m0 narrows the level; a learned level is the prior of the next cast
+    g, _ = _feed()
+    g.party_n = 3
+    g.sync_watch(_prof_who())
+    g.fact(5.0, "buffs", {"on": [], "left": {}, "mins": {}}, None)
+    g.fact(10.0, "buffs", {"on": ["4101001"], "left": {}, "mins": {"4101001": 4}}, None)      # 240-299 s: L15-19
+    pb = g.section_usage(10.0, None)["party_buffs"]["4101001"]
+    if pb["level"] != 17 or pb["src"] != "range" or pb["ends"] != 10.0 + 260 or not pb["est"]:
+        bad.append(f"minutes digit 4 at the cast: {pb}")
+    g.model.data["party_levels"] = {"4101001": {"?": {"level": 19, "t": 1.0}}}
+    g.fact(296.0, "buffs", {"on": [], "left": {}, "mins": {}}, None)
+    g.fact(301.0, "buffs", {"on": ["4101001"], "left": {}, "mins": {"4101001": 4}}, None)
+    pb = g.section_usage(301.0, None)["party_buffs"]["4101001"]
+    if pb["level"] != 19 or pb["src"] != "learned" or pb["ends"] != 301.0 + 280:
+        bad.append(f"stored level 19 + minutes digit 4: {pb}")
+    g.fact(396.0, "buffs", {"on": [], "left": {}, "mins": {}}, None)
+    g.fact(401.0, "buffs", {"on": ["4101001"], "left": {}, "mins": {"4101001": 2}}, None)     # 19 does not fit 120-179
+    pb = g.section_usage(401.0, None)["party_buffs"]["4101001"]
+    if pb["src"] != "range" or pb["level"] != 6 or pb["ends"] != 401.0 + 150:
+        bad.append(f"stored level outside the digit's range: {pb}")
+    # --- recasts and the icon going off
+    h = _prof_who()
+    f, _ = _feed()
+    f.party_n = 3
+    f.sync_watch(h)
+    f.fact(42.0, "buffs", {"on": [], "left": {}, "mins": {}}, None)
+    if f.party_buff:
+        bad.append(f"off: {f.party_buff}")
+    f.fact(100.0, "buffs", {"on": ["4101001"], "left": {}, "mins": {"4101001": 2}}, None)
+    f.fact(101.0, "buffs", {"on": ["4101001"], "left": {}, "mins": {"4101001": 2}}, None)
+    pb = f.section_usage(101.0, None)["party_buffs"]["4101001"]
+    if not pb["est"] or pb["mins"] != 2 or not 120 <= pb["ends"] - 101.0 <= 179:
+        bad.append(f"minutes 2 estimate: {pb}")
+    f.fact(102.0, "buffs", {"on": ["4101001"], "left": {}, "mins": {"4101001": 1}}, None)
+    pb = f.section_usage(102.0, None)["party_buffs"]["4101001"]
+    if pb["est"] or abs(pb["ends"] - (101.5 + 120)) > 1e-6:
+        bad.append(f"minutes 2 -> 1 sync: {pb}")
+    f.fact(170.0, "buffs", {"on": ["4101001"], "left": {"4101001": 53}, "mins": {}}, None)
+    pb = f.section_usage(170.0, None)["party_buffs"]["4101001"]
+    if pb["est"] or pb["ends"] != 223.0:
+        bad.append(f"digits after sync: {pb}")
+    f.fact(171.0, "buffs", {"on": ["4101001"], "left": {}, "mins": {"4101001": 2}}, None)
+    pb = f.section_usage(171.0, None)["party_buffs"]["4101001"]
+    if pb["since"] != 171.0 or not pb["est"] or pb["ends"] != 171.0 + 120 or pb["level"] != 3 or pb["src"] != "learned":
+        bad.append(f"recast (minutes digit while < 60 s were left; level 3 was learned from the first cast): {pb}")
+    f.fact(172.0, "buffs", {"on": ["4101001"], "left": {}, "mins": {"4101001": 2}}, None)
+    f.fact(173.0, "buffs", {"on": ["4101001"], "left": {}, "mins": {"4101001": 3}}, None)      # digit up = cast again
+    pb = f.section_usage(173.0, None)["party_buffs"]["4101001"]
+    if pb["since"] != 173.0:
+        bad.append(f"recast (minutes digit up): {pb}")
+    # digits unreadable PARTY_MISS facts in a row with time left (after exact digits) = cast again, not fresh
+    f.fact(200.0, "buffs", {"on": ["4101001"], "left": {"4101001": 40}, "mins": {}}, None)
+    for i in range(feed.PARTY_MISS):
+        f.fact(201.0 + i, "buffs", {"on": ["4101001"], "left": {}, "mins": {}}, None)
+    d = f.party_buff["4101001"]
+    if d["since"] != 201.0 + feed.PARTY_MISS - 1 or d["ends"] is not None or d["fresh"]:
+        bad.append(f"recast (digits gone): {d}")
+    f.party_n = 1                                       # left the party: forgotten
+    f.sync_watch(h)
+    if f.party_buff or f.party_watch:
+        bad.append(f"left party: {f.party_buff}")
+    return (not bad), ("party buff logic ok" if not bad else "; ".join(bad)), False
+
+
 if __name__ == "__main__":
     a = sys.argv[1:]
     kw = {}
@@ -199,7 +671,7 @@ if __name__ == "__main__":
         kw["frames"] = a[a.index("--frames") + 1]
     if "--icons" in a:
         kw["icons"] = a[a.index("--icons") + 1]
-    for name, fn in (("frames", lambda: run_frames(**kw)), ("logic", run_logic)):
+    for name, fn in (("frames", lambda: run_frames(**kw)), ("logic", run_logic), ("haste", run_haste), ("glyphs", run_glyphs), ("learn", run_learn), ("party", run_party)):
         ok, note, skipped = fn()
         print(f"{'SKIP' if skipped else 'PASS' if ok else 'FAIL'}  {name}: {note}")
         if not ok:

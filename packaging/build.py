@@ -63,7 +63,7 @@ HIDDEN = ["launcher.setup_ui", "hub.settings_ui", "engine.calibrate", "component
           "win32gui", "pystray._win32"]
 EXCLUDE = ["cv2",        # only used by windows-capture to save files; replaced by rthook_cv2.py
            "pkg_resources", "setuptools"]   # not used; its runtime hook breaks the build
-FORBIDDEN = ["config.json", "helper_settings.json", "glyphs.json", "glyphs_level.json", "glyphs_ui.json", "glyphs_hud.json", "glyphs_msg.json",
+FORBIDDEN = ["config.json", "helper_settings.json", "glyphs.json", "glyphs_level.json", "glyphs_ui.json", "glyphs_hud.json", "glyphs_msg.json", "glyphs_buff.json",
              "party.json", "live.json", "challenge.json", "challenge_cmd.json", "relic.json", "relic_cmd.json",
              "minimap_world.png", "minimap_header.png", "nametag.png"]
 

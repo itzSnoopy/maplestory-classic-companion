@@ -87,10 +87,13 @@ class Source:
         fact. False when this source can't (default)."""
         return False
 
-    def watch_buffs(self, ids):
+    def watch_buffs(self, ids, folder=None):
         """Skill ids (strings) whose buff icon at the top right of the game window should be watched. The source
-        then adds a 'buffs' fact {"on": [ids showing]} once at start and whenever the set changes (ids it has no
-        icon for are never reported; calling again with the same ids is cheap). Default: no-op."""
+        then adds a 'buffs' fact {"on": [ids showing], "left": {id: seconds}, "mins": {id: n}} once at start and whenever the set
+        changes (ids it has no icon for are never reported; calling again with the same ids is cheap). `folder` =
+        pictures <folder>/<id>.png for ids the player has no cut of (a party member's Haste): those are found by
+        correlation and, in the last 60 s of the buff, their seconds-left digits are read into "left" (only ids
+        whose digits could be read; "mins" = the small white minutes digit, read while 60 s or more are left: n means n*60 .. n*60+59 s; an update about once a second while such a buff shows). Default: no-op."""
 
     def take_facts(self):
         """Long-lived character facts seen since the last call: [(t, kind, value)], kind 'stat' |
@@ -142,7 +145,7 @@ EVENTS = (
     ("facts_begin", "facts [(t, kind, value)], prof (character.Profile), now. A batch of facts is about to be dealt out "
                     "(prof already holds it): per-batch work (skillbar: another character starts over)"),
     ("fact", "t, kind, value, prof. Each fact of the batch in order: 'vitals' {hp, mp: [cur, max]}, 'away', 'map' "
-             "(name), 'exp' {cur, pct}, 'party' (box rows), 'buffs' {on: [skill ids whose buff icon shows; only ids asked for with Source.watch_buffs]}, 'exp_gain' {base, party_bonus, overflow, own} / 'meso_gain' {mesos, overflow} / "
+             "(name), 'exp' {cur, pct}, 'party' (box rows), 'buffs' {on: [skill ids whose buff icon shows; only ids asked for with Source.watch_buffs], left?: {id: seconds left read from the countdown digits}, mins?: {id: whole minutes left from the small digit}}, 'exp_gain' {base, party_bonus, overflow, own} / 'meso_gain' {mesos, overflow} / "
              "'item_gain' {name, count, tab} / 'msg_other' {text} (message corner, engine/msgcorner.py), plus the Profile's who / stat / skills / channel. "
              "Components that share state through the facts see them interleaved exactly as the source made them"),
     ("facts", "facts [(t, kind, value)], prof (character.Profile). The whole batch, after every fact event and the "

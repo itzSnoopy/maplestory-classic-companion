@@ -29,7 +29,7 @@ from datetime import datetime
 
 from base import perf
 from base.paths import DATA, asset
-from components.skillbar import maxwatch, meter, mpuse, regen
+from components.skillbar import maxwatch, meter, mpuse, partyfx, regen, skillicons
 from gamedata import formulas, translate
 from hub import history as H
 
@@ -44,6 +44,11 @@ HEAL_RECENT = 30        # own Heal amounts kept per level (the recent average)
 PARTY_HEAL_SEQ_MAX = 10 ** 9   # the relay's limit for the "healed" seq
 # passive recovery skills that tick every 10 s; the bar shows a meter's regen slot only when the
 # character has one of these at level >= 1 (chance-based ones like Critical Recovery don't count)
+PARTY_RECAST_S = 3.0        # a party buff whose digits are missing for PARTY_MISS facts in a row with more than this many s left = cast again
+PARTY_MISS = 4
+PARTY_OFF_S = 3.0           # a party buff icon must have been off this long before an ON counts as a fresh cast (level learning)
+PARTY_LEVEL_TOL = 4.0       # a measured Haste duration must be this near a table duration (s) to give a level
+PARTY_M0_S = 3.0            # the minutes digit counts as read "at the cast" up to this long after it
 BUFF_CAST_S = 3.0           # a buff icon coming on more than this long after a booked cast of it = a cast of its own
 REGEN_SKILLS = {"hp": ["1000000"],                          # Improved HP Recovery (Warrior)
                 "mp": ["2000000", "1110000", "1210000"]}    # Improved MP Recovery (Magician,
@@ -106,7 +111,12 @@ class Feed:
         self.buff_on = {}                       # {buff skill id: bool} from 'buffs' facts (absent: unknown)
         self.flips = deque(maxlen=20)           # [t, skill id, now on, used] icon changes
         self.pending = []                       # casts booked as an attack that a buff may have made: {ev, t, alts}
-        self.watch_sent = None                  # the ids last handed to source.watch_buffs
+        self.watch_sent = None                  # the owned buff ids last handed to source.watch_buffs
+        self.party_watch = []                   # party buff ids (partyfx icon entries) watched while in a party
+        self.watch_all_sent = None              # (owned ids, party ids) last handed to source.watch_buffs
+        self.party_buff = {}                    # {party buff id: {since, ends|None, ...}} while its icon shows (live.json usage.party_buffs)
+        self.party_off_t = {}                   # party buff id -> when its icon was seen OFF (since the watch began); an ON at least
+                                                # PARTY_OFF_S later = a fresh cast (a shorter gap = a missed look, not a cast)
 
     def wants_fast(self, now):
         """The regen clock wants looks at burst rate now (meter.Meter.wants_fast)."""
@@ -175,17 +185,36 @@ class Feed:
                 out.append(sid)
         return sorted(out)
 
+    def _party_ids(self):
+        """Party buffs whose icon to look for in the buff list: the partyfx entries read from it, only while the party
+        box has other members (their pictures are fetched from MeowDB when missing: skillicons.path)."""
+        if self.party_n <= 1:
+            return []
+        ids = sorted(sid for sid, e in partyfx.PARTY_SKILLS.items()
+                     if e["kind"] == "buff" and e.get("icon") and not e.get("same_as"))      # one id per picture
+        for sid in ids:
+            skillicons.path(sid)                # starts the download when missing and allowed
+        return ids
+
     def sync_watch(self, prof):
-        """Tell the source which buffs to look for (when the list changed; icons appear as the Skill window is read)."""
+        """Tell the source which buffs to look for (when the list changed; icons appear as the Skill window is read).
+        Owned buffs come first (their cuts from the Skill window), then the party's (pictures in skillicons.folder())."""
         src = getattr(self.hub, "source", None)
         if src is None or prof is None or not prof.who:
             return
         ids = self._watch_ids(prof)
+        party = self._party_ids()
         if ids != self.watch_sent:
             self.watch_sent = ids
             self.buff_on = {k: v for k, v in self.buff_on.items() if k in ids}
+        if party != self.party_watch:
+            self.party_watch = party
+            self.party_buff = {k: v for k, v in self.party_buff.items() if k in party}
+            self.party_off_t = {}
+        if (ids, party) != self.watch_all_sent:
+            self.watch_all_sent = (ids, party)
             try:
-                src.watch_buffs(ids)
+                src.watch_buffs(ids + [i for i in party if i not in ids], folder=skillicons.folder())
             except Exception:
                 pass
 
@@ -200,6 +229,124 @@ class Feed:
                 if now_on and sid == mpuse.NIMBLE_ID and t - self.usage.last_cast.get(sid, -1e9) > BUFF_CAST_S:
                     self.usage.last_cast[sid] = round(t, 2)     # icon came on with no cast booked: that's the cast
             self.buff_on[sid] = now_on
+        left, mins = (v or {}).get("left") or {}, (v or {}).get("mins") or {}
+        for sid in self.party_watch:           # party buffs: lit while the icon shows; the end from the best source
+            if sid not in on:
+                self.party_buff.pop(sid, None)
+                self.party_off_t.setdefault(sid, t)
+                continue
+            self._party_buff(sid, t, left.get(sid), mins.get(sid))
+
+    # -- party buffs (Haste): the end, and the caster's skill level learned from the timing ---------------
+    def _party_levels(self):
+        return self.model.data.setdefault("party_levels", {}) if self.model is not None else {}
+
+    def _caster_key(self, sid):
+        """The caster's name when party.json has exactly one caster of the skill's jobs, else "?"."""
+        try:
+            party = json.loads((DATA / "party.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            party = {}
+        names = partyfx.casters(party, sid, time.time())
+        return names[0] if len(names) == 1 else "?"
+
+    def _party_prior(self, sid):
+        """(level, src) to assume for a new cast: the level learned for this caster (or for "?"), else the entry's."""
+        rec = self._party_levels().get(sid) or {}
+        for key in dict.fromkeys((self._caster_key(sid), "?")):
+            lv = (rec.get(key) or {}).get("level")
+            if isinstance(lv, int) and partyfx.duration(sid, lv):
+                return lv, "learned"
+        return (partyfx.PARTY_SKILLS.get(sid) or {}).get("level") or 1, "assumed"
+
+    def _party_cast(self, sid, d, t, fresh):
+        """A cast starts at t: `fresh` = seen happen (the icon came on after being seen off, or a recast the minutes
+        digit / the digit swap showed), so t0 is its start and the duration can be learned. Not fresh = no t0."""
+        d.update(fresh=fresh, t0=t if fresh else None, m0=None, learned=False)
+        d["level"], d["src"] = self._party_prior(sid)
+        dur = partyfx.duration(sid, d["level"])
+        d["est_end"] = d["since"] + dur if dur else None
+
+    def _party_range(self, sid, d):
+        """The minutes digit at a fresh cast (m0) says duration is in [60 m0, 60 m0 + 59]: a level whose duration is
+        outside is replaced by the middle candidate."""
+        lo, hi = 60 * d["m0"], 60 * d["m0"] + 59
+        dur = partyfx.duration(sid, d["level"])
+        if dur is not None and lo <= dur <= hi:
+            return
+        cands = partyfx.levels_in(sid, lo, hi)
+        if cands:
+            d["level"], d["src"] = cands[len(cands) // 2], "range"
+            d["est_end"] = d["t0"] + partyfx.duration(sid, d["level"])
+
+    def _party_learn(self, sid, d, t):
+        """The exact end is known: duration = end - t0, snapped to the table (+-PARTY_LEVEL_TOL s, and inside the
+        minutes digit's range when it was read) = this caster's Haste level. Fresh casts only; once per cast."""
+        if not d.get("fresh") or d.get("learned") or d.get("t0") is None or not d.get("ends") or d.get("est"):
+            return
+        d["learned"] = True
+        lv = partyfx.level_for_duration(sid, d["ends"] - d["t0"], PARTY_LEVEL_TOL)
+        if lv is None:
+            return
+        dur = partyfx.duration(sid, lv)
+        if d.get("m0") and not 60 * d["m0"] <= dur <= 60 * d["m0"] + 59:
+            return
+        d["level"], d["src"] = lv, "learned"
+        self._party_levels().setdefault(sid, {})[self._caster_key(sid)] = {"level": lv, "t": round(t, 1)}
+        self.heal_dirty = True                  # saved with the regen record
+
+    def _party_buff(self, sid, t, left, mins):
+        """One party buff whose icon shows at fact time t. `left` = seconds from the big digits (last 60 s), `mins` =
+        whole minutes from the small digit (60 s or more left: left in [60n, 60n+59]). Sources of the end, best first:
+        1. big digits: exact;
+        2. the minutes digit going n+1 -> n between two facts = 60(n+1) s left right there: within a second;
+        3. an estimate: cast time + duration at the level (learned for this caster, else assumed 7 = 160 s, else the
+           middle candidate of the minutes digit read at the cast), kept inside the minutes digit's range
+           (a buff first seen mid-way: re-anchored to the middle of the range on the first mismatch).
+        A recast shows as the minutes digit going up, or a minutes digit while the last read said < 60 s left (both
+        are a fresh cast: t0, and the level is learned when the end becomes exact), or (digits unreadable)
+        PARTY_MISS facts without digits with time left (not fresh: when it happened is unknown)."""
+        d = self.party_buff.get(sid)
+        if d is None:
+            d = self.party_buff[sid] = {"since": round(t, 2), "ends": None, "est": True, "mins": None, "t": t, "miss": 0,
+                                        "est_end": None, "anch": False}
+            off = self.party_off_t.pop(sid, None)
+            self._party_cast(sid, d, t, off is not None and t - off >= PARTY_OFF_S)
+        recast = fresh = exact = False
+        if left:
+            d["ends"], d["est"], d["miss"], exact = round(t + left, 2), False, 0, True
+        elif mins:
+            if d["mins"] is not None and mins > d["mins"]:
+                recast = fresh = True
+            elif d["ends"] and not d["est"] and d["ends"] - t < 55:
+                recast = fresh = True               # a minutes digit after "under a minute": cast again
+            elif d["mins"] is not None and mins < d["mins"] and d["mins"] == mins + 1:
+                # the 60(n+1)-second boundary was crossed between the last fact and this one
+                d["ends"], d["est"], exact = round((d["t"] + t) / 2 + 60 * (mins + 1), 2), False, True
+            d["miss"] = 0
+        elif d["ends"] and d["ends"] - t > PARTY_RECAST_S:
+            d["miss"] += 1                          # digits gone with time left: cast again (> 60 s left, no digits yet)
+            if d["miss"] >= PARTY_MISS:
+                recast = True
+        if recast:
+            d.update(since=round(t, 2), ends=None, est=True, miss=0, anch=False, mins=None)
+            self._party_cast(sid, d, t, fresh)
+            exact = False
+        if mins:
+            d["mins"] = mins
+            if d.get("fresh") and d["m0"] is None and t - d["t0"] <= PARTY_M0_S:
+                d["m0"] = mins                      # the digit as the cast began: narrows the level at once
+                self._party_range(sid, d)
+            if d["ends"] is None and d["est_end"] is not None:      # keep the estimate inside the digit's range
+                left_est = d["est_end"] - t
+                if left_est >= 60 * mins + 60 or left_est < 60 * mins:
+                    if not d["anch"]:
+                        d["est_end"], d["anch"] = t + 60 * mins + 30, True
+                    else:
+                        d["est_end"] = t + min(max(left_est, 60 * mins), 60 * mins + 59)
+        if exact:
+            self._party_learn(sid, d, t)
+        d["t"] = t
 
     def _hold(self, ev):
         """Cast events that may be a buff: parked in `pending` (not logged, no pulse) until decided."""
@@ -586,7 +733,10 @@ class Feed:
         return self._section("hp", now, prof)
 
     def section_usage(self, now, prof):
-        return {**self.usage.summary(), "party_heal": self.party_heal_info()}
+        return {**self.usage.summary(), "party_heal": self.party_heal_info(),
+                "party_buffs": {k: {"since": v["since"], "ends": v["ends"] or v["est_end"], "est": v["ends"] is None, "mins": v["mins"],
+                                    "level": v["level"], "src": v["src"]}
+                                for k, v in self.party_buff.items()}}
 
     def section_skills(self, now, prof):
         self.sync_watch(prof)

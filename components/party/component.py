@@ -4,7 +4,8 @@ through the relay you host and writes party.json. The link is opt-in (Settings >
 
 Subscribes: service_start (starts the thread), service_stop (stops it), fact (party).
 Emits (on the link thread): relay_post (components add fields to the post), relay_reply (the relay's answer).
-Publishes: the party section of live.json ({t, rows [{name, me, on_map, hp, leader}]}; rows [] = no box).
+Publishes: the party section of live.json ({t, held, rows [{name, me, on_map, hp, leader, src, held, since, looks}]};
+rows [] = no party): the sticky roster (roster.py), not the raw last look.
 Offers: hub.ask("party_on_map") (another member is on your map, so EXP rises are shares), hub.ask("relay_link")
 (the link's server / code / state and a request() for other relay calls).
 Names come from the source (hub.source.party_name / party_reset, an optional Source hook).
@@ -17,8 +18,12 @@ import time
 
 from base.contract import Component
 from components.party import partylink
+from components.party.roster import Roster
 from hub import helper_settings as HS
 from hub import history as H
+
+
+MATE_FRESH_S = 15.0         # a relay member's numbers count this long (same as the panel)
 
 
 class PartyComponent(Component):
@@ -92,7 +97,8 @@ class PartyComponent(Component):
     def attach(self, hub):
         self.hub = hub
         self.link = None
-        self.box = {"t": None, "rows": []}      # the party box at the last look
+        self.box = {"t": None, "rows": []}      # the sticky roster as of the last look
+        self.roster = None                      # roster.Roster, made at the first look (needs hub.source)
         hub.on("service_start", self.on_start)
         hub.on("service_stop", self.on_stop)
         hub.on("fact", self.on_fact)
@@ -128,34 +134,40 @@ class PartyComponent(Component):
             self._party(t, value, prof)
 
     def party_on_map(self, now=None, max_age=10.0):
-        """Another party member is on your map right now (so your EXP rises are shares)."""
+        """Another party member is on your map right now (so your EXP rises are shares).
+        Built from the sticky roster: a member held through a map-change blip keeps its last on_map (and
+        on_map changes need 2 looks), so this does not flip on/off with the box. The box's last fact must
+        be <= max_age old (facts stop when the game is gone); held rows count while the roster holds them."""
         now = now or time.time()
         p = self.box
         if not p.get("t") or now - p["t"] > max_age:
             return False
         return sum(1 for r in p["rows"] if r.get("on_map")) > 1
 
+    def _mates(self, now):
+        """Relay members fresh right now (party.json): {name: {hp [cur, max] | None, mp, level, map}}."""
+        pj = H.read_json(H.ROOT / "party.json", {})
+        if not pj.get("ok"):
+            return {}
+        lag = max(0.0, now - (pj.get("t") or now))      # age_s was true when the file was written
+        out = {}
+        for m in pj.get("members") or []:
+            if m.get("name") and (m.get("age_s") or 0) + lag <= MATE_FRESH_S:
+                hp = m.get("hp")
+                out[m["name"]] = {"hp": hp if isinstance(hp, (list, tuple)) and len(hp) == 2 else None,
+                                  "mp": m.get("mp"), "level": m.get("level"), "map": m.get("map")}
+        return out
+
     def _party(self, t, rows, prof):
         src = self.hub.source
-        name_of = getattr(src, "party_name", None)
         c = (prof.char() if prof is not None else None) or {}
         me = c.get("name") or c.get("name_guess")
-        mates = [m.get("name") for m in (H.read_json(H.ROOT / "party.json", {}).get("members")
-                                         or [])]
-        known = [n for n in [me] + mates if n]
-        if len(rows) != len(self.box["rows"]) and getattr(src, "party_reset", None):
-            src.party_reset()                    # row names no longer line up
-        out = []
-        for i, r in enumerate(rows):
-            name = name_of(i, r.get("mask"), known, t) if name_of else None
-            out.append({"name": name, "me": bool(me and name == me), "on_map": r["on_map"],
-                        "hp": r["hp"], "leader": r["leader"]})
-        # one unreadable row and one partner not matched to any row: that's them
-        missing = [n for n in mates if n and n not in {o["name"] for o in out}]
-        blank = [o for o in out if not o["name"] or o["name"] not in known]
-        if len(missing) == 1 and len(blank) == 1:
-            blank[0]["name"] = missing[0]
-        self.box = {"t": round(t, 2), "rows": out}
+        mates = self._mates(time.time())
+        known = [n for n in [me] + list(mates) if n]
+        if self.roster is None:
+            self.roster = Roster(getattr(src, "party_name", None), getattr(src, "party_reset", None))
+        out = self.roster.update(t, rows, known, mates, me)
+        self.box = {"t": round(t, 2), "rows": out, "held": self.roster.held}
 
 
 def make_panel(root, get, put, **kw):

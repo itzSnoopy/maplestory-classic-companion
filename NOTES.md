@@ -998,3 +998,118 @@ so `job_name` snaps them and the advancement is caught (next check within `PENDI
   cast: slot caption `+total` (sum for the newest cast), right-click lists "Name +amount (avg ~N)". First sight of a member, a vanished member or a falling seq = baseline, no credit.
 - **Limits:** the receiver only knows a heal landed, not whose, so two Clerics in one party cannot be told apart: a second Cleric's Heal inside the 12 s after the player's own cast is credited to the
   player too (and both count in the receiver's seq / average). A Heal that healed nobody (full HP, no rise) gives no credit. `"_fast"` shortens the gap to the next post; the first post with a new seq still waits for the link loop (<= 3 s).
+
+## 2026-11-07: party Haste in the buff list (top right)
+Recording `dev/fixtures/burst/20261107_215426/` (2/s, 60 s, local only), KPQ with an Assassin's Haste (4101001) on the player.
+- MeowDB skill pictures (32x32 RGBA, `meowdb.com/msclassic/classes/icons/<id>.png`) work as buff templates for skills the
+  player doesn't own: pasted at (3,3) on a 34x35 canvas, MeowDB Magic Guard scored 24.5 vs the Skill-window cut's 23.9 on the
+  2026-10-31 Guard burst; Haste icons gave no false hits there.
+- Haste matched at 30.4 (MATCH 32) while it was not the rightmost icon. Rightmost, under the player's FPS overlay, it got
+  worse (45-60), and in its **last 60 s the game draws big yellow seconds-left digits** over the icon middle ("57", "47",
+  "32"), which breaks the rows 14-30 match (75-83). Another buff at frame 0 showed "7" -> "5" before it went.
+- The digits are a gift: exact seconds left in the last minute. Ideas: match on the icon's lower edge / edges only, or keep
+  tracking a found icon by its own first crop; read the digits (yellow, dark outline) for the countdown.
+- Not seen yet: a fresh Haste appearing (recast), and the full duration.
+
+**Built (2026-11-07, later): party Haste read from the buff list + its countdown digits.** `engine/buffs.py` (`LooseIcon`, `find_loose`,
+`read_left`), `engine/buff_digits.json`, `ScreenSource._buffs`, skill bar `Feed` / `partyfx` / `skillbar_ui`. Check: `python dev/buffs_check.py`.
+- **What the icon really is.** The game draws a buff icon *translucent*: observed = alpha x icon + (1-alpha) x scene (fit on the bottom rows:
+  slope 0.49-0.54 early, 0.32-0.44 in the digit phase, intercept 28-43 = the scene), and in the last 60 s dimmer still. A grey-diff template
+  match therefore can't work (that is why it faded 30 -> 83). **Masked normalized correlation** (zero-mean, unit variance over the masked
+  pixels) is blind to alpha and flat backgrounds. Masks on the 34x35 icon image: `full` = rows 14-33, cols 5-32; `outer` = rows 14-33, cols
+  6-32 minus the digit box rows 12-28 x cols 8-28 (the FPS overlay's rows 0-12 and the cursor-free bottom/side pixels stay).
+- **Scores** (`20261107_215426`, 117 non-faded frames, all found): `full` 0.78-0.83 with no digits (frames 0-27 s, any scene brightness),
+  `outer` 0.87-0.90 -> 1.00 in the digit phase (from 28 s; darker scene = cleaner). The one odd frame (27 s, a cursor over the icon's
+  bottom right) scores 0.64 `full`: found only through the last-spot hint (thresholds 0.12 lower within +-3 x / +-2 y of the last find).
+  Black map-change frame: 0.13. **Scenery / other buffs**: best anywhere in 8 other recordings (1,361 frames checked, every n-th, the
+  1366x768 one at its scale) `full` <= 0.54, `outer` <= 0.59, median 0.4. Thresholds **full >= 0.68, outer >= 0.75** (hint 0.56 / 0.63).
+  Masks kept separate on purpose: `full` alone scored the digit phase 0.41-0.54 (digits are not in the template), `outer` alone scored the
+  no-digit phase 0.69-0.76 (too close to scenery 0.59). Magic Guard (owned path, unchanged): same 12.0-28.0 / 35.0-59 s as before.
+- **Same picture for both Haste ids** (4101001 / 4201001 give identical scores): one scan, both ids reported. Assassin + Bandit both in the party
+  would light both slots (can't be told apart).
+- **Cost:** whole-strip scan (coarse every 2nd pixel, every 3rd icon y, best 3 refined) 2.4 ms per look, rate-limited to once a second while
+  no unowned icon is known (`LOOSE_SCAN_S`); with the last spot 0.63-0.7 ms per look. Digits 0.1 ms. Watched only while the party box has
+  other members.
+- **Digits.** Yellow (min(r,g) - b >= 60, |r-g| < 45, min(r,g) >= 90) inside icon rows 13-26 / cols 3-33, cut into 1-2 glyphs by empty
+  columns, trimmed to their ink (8-11 rows, 2-7 cols; `1` is 3 wide, the others 5-6), compared to the stored masks with a +-1 px shift:
+  read when the best mask differs in <= 4 pixels and the next best in >= 3 more. On the recording that read **59 down to 28 with no wrong
+  value** (62 reads over 64 digit frames; the others are flicker frames at 31 -> 30 where the digits are mid-change and are refused);
+  19 frames checked against the crops by eye (57 at 30 s, 47 at 40 s, 32 at 55 s ...). The masks come from this JPEG recording
+  (`engine/buff_digits.json`: up to 3 variants per digit). **Covered: 0 1 2 3 4 5 6 7 8 9** (`0` only from 50 / 40 / 30 = 5 glyph samples, `1` 5, `2` 4,
+  `6` 5, `7` 7, `8` 8, `9` 8, `3` 23, `4` 26, `5` 26); a single digit (7 -> 5 on the other buff at frame 0) is the same font, not read from this
+  recording (that buff has no template). Digits appear only in the **last 60 s** (the first at 27.5-28 s file time, "59"); before that the icon
+  shows a small white `1` at its bottom left. Not measured: other UI sizes (the crop is rescaled to 1x before reading), lossless frames (live
+  frames are PNG-like: thresholds should only get cleaner), a fresh cast (the full duration; recast detection = digits missing 4 facts in
+  a row with > 3 s left, untested live), several buffs next to each other beyond this one pair.
+- **Second recording `20261107_221755`** (480 frames, 240 s, Haste on throughout, recast twice, dark map from ~136 s): **found on all
+  480 frames** with the last-spot hint (no black frames in it), 477 without hints (the 3 misses score 0.61-0.68 `full`: the instant of a
+  recast); in the check 392 of 392 non-faded frames (the check's HUD-brightness guard skips 88 dark-map frames). Scores `full` 0.72-0.83.
+  No big digit is ever read (and none falsely). The small bottom-left number is **whole minutes left, floor(seconds/60)**: "1" = 60-119 s,
+  "2" = 120-179 s. Evidence: here it runs 1 (23 s) 2 (40 s) 1 (60 s) [recast] 2 (40 s) 1 (60 s) [recast] 2 ... = a 160 s Haste recast at
+  60 s left (player: Speed +16 = Haste level 7 = 160 s); in `20261107_215426` the "1" is on up to the frame before the first big "59", then
+  gone (so the big digits take over once under 60 s). `engine/buffs.read_minutes`: white pixels (mean >= 215, neutral) in icon rows 23-33 x
+  cols 3-11 matched to the stored masks for "1" and "2" (hit >= 0.75 of a mask's pixels, <= 3 extra, margin 0.3); read on every frame of both
+  recordings except the recast-instant flashes (7 of 480) and 2 flicker frames; only 1 and 2 have been seen (3-5 would need a longer Haste or
+  a level 11+ one: unknown glyph shapes, read as None). Not confused with the big digits.
+- **Time source (Feed._party_buff):** big digits = exact; the minutes digit going n+1 -> n between two facts = 60(n+1) s left (sync within a
+  second); else `since + duration` at **level 7 (160 s)**, kept inside the minutes digit's range. Replaying `221755` through ScreenSource +
+  Feed: first sight with "1" -> anchored to 90 s (middle of the range); minutes digit up = recast (160 s estimate, `~`), the next 2 -> 1
+  sync puts the end at 119.5 s left at 63 s and 119.5 s left at 159 s, i.e. exactly cast + 160 s both times (the estimate was 0.5 s off).
+- **Skill bar:** `buffs` fact gets `left: {id: secs}`, `mins: {id: n}` and, while an unowned buff shows, an update every second.
+  `Feed.party_buff` -> live.json `usage.party_buffs {id: {since, ends, est, mins}}`; slot lit while on, seconds from `ends`, shown as `~143` with
+  the caption `~Name` while `est`. Caveats: `since` = first sight, so an app started mid-buff estimates from the middle of the minutes range
+  until the first sync; a caster with another Haste level shows a wrong estimate until a digit change; both Haste ids light together.
+
+**2026-11-07 (later): party Haste without the relay, one slot, level learned from the timing.** `partyfx.party_slots`: an `icon` entry (Haste)
+now gets its slot whenever the buff list shows it (live.json `usage.party_buffs`), even when party.json has no Assassin / Bandit or the link is
+off; 4201001 is `same_as` 4101001 (identical picture), so ONE slot (key `party:4101001`; the engine now watches just 4101001). Caption = the
+caster when party.json names exactly one, else "Haste"; caster in party.json but no icon = dim slot; nothing known + no icon = hidden.
+- **Level learning** (`Feed._party_cast / _party_range / _party_learn`, tests in `dev/buffs_check.py` `run_party` / `run_learn`): Haste lasts
+  100 + 10 (L-1) s, L1-19, L20 = 300 s. A fresh cast (icon on after seen off, or a recast the minutes digit shows) has t0. The minutes digit m
+  at the cast puts the duration in [60m, 60m+59] = a few levels (m=1: L1-2, 2: L3-8, 3: L9-14, 4: L15-19, 5: L20); the estimate uses the stored
+  (else default 7) level when it fits, else the middle candidate (m=2 -> L6 150 s, m=4 -> L17 260 s). The exact end (big digits, or the 2 -> 1
+  sync, +-0.5 s) gives duration = end - t0, snapped to the table within +-4 s and inside m's range -> level, stored in the regen record
+  `party_levels {"4101001": {name or "?": {level, t}}}`. **Replaying 20261107_221755: level 7 (160 s) learned at 63 s** (the first recast at
+  23 s; frame 0's mid-buff icon teaches nothing). Synthetic: L1 / 7 / 19 / 20 each learned; 163 s learned as 7, **165 s unknown** (10 s steps with
+  +-4 means a duration 6 s off a table value is only 4 off the next one and reads as that level: only the 5 +-1 s zone stays unknown);
+  app started mid-buff = nothing learned; stored level 19 + minutes digit 2 (does not fit) -> middle candidate. Slot right-click shows
+  `Haste Lv 7 (160 s, learned|assumed)`.
+- **Open (not done): the Stat window's detail panel.** Speed / Jump with the buff would pin the level at once (Speed +10..+28 at L1-19, +30 at L20, all
+  different). Needs a recording of that window with Haste on first; no reading of Speed / Jump exists yet.
+- 2026-11-07 (review): a fresh cast for level learning needs the icon OFF for >= 3 s (`feed.PARTY_OFF_S`). Without it, one missed
+  look mid-buff gave a false t0, and since the time left always fits the minutes digit's range and snaps within +-4 s to a 10 s
+  table step most of the time, it taught a wrong level. Check: buffs_check "a missed look" case (fails with PARTY_OFF_S = 0).
+
+
+## Sticky party roster (2026-11-07)
+Party box rows are published from `components/party/roster.py`, not the last look. Recordings (dev/fixtures/burst, local): a map
+change blanks the box 4.5-5.1 s. Grace for a different row count (0 = gone): 6 s for a party stable < 60 s, linear to 20 s at 600 s+,
+flicker taken after 3x grace; `party_reset` only on an accepted count. Names: replacement needs 2 + held_s/15 repeated looks (max 8);
+raw OCR never replaces a snapped name; on_map needs 2 looks. Relay members: `src relay`, exact HP %. `python dev/party_sim.py` replay,
+old -> new published row-count changes: 215426 3 -> 0, 221755 8 -> 0, 012726 2 -> 0, 222236 2 -> 1 (a real 8.5 s 4 -> 3 -> 4); name
+changes 221755 1 -> 0, 012726 2 -> 0.
+
+**2026-11-08: the countdown digit masks are learned at run time, not shipped** (coordinator: glyph masks cut from the game's font are Nexon
+material like `glyphs_hud.json`). `engine/buff_digits.json` is gone (git rm / deleted; a copy for my own checking only in the gitignored
+`dev/local/`). `engine/buffs.py` `BuffGlyphs` learns into `<data>/glyphs_buff.json` (`{"seconds": {glyph key: digit}, "minutes": {...}}`, ignored by
+git, in build FORBIDDEN, release_check PRIVATE / ZIP_FORBIDDEN / LOCAL_JSON). `release_check.check_glyph_files` fails on any tracked / untracked /
+shipped json named glyph|digit|mask|font (allow list `GLYPH_ALLOWED`, empty).
+- **Self-labelling, by order not by clock** (the burst recorder's file times jitter by +-0.5 s: frames of one displayed second are spread over
+  1.0-1.5 s of file time, so a floor(E - t) model fits only ~60 % of looks; first try, dropped). The countdown drops exactly 1 per displayed
+  second: (1) a run that shows the small minutes digit and then the big digits starts the last minute: first tens shape = 5, each tens
+  change = one less; (2) at a tens change between two looks <= 0.95 s apart the units shape before is 0 and after 9, each new units shape one less
+  mod 10; (3) any shape that would get two digits drops the run, shapes seen on < 3 looks are not stored, garbled one-off looks (the 31 -> 30
+  flicker) are ignored. Minutes: the shape right before the big digits = 1; a shape X changing to a learned k (1..k-1 all learned) = k+1.
+  Shapes are grouped by a +-1 px Hamming distance <= 3 (seconds) / 2 (minutes); every jitter variant of a learned shape is stored (<= 16).
+  Reads: nearest stored shape within 3 px and the next other digit >= 3 further, else None.
+- **Learning time on the recordings** (fixture looks fed in order into an empty store; `dev/buffs_check.py` `run_glyphs`): `20261107_215426`
+  (big digits from 28 s): minutes **1** at the first analysis after the start of the last minute (~2.5 s), seconds **5 4 3 2 1 0 9 8 7 6 all together
+  ~21 s into the big digits** (file t ~49 s, first read at frame 97) = after a tens change (50 -> 49 at ~38 s) and 2 cycles so each shape has >= 3
+  looks; `20261107_221755`: minutes **2** at 64 s (the first 2 -> 1 step at 63 s + 3 looks). Before that every read is None (nothing wrong
+  was read: reads in the learning pass at the 19 verified frames are None or exact, the sequence non-increasing); after, a fresh run loading the
+  saved file reads the 19 verified frames exactly, the minutes digit 1 on every pre-minute frame and the run 1 2 1 2 1 2 on 221755; a store holding
+  only 4 and 5 reads only 44 / 45 / 54 / 55 or None. Cost: cutting 0.07 ms, a whole look with a learned store 0.3 ms; analysis (clustering <= 400 looks) every 4 s of a run.
+  Live: the player gets the exact seconds only from the second Haste watched through a whole last minute onward (the first one teaches);
+  until then the minutes / estimate path is used. Limits: a run needs the start of the last minute SEEN (looks <= 1.6 s apart) and a tens change
+  seen with looks <= 0.95 s apart: at the default 2 looks/s fine, at 1 look/s a tens change may not qualify; digits 3-5 of the minutes digit are
+  learned only when a 3 -> 2 (4 -> 3 ...) step is watched; other UI sizes unmeasured (crops are rescaled to 1x before cutting).

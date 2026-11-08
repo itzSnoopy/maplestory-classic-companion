@@ -40,6 +40,8 @@ from engine import msgcorner
 from engine.sources.base import ABSENT, OK, UNAVAILABLE, Observation, Source
 
 
+LEFT_EVERY_S = 1.0       # 'buffs' fact while an unowned buff shows, with the seconds left read from its digits (buffs.BuffGlyphs.look)
+LOOSE_SCAN_S = 1.0      # whole-strip scan for unowned buffs while none is known (3 ms)
 PARTY_EVERY_S = 1.0     # party box look (party.py, ~4 ms)
 STALE_SHOT_S = 5.0      # a delayed diary picture this overdue is dropped (game left the screen)
 STAT_TEACH_EVERY_S = 3.0    # Stat window with unknown digits: whole frame (HUD EXP/level) this often
@@ -204,6 +206,15 @@ class ScreenSource(Source):
         self.buffs_last = None              # the set last sent as a "buffs" fact
         self.buff_try = None                # (t first seen, set) of a change waiting for its second look
         self.hud_lum = 1.0                  # brightest HP/MP strip lately (fade guard in _buffs)
+        self.buff_want, self.loose_dir = [], None   # every id asked for / the folder of pictures for ones without a cut
+        self.loose_ids = []                 # asked ids with no cut of their own but a picture in loose_dir (buffs.find_loose)
+        self.loose_icons = {}               # {scale key: {id: LooseIcon}}
+        self.loose_hint = {}                # {id: (x, y)} where each was found last
+        self.loose_t = 0.0                  # last whole-strip scan that found nothing
+        self.loose_check_t = 0.0            # last look for newly downloaded pictures
+        self.left_t = 0.0                   # last 'buffs' fact sent for a running countdown
+        self.left_last = {}                 # {id: seconds} in the last such fact
+        self.bglyphs = buffs.BuffGlyphs(log=log)    # the countdown digits, learned at run time (glyphs_buff.json, local)
         self.msgcorner = msgcorner.MsgCorner(DATA / "glyphs_msg.json")  # gain lines, bottom-right corner (msgcorner.py); templates kept locally
 
     def read(self, hints):
@@ -351,7 +362,7 @@ class ScreenSource(Source):
                     if self.album_watch:
                         extra.append({"center": ALBUM_PAD})
                     # + the buff strip at the top right (buffs.py) when skills are watched
-                    bbox = buffs.strip_box(self.size) if self.buff_ids else None
+                    bbox = buffs.strip_box(self.size) if (self.buff_ids or self.loose_ids) else None
                     nb = 1 if bbox else 0
                     # + the message corner (msgcorner.py: EXP / mesos gain lines), always the last part
                     extra.append({"box": tuple(msgcorner.box_for(self.size))})
@@ -395,7 +406,7 @@ class ScreenSource(Source):
             self._album_keep(t, frame)
         if exp_img is not None:
             self._quick_exp(t, exp_img)
-        if full and self.buff_ids:
+        if full and (self.buff_ids or self.loose_ids):
             buff_img = frame.crop(buffs.strip_box(frame.size))
         if buff_img is not None:
             self._buffs(t, buff_img, strip if strip is not None else
@@ -494,7 +505,7 @@ class ScreenSource(Source):
             return False
         try:
             sbox = vitals.strip_box(self.size, tuple(self.res or (1920, 1080)))
-            bbox = buffs.strip_box(self.size) if self.buff_ids else None
+            bbox = buffs.strip_box(self.size) if (self.buff_ids or self.loose_ids) else None
             with perf.timed("grab_strip"):
                 got = self.frames.grab_parts([{"box": sbox}] + ([{"box": bbox}] if bbox else []), timeout=0.5)
             strip = got[0]
@@ -514,42 +525,83 @@ class ScreenSource(Source):
         return True
 
     # ---- buff icons (buffs.py)
-    def watch_buffs(self, ids):
-        """Skill ids whose buff icon to watch (Source.watch_buffs). Icons come from templates/skill_icons/<id>.png;
-        a changed list or a newly cut icon starts over (the next look sends the set again)."""
-        ids = [str(i) for i in ids]
+    def watch_buffs(self, ids, folder=None):
+        """Skill ids whose buff icon to watch (Source.watch_buffs). Icons come from templates/skill_icons/<id>.png (the
+        player's own cuts: buffs.find); ids without a cut but with <folder>/<id>.png (MeowDB pictures of skills the
+        player does not own, e.g. a party member's Haste) are found with buffs.find_loose and also give the seconds
+        left. A changed list or a newly arrived icon starts over (the next look sends the set again)."""
+        self.buff_want = [str(i) for i in ids]
+        self.loose_dir = folder
+        self._sync_icons(True)
+
+    def _sync_icons(self, force=False):
         from base.paths import DATA
-        have = [i for i in ids if (DATA / "templates" / "skill_icons" / f"{i}.png").exists()]
-        if have != self.buff_ids:
-            self.buff_ids = have
-            self.buff_icons = {}
+        own = DATA / "templates" / "skill_icons"
+        have = [i for i in self.buff_want if (own / f"{i}.png").exists()]
+        loose = [i for i in self.buff_want if i not in have and self.loose_dir
+                 and (Path(self.loose_dir) / f"{i}.png").exists()]
+        if have != self.buff_ids or loose != self.loose_ids:
+            self.buff_ids, self.loose_ids = have, loose
+            self.buff_icons, self.loose_icons, self.loose_hint = {}, {}, {}
             self.buffs_last = self.buff_try = None
+            self.left_last = {}
 
     def _buffs(self, t, img, hud):
-        """The buff strip (grabbed at buffs.strip_box) -> a 'buffs' fact when the set changed. Two guards
-        against map-change fades (the icon is still there but dimmed, measured 2026-10-31): no look while the
-        HP/MP strip `hud` is much darker than usual, and a change must show on two looks in a row (the fact
-        carries the time of the first)."""
+        """The buff strip (grabbed at buffs.strip_box) -> a 'buffs' fact {on, left?} when the set changed (and about
+        once a second while a countdown is read). Two guards against map-change fades (the icon is still there but
+        dimmed, measured 2026-10-31): no look while the HP/MP strip `hud` is much darker than usual, and a change must
+        show on two looks in a row (the fact carries the time of the first)."""
         try:
             lum = float(sum(hud.resize((16, 4), Image.NEAREST).convert("L").getdata())) / 64
             self.hud_lum = max(self.hud_lum * 0.999, lum)
             if lum < 0.6 * self.hud_lum:
                 self.buff_try = None
                 return
+            if len(self.buff_want) > len(self.buff_ids) + len(self.loose_ids) and t - self.loose_check_t >= 5.0:
+                self.loose_check_t = t              # a wanted picture may have arrived (downloaded)
+                self._sync_icons()
             s = self.size[0] / buffs.REF_W
             key = round(s, 2)
-            if key not in self.buff_icons:
-                from base.paths import DATA
-                self.buff_icons[key] = buffs.load_icons(DATA / "templates" / "skill_icons", self.buff_ids, s)
-            on = sorted(buffs.find(img, self.buff_icons[key]))
+            on, left, mins, seen = set(), {}, {}, False
+            if self.buff_ids:
+                if key not in self.buff_icons:
+                    from base.paths import DATA
+                    self.buff_icons[key] = buffs.load_icons(DATA / "templates" / "skill_icons", self.buff_ids, s)
+                on = buffs.find(img, self.buff_icons[key])
+            if self.loose_ids and (self.loose_hint or t - self.loose_t >= LOOSE_SCAN_S):
+                if key not in self.loose_icons:
+                    self.loose_icons[key] = buffs.load_loose(self.loose_dir, self.loose_ids, s)
+                got = buffs.find_loose(img, self.loose_icons[key], hints=self.loose_hint)
+                self.loose_hint = dict(got)
+                seen = bool(got)
+                if not got:
+                    self.loose_t = t
+                for sid in self.loose_ids:
+                    if sid not in got:
+                        self.bglyphs.lost(sid, t)
+                for sid, (x, y) in got.items():
+                    on.add(sid)
+                    v, mn = self.bglyphs.look(sid, t, img, x, y, s)       # None until that digit is learned
+                    if v:
+                        left[sid] = v
+                    elif mn:                        # 60 s or more left: the small minutes digit instead
+                        mins[sid] = mn
+            on = sorted(on)
             if self.buffs_last is None or on == self.buffs_last:      # first look, or unchanged
                 self.buff_try = None
                 if self.buffs_last is None:
                     self.buffs_last = on
-                    self.facts.append((t, "buffs", {"on": on}))
+                    self.facts.append((t, "buffs", {"on": on, **({"left": left} if left else {}),
+                                                    **({"mins": mins} if mins else {})}))
+                    self.left_t, self.left_last = t, left
+                elif seen and t - self.left_t >= LEFT_EVERY_S:      # an unowned buff is on: an update about once a second
+                    self.facts.append((t, "buffs", {"on": on, "left": left, "mins": mins}))   # (the digits read, maybe none)
+                    self.left_t, self.left_last = t, left
             elif self.buff_try and self.buff_try[1] == on:             # the same change twice
                 self.buffs_last = on
-                self.facts.append((self.buff_try[0], "buffs", {"on": on}))
+                self.facts.append((self.buff_try[0], "buffs", {"on": on, **({"left": left} if left else {}),
+                                                               **({"mins": mins} if mins else {})}))
+                self.left_t, self.left_last = t, left
                 self.buff_try = None
             else:
                 self.buff_try = (t, on)

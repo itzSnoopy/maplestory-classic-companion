@@ -27,19 +27,19 @@ FIXTURE = ROOT / "dev" / "fixtures" / "levelup_lv5"
 ORIG_FIXTURE = ROOT / "sessions" / "20261023_021038" / "levelups" / "Lv5_021225"
 EXPECT_REGULAR = "Lv 4 84.78% -> Lv 5 20.74%, +42 EXP, 1 level-up(s)"   # svc_sim baseline
 # player/local files that must never be committed or packaged
-PRIVATE = re.compile(r"(^|/)(config\.json|helper_settings\.json|glyphs(_level|_ui|_hud|_msg)?\.json|crash\.log)$|"
+PRIVATE = re.compile(r"(^|/)(config\.json|helper_settings\.json|glyphs(_level|_ui|_hud|_msg|_buff)?\.json|crash\.log)$|"
                      r"^(digest\.json|status\.json|journal\.md|diary\.(md|html)|album\.html)$|(^|/)(history|sessions|"
                      r"screenshots|templates|assets|crops|glyphs|game_icons|dev/fixtures|build|dist)/|"
                      r"\.(png|jpe?g|gif|bmp|log|zip|exe)$", re.I)
 # never inside the release zip (game imagery, player data, third-party art)
-ZIP_FORBIDDEN = re.compile(r"(^|/)(config\.json|helper_settings\.json|party\.json|live\.json|glyphs(_level|_ui|_hud|_msg)?\.json|"
+ZIP_FORBIDDEN = re.compile(r"(^|/)(config\.json|helper_settings\.json|party\.json|live\.json|glyphs(_level|_ui|_hud|_msg|_buff)?\.json|"
                            r"minimap_(world|header)\.png|nametag\.png|crash\.log|"
                            r"captions_custom\.json|placeholder_source\.jpg)$|(^|/)(history|sessions|"
                            r"screenshots|templates|assets|crops|glyphs|game_icons|fixtures)/|\.jpe?g$", re.I)
 ALLOWED_IMAGES ={"discord_icon.png", "art/icon.png"}     # original art from the player's artist friend
 CODE_DIRS = {"base", "launcher", "engine", "gamedata", "hub", "components"}
 # root JSON files that are the player's own (never shipped)
-LOCAL_JSON = {"config.json", "helper_settings.json", "glyphs.json", "glyphs_level.json", "glyphs_ui.json", "glyphs_hud.json", "glyphs_msg.json", "live.json", "party.json",
+LOCAL_JSON = {"config.json", "helper_settings.json", "glyphs.json", "glyphs_level.json", "glyphs_ui.json", "glyphs_hud.json", "glyphs_msg.json", "glyphs_buff.json", "live.json", "party.json",
               "digest.json", "status.json"}
 
 results = []
@@ -90,6 +90,24 @@ def check_data_files():
     check("build DATA_FILES exist", not missing, ", ".join(missing))
     check("every tracked code-side .json is shipped or known-local", not unshipped,
           "add to packaging/build.py DATA_FILES or LOCAL_JSON here: " + ", ".join(unshipped))
+
+
+# json files whose name says glyph / digit / mask are font material: learned at run time into the player's data folder,
+# never tracked or shipped. Explicit allow list (none today): a file only gets on it with a written reason here.
+GLYPH_JSON = re.compile(r"(glyph|digit|mask|font)", re.I)
+GLYPH_ALLOWED = set()
+
+
+def check_glyph_files():
+    sys.path.insert(0, str(ROOT / "packaging"))
+    import build
+    files = set(run(["git", "ls-files"]).stdout.split())
+    files |= set(run(["git", "ls-files", "--others", "--exclude-standard"]).stdout.split())
+    files |= set(build.DATA_FILES)
+    bad = sorted(f for f in files if f.endswith(".json") and GLYPH_JSON.search(Path(f).name) and f not in GLYPH_ALLOWED
+                 and not f.startswith(("docs/", "dev/local/")))
+    check("no glyph / digit mask json tracked or shipped (font shapes are learned at run time, local only)", not bad,
+          ", ".join(sorted(set(bad))[:8]))
 
 
 def check_pq_data():
@@ -397,6 +415,10 @@ def check_relay():
     r = run([sys.executable, str(ROOT / "dev" / "relic_sim.py"), str(TMP / "relic_sim")],
             env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=240)
     check("relic sim (hunt: start, eligible kills, drops, shared table, restart)", r.returncode == 0, (r.stdout or r.stderr)[-300:])
+    r = run([sys.executable, str(ROOT / "dev" / "party_sim.py"), str(TMP / "party_sim")],
+            env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=240)
+    check("party sim (sticky roster: blip grace, names, relay numbers; replay of local burst frames when present)",
+          r.returncode == 0, (r.stdout or r.stderr)[-300:])
     r = run([sys.executable, str(ROOT / "dev" / "party_kills_sim.py"), str(TMP / "party_kills_sim")],
             env={"MAPLE_COMPANION_OFFLINE": "1"}, timeout=180)
     check("party kills sim (party EXP shares, learned bonus, calibration)", r.returncode == 0, (r.stdout or r.stderr)[-300:])
@@ -495,6 +517,17 @@ def check_buffs():
           + (" (SKIPPED: no frames/icons here)" if skipped else ""), ok, note)
     ok, note, _ = buffs_check.run_logic()
     check("skill bar: ambiguous 8-MP cast decided by the buff icon flip", ok, note)
+    ok, note, skipped = buffs_check.run_haste()
+    check("buff icons: a party member's Haste found + countdown digits read in the local burst frames, absent elsewhere"
+          + (" (SKIPPED: no frames/icons here)" if skipped else ""), ok, note)
+    ok, note, skipped = buffs_check.run_glyphs()
+    check("buff icons: countdown digits learned from scratch on the local recordings (reads None, never wrong, until learned)"
+          + (" (SKIPPED: no frames/icons here)" if skipped else ""), ok, note)
+    ok, note, skipped = buffs_check.run_learn()
+    check("skill bar: Haste level learned from a fresh cast's timing (221755 replay = level 7)"
+          + (" (SKIPPED: no frames/icons here)" if skipped else ""), ok, note)
+    ok, note, _ = buffs_check.run_party()
+    check("skill bar: party Haste slot from the buff list (lit, exact / estimated end, recast, left party)", ok, note)
 
 
 def main():
@@ -502,6 +535,7 @@ def main():
     check_compile()
     check_layers()
     check_data_files()
+    check_glyph_files()
     check_skill_kinds()
     check_pq_data()
     check_privacy()

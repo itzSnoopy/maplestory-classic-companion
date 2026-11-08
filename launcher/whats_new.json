@@ -1,4 +1,9 @@
 {
+ "0.14.2": [
+  "Skill bar: a party member's Haste now shows with its time left and speed bonus (like \"+16\"), read from your buff list. It works even if they don't use the app.",
+  "The app learns the caster's Haste level from how long it lasts; right-click the Haste slot to see it.",
+  "Party members stay put on map changes: names and the member list no longer jump around."
+ ],
  "0.14.1": [
   "Skill bar: a party member's Heal now shows how much it heals you on average between heals.",
   "Clerics: your Heal slot shows how much your last Heal healed your party (right-click it for each member). Your friends need this version too.",

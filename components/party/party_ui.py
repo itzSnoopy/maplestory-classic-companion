@@ -88,7 +88,7 @@ def members(live, status, pj, now):
         rows = [{"name": me_name, "me": True, "on_map": True, "hp": None, "leader": False}]
     for r in rows:
         c = {"name": r.get("name") or "?", "leader": r.get("leader"), "on_map": r.get("on_map"),
-             "box_hp": r.get("hp"), "me": r.get("me") or (me_name and r.get("name") == me_name)}
+             "box_hp": r.get("hp"), "held": r.get("held"), "src": r.get("src"), "me": r.get("me") or (me_name and r.get("name") == me_name)}
         if c["me"]:
             for k in ("hp", "mp"):
                 m = live.get(k) or {}
@@ -246,10 +246,10 @@ class PartyPanel:
         # HP: live fill from the party box on your map, else the member's own numbers
         hp = c.get("hp")
         frac = None
-        if c.get("on_map") and c.get("box_hp") is not None and not c.get("me"):
-            frac = c["box_hp"] / 100
-        elif hp:
+        if hp and hp[1]:                     # exact numbers (you / a member on the relay) beat the box %
             frac = hp[0] / hp[1]
+        elif c.get("on_map") and c.get("box_hp") is not None and not c.get("me"):
+            frac = c["box_hp"] / 100
         elif c.get("box_hp") is not None:
             frac = c["box_hp"] / 100
         if hp:

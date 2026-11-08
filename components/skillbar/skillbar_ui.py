@@ -339,7 +339,8 @@ class SkillBar:
         self.party = self._json(PARTY)
         self.my_map = self._json(STATUS).get("map")
         ev = ((self.live or {}).get("usage") or {}).get("recent") or []
-        self._set_party(partyfx.party_slots(self.party, ev, time.time(), self.my_map))
+        pb = ((self.live or {}).get("usage") or {}).get("party_buffs")
+        self._set_party(partyfx.party_slots(self.party, ev, time.time(), self.my_map, buffs=pb))
         self._credit(time.time())
 
     def _credit(self, now):
@@ -569,8 +570,12 @@ class SkillBar:
         m = _mark_users(int(self.s * 0.65))
         m.putalpha(m.getchannel("A").point(lambda v: v * 4 // 10))
         icon.alpha_composite(m, ((icon.width - m.width) // 2, icon.height - m.height - 1))
-        who = ", ".join(n[:7] for n in ps["from"][:2]) + ("+" if len(ps["from"]) > 2 else "")
-        cap = self._caption(who, (170, 220, 180, 255))
+        nl = 6 if ps.get("est") else 7              # names a letter shorter when the "~" takes room
+        who = ", ".join(n[:nl] for n in ps["from"][:2]) + ("+" if len(ps["from"]) > 2 else "")
+        cap = self._caption(("~" if ps.get("est") else "") + who, (170, 220, 180, 255))   # ~ = time left is an estimate
+        if ps.get("speed"):                 # a speed buff (Haste): "+16" with the boot mark; "~" = level assumed, not learned
+            cap = self._caption(("" if ps.get("lvl_src") == "learned" else "~") + f"+{ps['speed']}",
+                                PULSE_SPEED + (255,), "boot")
         pk = self.pulses.get("party:" + ps["id"])
         pulse = None
         if pk is not None and now - pk < PULSE_S:
@@ -579,7 +584,9 @@ class SkillBar:
             left = (ps["ends"] or 0) - now
             if left > 0:
                 return (self._slot(icon, frac_left=min(1.0, left / (ps["dur"] or left)),
-                                   mid=f"{math.ceil(left)}", pulse=pulse), cap)
+                                   mid=("~" if ps.get("est") else "") + f"{math.ceil(left)}", pulse=pulse), cap)
+            if ps.get("on"):                # the buff list still shows it, but no time to count (estimate ran out)
+                return self._slot(icon, pulse=pulse), cap
             return self._slot(icon, dim=True, pulse=pulse), cap
         t = ps["last_t"]
         ph = (((self.live or {}).get("usage") or {}).get("party_heal")) or {}
@@ -831,6 +838,14 @@ class SkillBar:
                                   state="disabled")
                 if cast != casts[-1]:
                     m.add_separator()
+            m.add_separator()
+        ps = next((q for q in self.pslots if sid == "party:" + q["id"]), None)
+        if ps and ps.get("on") is not None and ps.get("level"):      # a party buff read from the buff list: its level
+            m.add_command(label=f"{ps['name']} Lv {ps['level']} ({ps['dur']} s, "
+                                f"{'learned' if ps.get('lvl_src') == 'learned' else 'assumed'})"
+                                + (f", Speed +{ps['speed']}" if ps.get("speed") else ""), state="disabled")
+            if ps.get("from"):
+                m.add_command(label="From " + ", ".join(ps["from"]), state="disabled")
             m.add_separator()
         if sid:
             m.add_command(label=f"Remove {names.get(sid) or 'skill'} from the bar",
