@@ -533,6 +533,16 @@ def check_buffs():
     ok, note, skipped = buffs_check.run_bless_frames()
     check("buff icons: the Bless picture is never found in the local burst recordings (negative set)"
           + (" (SKIPPED: no frames/picture here)" if skipped else ""), ok, note)
+    ok, note, _ = buffs_check.run_rage()
+    check("skill bar: Rage as a party buff (caption from the text, durations from the level texts, 5 s level steps)", ok, note)
+    ok, note, skipped = buffs_check.run_rage_frames()
+    check("buff icons: a party Fighter's Rage found on every frame it shows (20261108_224714), never elsewhere"
+          + (" (SKIPPED: no frames/picture here)" if skipped else ""), ok, note)
+    ok, note, skipped = buffs_check.run_rage_learn()
+    check("skill bar: Rage replay: fresh cast, digits learned from scratch (no wrong minutes digit), level 5 learned"
+          + (" (SKIPPED: no frames/picture here)" if skipped else ""), ok, note)
+    ok, note, _ = buffs_check.run_invincible()
+    check("skill bar: Invincible as a self-only own timer (no party slot, always mine, Heal average untouched)", ok, note)
 
 
 def main():

@@ -28,6 +28,7 @@ How (measured on 1920x1080, see NOTES.md 2026-10-31):
 Usage: MsgCorner().feed(t, image, cropped=False) -> [(t, kind, value)].
 Check: python -m engine.msgcorner test DIR   (replays a burst-fixture folder against its vitals.csv).
 """
+import copy
 import re
 import sys
 from difflib import SequenceMatcher
@@ -46,7 +47,7 @@ PITCH = 14
 SLOTS = 10                            # lines tracked (6 seen stacked)
 H = 13
 DIGIT_X0 = 304                        # crop column of the last digit cell (5 wide), pitch 7 to the left
-CELL_W, CELL_PITCH = 5, 7
+CELL_W, CELL_PITCH, CELL_H = 5, 7, 13
 
 # ---- tracking numbers ------------------------------------------------------------------------
 MIN_PIXELS = 100                      # colour-mask pixels for a line to count as "present" (full line ~300)
@@ -54,19 +55,32 @@ MAX_PIXELS = 900
 B_NEW = 165                           # a new line is at least this bright (measured 180-250 on its first look)
 B_STRONG = 200                        # clearly fresh: a line this bright can't vanish, can't appear unexplained
 NEW_COST = 0.7                        # cost of one more new line (an old, dimmed line also looks "bright enough")
-PEAK_TOL = 7                          # a continuing line may not get brighter (98th percentile of G) than this (JPEG noise ~3)
+PEAK_TOL_UP = 11                      # ... but lines above the bottom one: the picture behind them changes (clouds)
+PEAK_TOL = 11                         # a continuing line may not get brighter (98th percentile of G) than this (JPEG noise ~3)
 NOFADE_COST = 1.0                     # ... but a bright line that did not fade at all is a little more likely a NEW identical one
 PUSH_SLACK = 6                        # new lines may push a bright line off the top only if they are about as fresh as it
+VISIBLE = 6                           # slots that can hold a line (= MAX_LINES); slots 6-9 only exist as geometry
 MAX_LINES = 6                         # the game shows at most 6 lines; older ones are pushed out at once (more
                                       # than 6 kills in one tick are partly never shown)
 B_GONE = 160                          # below this a line may vanish
 OWN_RATIO = 0.73                      # first-look blue/red of the brightest 30% of the line: white 0.87-0.96, yellow 0.54-0.59
 B_READ = 150                          # still readable
 GAP_S = 5.0                           # no look for this long: every old line is gone
+ROPE_MAXW = 4                         # a rope is at most this many columns wide (as seen by the mask)
+B_YOUNG = 120                         # ... if it was this bright (a first look can be dim)
+YOUNG_S, YOUNG_GONE = 0.6, 6.0         # a line younger than this that was seen last look cannot vanish (cost)
+HELD_GONE = 0.3                       # cost of a held line staying unseen
+HOLD_LOOKS = 3                        # a bright line missing for up to this many looks in a row is held, not forgotten
 KEEP_S = 6.0                          # a tracked line older than this can't still be on screen
 LEFT_TOL = 3
+DIM_RATE, DIM_SLACK = 80.0, 25.0        # fastest believable dimming of a line (peak G per second) + noise
+FRESH_PEAK, FADE_TOL = 250, 3          # a line dimmer than this is fading; a fading line does not get brighter than this
+LEFT_FAR = 70                          # left edges further apart than this are different lines
 CONTAIN = 0.70
 B_SHAPE = 140                         # both looks at least this bright: compare exact shapes
+SIM_DARK, SIM_DARK_DIM, SIM_SAME, SIM_DOUBT = 0.45, 0.65, 0.85, 0.75   # outline-in-the-picture test of 'same line' (see _sim)
+EXTRA_DARK = 0.6                      # a shadow pixel is darker than this part of the ink / outline split
+READ_THR, READ_THR_LO = 0.75, 0.62                       # ink / outline split of a glyph against the picture, as a part of the line's brightness
 CELL_FLICKER = 4                      # px of flicker allowed per digit cell (busy backgrounds); different digits differ >= 5
 NUM_X, NUM_ABS = 290, 5               # the number part of a line (digit cells, "+", parentheses) must agree almost exactly
 SHAPE_ABS, SHAPE_REL = 10, 0.15       # allowed differing pixels (JPEG noise) for the same line
@@ -109,9 +123,8 @@ def _outlined(a):
     g = a[..., 1]
     p = np.pad(g, 1, mode="edge")
     lo = g.copy()
-    for dy in range(3):
-        for dx in range(3):
-            lo = np.minimum(lo, p[dy:dy + g.shape[0], dx:dx + g.shape[1]])
+    for dy, dx in ((1, 2), (2, 1), (2, 2)):          # the outline is a drop shadow: below / right / diagonal of the ink
+        lo = np.minimum(lo, p[dy:dy + g.shape[0], dx:dx + g.shape[1]])
     return (lo <= OUT_DARK) & (g - lo >= OUT_DROP)
 
 
@@ -128,6 +141,26 @@ def _thin(m):
     return m & ~bad
 
 
+def _unrope(m):
+    """Climbing ropes (thin bright vertical strands) cross the text and pass the colour/outline tests. Text never has ink in the
+    free row between two lines (the 14th row of the pitch), a rope runs through it: a column with ink in 3 or more of those rows
+    (of the rows beside the 6 line slots) is a rope and is cleared (+-1) in every slot. Wide runs of such columns are stone
+    texture or a bright wall, not a rope (and the ")" columns at the right edge are never taken for one): they stay."""
+    rows = [SLOT0 + H - PITCH * j for j in range(VISIBLE) if 0 <= SLOT0 + H - PITCH * j < m.shape[0]]
+    cnt = m[rows].sum(0)
+    cols = cnt >= 3
+    cols[RIGHT - 4:] = False
+    if cols.any():
+        d = np.diff(np.concatenate(([0], cols.astype(np.int8), [0])))
+        for st, en in zip(np.where(d == 1)[0], np.where(d == -1)[0]):
+            if en - st > ROPE_MAXW:
+                cols[st:en] = False
+        cols = cols | np.roll(cols, 1) | np.roll(cols, -1)
+    if cols.any():
+        m = m & ~cols[None, :]
+    return m, cols
+
+
 def _dilate(m):
     p = np.pad(m, 1)
     d = np.zeros_like(m)
@@ -138,7 +171,7 @@ def _dilate(m):
 
 
 class _Slot:
-    __slots__ = ("present", "left", "bright", "mask", "dil", "rows", "bits", "peak", "num")
+    __slots__ = ("present", "left", "bright", "mask", "dil", "rows", "bits", "peak", "num", "rope", "fr", "held", "numlo", "kind", "line")
 
     def __init__(self):
         self.present = False
@@ -147,19 +180,27 @@ class _Slot:
         self.mask = self.dil = self.bits = None
         self.peak = 0.0
         self.rows = 0
-        self.num = None             # the number read from the shape with the learned digit templates (None = unknown)
+        self.rope = None
+        self.held = 0               # looks in a row this slot was not seen (a bright line cannot vanish: it is kept in mind)
+        self.num = False            # the (+N) number read by templates from the picture: False = not looked at yet, None = none
+        self.numlo = False
+        self.line = None            # the tracked _Line this slot was matched to (its read number is known even when this look's picture is not)
+        self.kind = False           # label kind by templates against the picture (False = not looked at)
+        self.fr = None              # the frame this slot came from (shared dict: g, padded g)
 
 
 class _Line:
     """One message line being tracked (follows its text up the stack)."""
-    __slots__ = ("t", "frames", "state", "kind", "num", "votes", "emitted", "slot", "last_bright", "t_last", "tries", "overflow", "own", "item")
+    __slots__ = ("t", "frames", "state", "kind", "num", "votes", "emitted", "slot", "last_bright", "t_last", "tries", "overflow", "own", "item", "tvotes", "unseen")
 
     def __init__(self, t, state):
         self.t, self.t_last, self.frames = t, t, 1
         self.state = state          # pending | read | unknown | ghost | failed
         self.kind = self.num = None
         self.votes = {}
+        self.tvotes = {}            # whole-line text reads (item / other lines), apart from the (kind, number) votes
         self.emitted = False
+        self.unseen = False         # held in mind this look (not visible): nothing to read
         self.slot = None
         self.last_bright = 0.0
         self.tries = 0
@@ -183,6 +224,10 @@ class MsgCorner:
         self.stats = {"frames": 0, "idle": 0, "new_lines": 0, "tess_calls": 0, "unknown": 0, "unread": 0,
                       "ghost": 0, "resync": 0, "orphan_bonus": 0, "conflict": 0, "learned_digits": 0,
                       "template_reads": 0, "tess_reads": 0, "items": 0, "other_text": 0}
+        self._rings = {}
+        self._dt = 0.3
+        self._stack_key, self._stack_data, self._stack_ink = None, None, []
+        self._gfull, self._y1 = None, 0
         self.text_cache = {}                              # line pixels -> OCR text (item / other lines)
         self.unknown_lines = []                           # [(t, why)] for the debug report
         self.out = []
@@ -248,8 +293,9 @@ class MsgCorner:
             self.t_prev = t
             return []
         a16 = a.astype(np.int16)
-        m = _thin(_colour_mask(a16) & _outlined(a16))
+        m, self._rope = _unrope(_thin(_colour_mask(a16) & _outlined(a16)))
         g = a16[..., 1]
+        self._fr = {"g": g, "gp": None}
         cur = [self._slot(m, g, k) for k in range(SLOTS)]
         mt = m
         self.out = []
@@ -266,7 +312,7 @@ class MsgCorner:
     def _slot(self, m, g, k):
         s = _Slot()
         y1 = SLOT0 - PITCH * k
-        if y1 < 0:
+        if y1 < 0 or k >= VISIBLE:                 # the game never shows a 7th line: rows above are scenery (rock edges, stones)
             return s
         sl = m[y1:y1 + H]
         n = int(sl.sum())
@@ -275,6 +321,9 @@ class MsgCorner:
         colsum = sl.sum(0)
         run = np.convolve(colsum, np.ones(8, dtype=int), "valid")
         left = int(np.argmax(run >= 8))
+        cols = _text_cols(sl | self._rope[None, :], 20)      # ink counted from the right while gaps stay word-sized: a rope or speckle far
+        if len(cols) and cols[0] > left:           # to the left is not the start of the line
+            left = int(cols[0])
         s.present, s.left = True, left
         s.bright = float(g[y1:y1 + H][sl].mean())
         s.peak = float(np.percentile(g[y1:y1 + H][sl], 98))
@@ -283,48 +332,140 @@ class MsgCorner:
         gs = g[y1:y1 + H]
         s.bits = sl & (gs >= 0.7 * float(np.percentile(gs[sl], 95)))      # brightness-free shape of the line
         s.rows = y1
-        if self.digits:
-            s.num = self._shape_number(s.bits)
+        s.rope = self._rope
+        s.fr = self._fr
         return s
 
-    def _shape_number(self, b):
-        """The "(+N)" number of a slot's shape by the learned digit cells, as a string; None if not that shape / not learned."""
-        n = self._find_number(b)
-        if n is None:                       # the ")" flickers on busy backgrounds: look for digits followed by a "+" instead
-            for k in range(1, 5):
-                x0 = DIGIT_X0 - CELL_PITCH * k
-                if self._classify(b[:, x0:x0 + CELL_W], 7, 2) == "+" and all(self._classify(self._cell(b, i), 7, 2) for i in range(k)):
-                    n = k
-                    break
-            if n is None:
-                return None
-        chars = [self._classify(self._cell(b, i), 7, 2) for i in range(n)]      # looser than the reader: thin strokes lose pixels
-        return None if None in chars else "".join(reversed(chars))
+    def _slot_num(self, sl, lo=False):
+        """The "(+N)" number of a slot as a string, read by the templates from the picture (cached); None if the line has no
+        such tail or it cannot be read (item lines, ropes, templates not learned yet). lo = a laxer ink / outline split for
+        fading lines (only used to confirm a number the other look already read)."""
+        if sl.num is False:
+            sl.num = None
+            ln = sl.line
+            if ln is not None and ln.state == "read" and ln.num is not None:
+                sl.num = sl.numlo = str(ln.num)         # already read from an earlier look of this very line
+            elif self.digits and sl.fr is not None and sl.peak >= 120:
+                fr = sl.fr
+                if fr["gp"] is None:
+                    fr["gp"] = np.pad(fr["g"], 1, mode="edge")
+                r = self._read_digits(fr["gp"], sl.rows, READ_THR * sl.peak)
+                if r is not None:
+                    sl.num = "".join(reversed(r))
+        if lo:
+            if sl.num is None and sl.numlo is False:
+                sl.numlo = None
+                r = self._read_digits(sl.fr["gp"], sl.rows, READ_THR_LO * sl.peak) if sl.fr is not None and sl.peak >= 120 else None
+                if r is not None:
+                    sl.numlo = "".join(reversed(r))
+            return sl.num if sl.num is not None else sl.numlo
+        return sl.num
 
     # ================================================================ stack tracking
+    @staticmethod
+    def _sim(p, c, keep):
+        """How much of the outline (drop shadow) of p's ink is dark in c's picture, 0..1. Looks at the picture, not at c's
+        mask, so speckles / cloud edges that flip the mask around do not matter; a different text has its shadow elsewhere."""
+        ink = p.bits & keep[None, :]
+        sh = np.zeros_like(ink)
+        sh[1:, 1:] = ink[:-1, :-1]
+        sh &= ~ink
+        n = int(sh.sum())
+        if n == 0 or c.fr is None:
+            return 0.0
+        dark = c.fr["g"][c.rows:c.rows + H] <= (SIM_DARK if c.peak >= 225 else SIM_DARK_DIM) * c.peak     # a fading shadow is only half dark
+        return int((dark & sh).sum()) / n
+
     def _match(self, p, c):
+        r = self._match_shape(p, c)
+        if r > 0 and self._fading_same(p, c):
+            return 0
+        return r
+
+    def _fading_same(self, p, c):
+        """A line that fades on a pale background loses its shadow (the picture test fails) while its number stays readable:
+        same number read on both sides, left edges close, p already dimmed and c not brighter = the same line, older. A fresh
+        identical amount is full brightness (peak ~255), so it is brighter than p and stays a new line."""
+        if p.peak >= FRESH_PEAK or c.peak > p.peak + FADE_TOL:
+            return False
+        pn = self._slot_num(p, True)                 # the laxer split: a faded number is read at 0.62 of the brightness
+        if pn is None or pn != self._slot_num(c, True):
+            return False
+        kp, kc = self._slot_kind(p, pn), self._slot_kind(c, pn)
+        return kp is not None and kp == kc          # (the left edge of a faded line is no use: the mask eats its first letters)
+
+    def _slot_kind(self, sl, num):
+        """Which label (exp / bonus / meso) a slot carries, by the label templates against the picture with the laxer split
+        (cached); None when unclear. Used only to tell two faded lines with the same number apart."""
+        if sl.kind is not False:
+            return sl.kind
+        sl.kind = None
+        ln = sl.line
+        if ln is not None and ln.state == "read" and ln.kind in LABELS:
+            sl.kind = ln.kind
+            return sl.kind
+        if self.labels and sl.fr is not None and sl.peak >= 100:
+            fr = sl.fr
+            if fr["gp"] is None:
+                fr["gp"] = np.pad(fr["g"], 1, mode="edge")
+            thr = READ_THR_LO * sl.peak
+            x_end = DIGIT_X0 - CELL_PITCH * len(num) - 4 - 2
+            errs = {}
+            for kind, ref in self.labels:
+                if kind not in LABELS:
+                    continue
+                w = ref.shape[1]
+                e = min(self._tscore(fr["gp"], sl.rows, x_end - w + dx, ref, thr) / max(1, int(ref.sum())) for dx in (-1, 0, 1))
+                errs[kind] = min(e, errs.get(kind, 9))
+            if len(errs) >= 2:
+                order = sorted(errs.items(), key=lambda kv: kv[1])
+                if order[0][1] < 0.35 and order[1][1] > order[0][1] + 0.15:
+                    sl.kind = order[0][0]
+        return sl.kind
+
+    def _match_shape(self, p, c):
         """Cost of "c is the earlier slot p again (same text, maybe dimmer)": 0 same, 1.5 doubtful, 3 different.
         Two bright looks are compared pixel by pixel on the brightness-free shape (a different digit shows in
         the number part); dim ones by containment of the colour mask."""
-        if abs(p.left - c.left) > LEFT_TOL:
-            return 3
+        dl = abs(p.left - c.left)
+        if dl > LEFT_FAR:                                  # the left edge of a line is only as good as its first letters'
+            return 3                                       # mask (busy backgrounds eat them): the shape test decides the rest
         if p.bright >= B_SHAPE and c.bright >= B_SHAPE:
             lo = max(0, min(p.left, c.left) - 2)
-            pb, cb = p.bits[:, lo:], c.bits[:, lo:]
+            keep = np.ones(p.bits.shape[1], dtype=bool)
+            for r in (p.rope, c.rope):
+                if r is not None and len(r) == len(keep):
+                    keep &= ~r                     # columns a rope crossed in either look say nothing
+            pbits, cbits = p.bits & keep[None, :], c.bits & keep[None, :]
+            pb, cb = pbits[:, lo:], cbits[:, lo:]
             d = int((pb & ~_dilate(cb)).sum() + (cb & ~_dilate(pb)).sum())     # a pixel flipping next to ink is noise
-            dn = int((p.bits[:, NUM_X:] != c.bits[:, NUM_X:]).sum())      # the number: a different digit shows here
-            if dn > NUM_ABS and p.num is not None and p.num == c.num:
-                dn = 0        # both read the same number with the learned digit cells (thin strokes lose pixels on busy backgrounds)
-            if dn > NUM_ABS and all(int((p.bits[:, DIGIT_X0 - CELL_PITCH * k:DIGIT_X0 - CELL_PITCH * k + CELL_W]
-                                         != c.bits[:, DIGIT_X0 - CELL_PITCH * k:DIGIT_X0 - CELL_PITCH * k + CELL_W]).sum()) <= CELL_FLICKER
-                                    for k in range(3)):
-                dn = 0        # the last cells (digits / "+") agree within flicker: two different digits are >= 5 px apart
-            if d <= max(SHAPE_ABS, SHAPE_REL * int(p.bits[:, lo:].sum())) and dn <= NUM_ABS:
+            pn, cn = self._slot_num(p), self._slot_num(c)
+            if pn is None and cn is None:
+                dn = 0                        # no "(+N)" tail on either (an item line): the whole-line shape decides
+            elif pn is not None and cn is not None:
+                dn = 0 if pn == cn else 99    # both numbers read from the picture: that decides (pixels flicker on busy backgrounds)
+            else:
+                dn = int((pbits[:, NUM_X:] != cbits[:, NUM_X:]).sum())      # one side unreadable: the pixels of the number part
+                known = pn if pn is not None else cn
+                if self._slot_num(c if pn is not None else p, True) == known:
+                    dn = 0    # the fading side read with the laxer split gives the same number
+                if dn > NUM_ABS and all(int((pbits[:, DIGIT_X0 - CELL_PITCH * k:DIGIT_X0 - CELL_PITCH * k + CELL_W]
+                                             != cbits[:, DIGIT_X0 - CELL_PITCH * k:DIGIT_X0 - CELL_PITCH * k + CELL_W]).sum()) <= CELL_FLICKER
+                                        for k in range(3)):
+                    dn = 0    # the last cells (digits / "+") agree within flicker: two different digits are >= 5 px apart
+            ds = min(self._sim(p, c, keep), self._sim(c, p, keep))
+            if (d <= max(SHAPE_ABS, SHAPE_REL * int(pb.sum())) or ds >= SIM_SAME) and dn <= NUM_ABS:
                 return 0
-            return 1.5 if (d <= 2 * SHAPE_ABS and dn <= 2 * NUM_ABS) else 3
+            return 1.5 if ((d <= 2 * SHAPE_ABS or ds >= SIM_DOUBT) and dn <= 2 * NUM_ABS) else 3
         cm = c.mask
         inter = int((cm & p.dil).sum())
-        return 0 if inter >= CONTAIN * max(1, int(cm.sum())) else 3
+        if inter >= CONTAIN * max(1, int(cm.sum())):
+            return 0
+        keep = np.ones(p.bits.shape[1], dtype=bool)
+        for r in (p.rope, c.rope):
+            if r is not None and len(r) == len(keep):
+                keep &= ~r
+        return 0 if min(self._sim(p, c, keep), self._sim(c, p, keep)) >= SIM_SAME else 3      # dim: the outline in the picture
 
     def _best_shift(self, t, prev, cur, plines):
         """n = number of new lines at the bottom: the shift of the previous stack that explains this frame."""
@@ -352,8 +493,10 @@ class MsgCorner:
                 if c.present and p_present:
                     mc = self._match(p, c)
                     cost += mc
-                    if c.peak > p.peak + PEAK_TOL:
+                    if c.peak > p.peak + (PEAK_TOL if j == 0 else PEAK_TOL_UP):
                         cost += 3
+                    elif p.peak - c.peak > DIM_RATE * self._dt + DIM_SLACK:
+                        cost += 3                                   # a line fades by ~45 G per second, not 100 in one look
                     elif p.peak >= 170 and c.peak >= p.peak - 1:
                         cost += NOFADE_COST
                 elif c.present and not p_present:
@@ -361,6 +504,11 @@ class MsgCorner:
                 elif p_present and not c.present:
                     if j >= MAX_LINES:
                         pass                                    # pushed past the cap: gone at once
+                    elif p.held > 0:
+                        cost += HELD_GONE                       # already unseen last look: not seeing it again says little
+                    elif lp is not None and t - lp.t <= YOUNG_S and p.bright >= B_YOUNG:
+                        cost += YOUNG_GONE                      # a line seen last look and born moments ago cannot be gone: this
+                                                                # shift would put it one slot up where nothing is (a re-read, not a new line)
                     elif p.bright >= B_STRONG:
                         cost += 3
                     elif p.bright >= B_GONE:
@@ -389,10 +537,19 @@ class MsgCorner:
             prev = [_Slot() for _ in range(SLOTS)]
             plines = [None] * SLOTS
         else:
+            self._dt = t - self.t_prev if self.t_prev is not None else 0.3
             cost, n = self._best_shift(t, self.prev, cur, old_lines)
             prev, plines = self.prev, old_lines
             if cost >= 6:
                 self.stats["resync"] += 1
+            for j in range(n, min(SLOTS, MAX_LINES)):          # a fresh line that is not seen for a look (the mask loses it on a bright
+                i = j - n                                      # background) is still there: hold it, so it does not come back as a new line
+                pj = prev[i]
+                if (not cur[j].present and pj.present and pj.bright >= B_STRONG and pj.held < HOLD_LOOKS
+                        and plines[i] is not None and t - plines[i].t < KEEP_S):
+                    h = copy.copy(pj)
+                    h.held = pj.held + 1
+                    cur[j] = h
         for j in range(SLOTS):
             c = cur[j]
             if not c.present:
@@ -413,7 +570,10 @@ class MsgCorner:
                     self.stats["ghost"] += 1
                     ln.state = "ghost"
             ln.slot = j
-            ln.last_bright = c.bright
+            c.line = ln
+            ln.unseen = c.held > 0
+            if not ln.unseen:
+                ln.last_bright = c.bright
             new_lines[j] = ln
         # lines that left the picture: flush what they still owe
         alive = {id(l) for l in new_lines if l is not None}
@@ -427,7 +587,7 @@ class MsgCorner:
         tess_budget = 3
         for j in range(SLOTS):
             ln = self.lines[j]
-            if ln is None or ln.state != "pending":
+            if ln is None or ln.state != "pending" or ln.unseen:
                 continue
             c_bright = ln.last_bright
             if c_bright < B_READ:
@@ -438,6 +598,7 @@ class MsgCorner:
             gs = g[y1:y1 + H]
             if ln.own is None:                      # the first look: white = own kill, yellow = a teammate's
                 ln.own = _is_white(a16[y1:y1 + H], gs, m[y1:y1 + H])
+            self._gfull, self._y1 = g, y1
             tess_budget = self._try_read(t, ln, gs, m[y1:y1 + H], tess_budget)
 
     @staticmethod
@@ -503,8 +664,126 @@ class MsgCorner:
                 best = (d_exact, kind)
         return best[1] if best else None
 
+    # ---- reading by template against the picture (not against a binarised copy) ----------------------
+    def _ring(self, tm):
+        """(ink, ring) index arrays of a template padded by 1: ring = its drop-shadow outline (always dark in the game)."""
+        key = (tm.shape, tm.tobytes())
+        r = self._rings.get(key)
+        if r is None:
+            ink = np.pad(tm, 1)
+            ring = np.zeros_like(ink)                  # the outline is a drop shadow: the ink moved one down and one right
+            ring[1:, 1:] = ink[:-1, :-1]
+            ring &= ~ink
+            r = (np.nonzero(ink), np.nonzero(ring), int(tm.sum()))
+            if len(self._rings) < 400:
+                self._rings[key] = r
+        return r
+
+    def _tscore(self, gp, y0, x0, tm, thr, extra=False):
+        """Errors of template `tm` (bool) placed at (y0, x0) of the padded picture gp: ink pixels that are not bright
+        plus outline pixels that are. The background around the glyph does not count, so bright or busy
+        backgrounds do not flood the read."""
+        ink, ring, _ = self._ring(tm)
+        h, w = tm.shape
+        if y0 < 0 or x0 < 0:
+            return 99
+        sub = gp[y0:y0 + h + 2, x0:x0 + w + 2]          # gp is padded by 1, so (y0, x0) here = template corner - 1
+        if sub.shape != (h + 2, w + 2):
+            return 99
+        e = int((sub[ink] < thr).sum() + (sub[ring] >= thr).sum())
+        if extra:                                        # ink-looking pixels (bright, dark shadow below right) the glyph does not have:
+            seen = (sub[1:-1, 1:-1] >= thr) & (sub[2:, 2:] <= EXTRA_DARK * thr)      # "0" is part of "8", it must not pass for it
+            e += int((seen & ~tm).sum())
+        return e
+
+    def _stack(self):
+        """All digit templates as stacked arrays (padded by 1) for one vectorised score; rebuilt when the set changes."""
+        key = sum(len(v) for v in self.digits.values()) + 1000 * len(self.digits)
+        if self._stack_key != key:
+            chars, inkm, ringm, tmm, ninks = [], [], [], [], []
+            for ch, pats in self.digits.items():
+                for tm in pats:
+                    if tm.shape != (CELL_H, CELL_W):
+                        continue
+                    ink = np.pad(tm, 1)
+                    ring = np.zeros_like(ink)
+                    ring[1:, 1:] = ink[:-1, :-1]
+                    ring &= ~ink
+                    chars.append(ch)
+                    inkm.append(ink)
+                    ringm.append(ring)
+                    tmm.append(tm)
+                    ninks.append(int(tm.sum()))
+            self._stack_data = (chars, np.array(inkm).reshape(-1, CELL_H + 2, CELL_W + 2) if inkm else np.zeros((0, CELL_H + 2, CELL_W + 2), bool),
+                                np.array(ringm).reshape(-1, CELL_H + 2, CELL_W + 2) if ringm else np.zeros((0, CELL_H + 2, CELL_W + 2), bool),
+                                np.array(tmm).reshape(-1, CELL_H, CELL_W) if tmm else np.zeros((0, CELL_H, CELL_W), bool))
+            self._stack_ink = ninks
+            self._stack_key = key
+        return self._stack_data
+
+    def _read_digits(self, gp, y1, thr):
+        """Digit chars (last digit first) of a "(+N)" tail by templates against the padded picture gp, or None. Cells
+        are tried from the right until the "+" cell comes out."""
+        def cell(i):
+            x0 = DIGIT_X0 - CELL_PITCH * i
+            chars_, inkm, ringm, tmm = self._stack()
+            if len(chars_) == 0 or x0 < 0 or y1 < 0:
+                return None
+            sub = gp[y1:y1 + CELL_H + 2, x0:x0 + CELL_W + 2]
+            if sub.shape != (CELL_H + 2, CELL_W + 2):
+                return None
+            seen = (sub[1:-1, 1:-1] >= thr) & (sub[2:, 2:] <= EXTRA_DARK * thr)
+            err = (((sub < thr)[None] & inkm).sum((1, 2)) + ((sub >= thr)[None] & ringm).sum((1, 2))
+                   + (seen[None] & ~tmm).sum((1, 2)))
+            cand = [(int(e), -int(n), ch) for e, n, ch in zip(err, self._stack_ink, chars_)]
+            cand.sort()
+            e0, ni0, c0 = cand[0]
+            # a template that is part of a bigger one ("3" inside "8") scores as well on it: the bigger one wins ties
+            if e0 > 3 or any(e <= e0 + 1 and ch != c0 and ni <= ni0 for e, ni, ch in cand[1:]):
+                return None
+            return c0
+        chars = []
+        for i in range(0, 5):
+            c = cell(i)
+            if c is None:
+                return None
+            if c == "+":
+                return chars if chars else None
+            chars.append(c)
+        return None
+
+    def _score_read(self, g, y1, pk):
+        """(kind, number) of the slot at rows y1.. by templates against the picture, or None: the digits, then the label
+        right-aligned at the number (+-1 px)."""
+        if not self.digits or not self.labels or pk < 120:
+            return None
+        thr = READ_THR * pk
+        gp = np.pad(g, 1, mode="edge")
+        chars = self._read_digits(gp, y1, thr)
+        if chars is None:
+            return None
+        n = len(chars)
+        x_end = DIGIT_X0 - CELL_PITCH * n - 4 - 2             # right end of the label region
+        best = None
+        for kind, ref in self.labels:
+            if kind not in LABELS:
+                continue
+            w = ref.shape[1]
+            _, _, ninks = self._ring(ref)
+            for dx in (-1, 0, 1):
+                x0 = x_end - w + dx
+                e = self._tscore(gp, y1, x0, ref, thr)
+                if best is None or e < best[0]:
+                    best = (e, kind, ninks)
+        if best is None or best[0] > max(8, 0.10 * best[2]):
+            return None
+        return best[1], int("".join(reversed(chars)))
+
     def _try_read(self, t, ln, gs, ms, tess_budget):
         b, pk = self._binarize(gs, ms)
+        hit = self._score_read(self._gfull, self._y1, pk)
+        if hit is not None:
+            return self._accept(t, ln, hit[0], hit[1], True, tess_budget)
         n = self._find_number(b)
         if n is None:
             return self._try_text(t, ln, b, tess_budget)
@@ -568,12 +847,21 @@ class MsgCorner:
                     ln.state = "failed"
                     self.stats["unread"] += 1
                 return tess_budget
-            ln.votes[text] = ln.votes.get(text, 0) + 1
-            top = max(ln.votes.items(), key=lambda kv: kv[1])
-            others = [v for k, v in ln.votes.items() if k != top[0]]
+            ln.tvotes[text] = ln.tvotes.get(text, 0) + 1
+            top = max(ln.tvotes.items(), key=lambda kv: kv[1])
+            others = [v for k, v in ln.tvotes.items() if k != top[0]]
             if not (top[1] >= 2 and (not others or top[1] > max(others))) and ln.tries < 6:
                 return tess_budget
             text = top[0]
+            if _label_like(text) and _read_item(text) is None:
+                # a "(+N)" line whose number part was spoiled (`Toukavegpyed mesos (+] 4)`): not a new format. Look again on the
+                # next looks (the templates read it when the picture is cleaner), give up after a few tries without a fact
+                ln.tvotes = {}
+                if ln.tries >= 12:
+                    ln.state = "unknown"
+                    self.stats["unknown"] += 1
+                    self.unknown_lines.append((t, "label-like text " + text))
+                return tess_budget
             if len(self.text_cache) < 400:
                 self.text_cache[key] = text
         item = _read_item(text)
@@ -692,13 +980,13 @@ class MsgCorner:
         ln.emitted = True
 
 
-def _text_cols(b):
+def _text_cols(b, gap=GAP_COLS):
     """Columns with ink, counted from the right while the gaps stay word-sized: speckles of background far to the
     left of the line (rock, clouds) are cut off (a space is <= 6 px)."""
     cols = np.where(b.any(0))[0]
     if len(cols) < 2:
         return cols
-    gaps = np.where(np.diff(cols) > GAP_COLS)[0]
+    gaps = np.where(np.diff(cols) > gap)[0]
     return cols[gaps[-1] + 1:] if len(gaps) else cols
 
 
@@ -772,6 +1060,13 @@ def _ocr_text(bits, stats):
     txt = pytesseract.image_to_string(_render(bits, 5), config="--psm 7").strip()
     txt = re.sub(r"\s+", " ", txt)
     return txt or None
+
+
+def _label_like(text):
+    """OCR text that is a garbled EXP / bonus / meso label."""
+    t = text.lower()
+    return any(SequenceMatcher(None, t[:len(v) + 6], v.lower()).ratio() >= 0.5 or SequenceMatcher(None, t, v.lower()).ratio() >= 0.5
+               for v in LABELS.values()) or "mesos" in t
 
 
 def _read_item(text):

@@ -266,11 +266,14 @@ def find_loose(img, icons, detail=None, hints=None):
 # Their shapes are Nexon's font, so no mask ships: BuffGlyphs learns them from the countdown itself (see its docstring).
 DIGIT_ROWS = (13, 26)       # icon rows / cols searched for the yellow digits
 DIGIT_COLS = (3, 33)
+DIGIT_CORE, DIGIT_CORE_N = 190, 8   # real digits have >= 8 pixels with min(r, g) >= 190 (Rage's flames: none above ~165, 2026-11-08)
 MIN_ROWS, MIN_COLS = (23, 34), (3, 12)      # the small white minutes digit sits here on the icon image (bottom-left)
 GLYPH_FILE = "glyphs_buff.json"
 SEC_SAME, MIN_SAME = 3, 2   # two cut glyphs are the same shape when they differ in at most this many pixels
 SEC_READ, MIN_READ = 3, 3   # a glyph is read as a learned digit within this many pixels...
 READ_MARGIN = 3             # ...when the best other digit is at least this much further
+MIN_DIGIT_S = (45.0, 95.0)    # ...and the learned digit's run lasted this many seconds (a minute, with the frame clock's jitter)
+MIN_STEP_RUN = 6            # a minutes-digit step counts only between two runs of this many same-shape looks each
 LEARN_LOOKS = 3             # a shape is learned only when seen on this many looks
 RUN_GAP_S = 2.5             # looks further apart than this are different runs
 STEP_GAP_S = 1.6            # two looks this close are consecutive (a minutes digit, the start of the last minute)
@@ -327,6 +330,9 @@ def cut_seconds(img, x, y, scale=1.0):
     m = _yellow(a)[DIGIT_ROWS[0]: DIGIT_ROWS[1], DIGIT_COLS[0]: DIGIT_COLS[1]]
     if m.sum() < 15:
         return []
+    core = np.minimum(a[..., 0], a[..., 1])[DIGIT_ROWS[0]: DIGIT_ROWS[1], DIGIT_COLS[0]: DIGIT_COLS[1]]
+    if int((m & (core >= DIGIT_CORE)).sum()) < DIGIT_CORE_N:
+        return []                   # the icon's own orange (Rage's flames) is yellow-ish too but never this bright
     segs, st = [], None
     for i, v in enumerate(m.any(0)):
         if v and st is None:
@@ -637,15 +643,26 @@ class BuffGlyphs:
             spans.append(cur)
         for sp in spans:
             ids, _n = _cluster([o["min"] for o in sp], MIN_SAME)
-            for i in range(1, len(sp)):
-                if ids[i] == ids[i - 1]:
+            runs = []                                        # [class, first index, last index] of consecutive same shapes
+            for i, c in enumerate(ids):
+                if runs and runs[-1][0] == c:
+                    runs[-1][2] = i
+                else:
+                    runs.append([c, i, i])
+            for r0, r1 in zip(runs, runs[1:]):
+                # a real digit step is between two LONG steady runs (a digit lasts a minute); a brief garbled shape (a
+                # translucent icon over a bright scene) next to a learned digit must not be labelled "one more"
+                if r0[2] - r0[1] + 1 < MIN_STEP_RUN or r1[2] - r1[1] + 1 < MIN_STEP_RUN:
                     continue
-                k = self.classify("minutes", sp[i]["min"])
-                if k is None or self.classify("minutes", sp[i - 1]["min"]) is not None:
+                if not MIN_DIGIT_S[0] <= sp[r1[2]]["t"] - sp[r1[1]]["t"] <= MIN_DIGIT_S[1]:
+                    continue                                 # the learned digit k must have shown for about a whole minute
+                                                             # (a jitter variant of the same shape lasts a few seconds)
+                k = self.classify("minutes", sp[r1[1]]["min"])
+                if k is None or self.classify("minutes", sp[r0[2]]["min"]) is not None:
                     continue
                 kk = int(k)
                 if all(str(d) in self.known("minutes") for d in range(1, kk)):
-                    self._commit_minutes(sp, ids, {ids[i - 1]: kk + 1}, t_now)
+                    self._commit_minutes(sp[r0[1]: r0[2] + 1], [0] * (r0[2] - r0[1] + 1), {0: kk + 1}, t_now)
 
     def _commit_minutes(self, looks, ids, lab, t_now):
         support, reps = {}, {}

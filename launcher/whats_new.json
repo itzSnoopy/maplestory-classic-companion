@@ -1,4 +1,9 @@
 {
+ "0.14.3": [
+  "Skill bar: Invincible shows its own countdown and damage cut, and a party Fighter's Rage shows with its time left and attack bonus.",
+  "The helper's right-click menu is tidier and can launch the game (Steam installs).",
+  "Reading meso and EXP lines from the message corner is steadier on busy and bright maps; a Cleric no longer sees Teleport twice."
+ ],
  "0.14.2": [
   "Skill bar: a party member's Haste now shows with its time left and speed bonus (like \"+16\"), read from your buff list. It works even if they don't use the app.",
   "The app learns the caster's Haste level from how long it lasts; right-click the Haste slot to see it.",

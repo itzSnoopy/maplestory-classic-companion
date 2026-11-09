@@ -1183,9 +1183,79 @@ Left over: item names still misread now and then ("Tree Brangh"); 27 lines stay 
 - **Player's store** (copied, read-only): per digit 1 learned sample equals the seed exactly (`+` too), 9 learned digit samples dropped (neighbour specks nearer another char), the rest kept as variants. Learned label kinds: the clean ones (width 98/121/135 incl. trailing blanks) are 1-2 px from the render; the dirty ones (extra rows/specks, `other`) are 33-88 px away and just stay.
 - **Fixtures, `msgcorner test`, empty store vs store seeded by seed_msg only** (Tesseract calls / p95 ms): 222236 matched 16 missed 0, 29 -> 8 calls, p95 276 -> 3 ms; 230602 matched 3 + 1 overflow group, 16 -> 1, 306 -> 3 ms; 012726 (no vitals.csv) 8 exp, mesos 1 -> 3 (the two `+7` at 71.18 are on screen and were missed with the empty store), 44 -> 6 calls; 110613 10 exp, 8 meso (145), 126 -> 100 calls (the bright-map line shapes differ a little: 4 digit variants still get learned). No wrong reads anywhere.
 
+## 2026-11-08 (round 2): message corner, ropes + busy backgrounds (5-min Perion fixture)
+Fixture `dev/fixtures/burst/20261108_153208` (1197 frames, 4 fps, 300 s, solo). Truth built from the player's inventory marks + corner crops (every window viewed):
+14 meso lines up to 205 s: +10@20, +11@26.5 (marked total 21 before 35 s), +26@49.4 (mark 56.9: +26 ok), +26@66.5 and +11@78.4 (mark 85.2: +37 ok), +11@92 and +28@105.5 (mark 109.7: +39 ok),
++13@144.7, +14@161.5, +26@166, +12@178, +12@195.9, +13@196.4, +13@197.1 (mark 205.1: +103 ok). No meso line after 205 s (only EXP +2 at 242). **The phantom** was not a real read: the old reader
+counted ONE `+26` line 7 times (rope, below), `+11` 3 times, `+10` twice, `+26` 3 more times (static stack seen as new lines again and again): 297 read vs 226 real.
+Result (seeded = `seed.seed_msg` store, what the live tracker starts with): **14 of 14 meso lines, exact (sum 226), no extra**, 22 EXP lines (no duplicate found on the frames), 5 item lines.
+Cold (Tesseract bootstraps): 12 of 14 (misses +10@20 and +14@161, learned before the digits existed) and one misread (`+9` read `+3`: Tesseract's wrong 2-agree read gets learned, as before).
+Counters seeded, before -> after: new_lines 220 -> 50, resync 54 -> 12, unread 138 -> 6, unknown 41 -> 1, tess_calls 497 -> 80 (the rest is item lines), mean ms of the busy frames ~ the same.
+Earlier fixtures unchanged, seeded AND cold: 20261108_110613 10 EXP, 8 meso = 145; 222236 matched 16 missed 0 extra 0, 8 meso, own 9/19; 230602 matched 3, 1 overflow group, 9 meso; 012726 8 EXP, seeded
+3 meso (+7,+7,+8: the two +7 are real), cold only +8 (the +7s are on screen for a few looks, too few for two agreeing Tesseract reads).
+What changed (all `engine/msgcorner.py`):
+- **The outline is a drop shadow, not a ring:** measured at real digits, the dark pixels are at (+1,+1) (down-right) of the ink (mean G 46-64 there, 90-180 on the other neighbours). `_outlined` now only looks
+  at the three down-right neighbours (was all 8): left/up cracks next to bright rock no longer qualify. This alone cut the false lines by half. (Correction to the entry above: `_thin` is used for the
+  slot masks too, not only for reading.)
+- **Ropes:** `_unrope` clears every column (+-1) that has ink in 3 or more of the free rows between lines (the 14th row of the pitch; text never has ink there, a climbing rope runs through it). The slot's
+  left edge counts the cleared columns as ink (else a rope through the first letters moves it), `_match` ignores those columns in both looks.
+- **Reading by template against the PICTURE** (`_read_digits`, `_score_read`): per digit cell, error = template ink pixels that are not bright + its shadow pixels that are bright + ink-looking pixels (bright with a
+  dark shadow) the template does not have ("0" is part of "8"); threshold 0.75 x the line's brightness, all templates scored at once (stacked arrays); the "+" cell ends the number, so no
+  parenthesis / digit count is needed; ties go to the bigger template ("3" inside "8"). Then the label right-aligned (+-1 px) by the same score. The old bits path stays as the fallback and for the Tesseract bootstrap.
+  Background around the glyph never counts, so bright / busy backgrounds do not flood the read (Perion rock, clouds, snails, UI).
+- **Same-line test by the picture** (`_sim`): the share of p's shadow pixels that are dark in c's picture (>= 0.85 = same text; positives 0.93-0.97, other text far lower). Replaces the mask compare as the
+  primary test (the old compare stays as an OR); the number part is decided by the numbers read from the picture (`_slot_num`, cached per slot; a laxer split only to CONFIRM a number the other look read).
+  Item lines (no "(+N)") skip the number compare. Left edges are only a reject at > 70 px apart (they are as good as the first letters' mask, which busy backgrounds eat).
+- **A bright line that is not seen for a look is held** (`HOLD_LOOKS` 3, `_Slot.held`, `_Line.unseen`): the mask loses a white line on a white cloud for one look and it used to come back as a NEW line (the +8 at 90.8).
+- Text path: `_Line.tvotes` (the whole-line OCR votes were mixed with the (kind, number) votes: `'tuple' object has no attribute 'strip'`, stats["error"]). A garbled label (`Toukavegpyed mesos (+] 4)`)
+  is no longer a `msg_other` fact: it stays pending for more looks (12 tries) and ends as unknown.
+- Constants: PEAK_TOL 7 -> 11 (bottom slot; scenery behind the text moves the 98th percentile), SHAPE_REL 0.03 -> 0.15 (done in round 1).
+Cost (1920x1080, JPEG replay, seeded): median 0.8-1.4 ms/frame, busy frames 1.4-2 ms (was 0.8-1.0): the mask now has the rope / thin steps and the picture scoring (about 20 vectorised cell scores per look).
+Tesseract is what is left of the spikes (item lines, ~140 ms a call). Tried and dropped: peak-rise tolerance 20 for the upper slots (lost the 230602 overflow group), per-frame `_slot_num` for all slots (3 ms),
+lower read threshold 0.68 for all numbers (misreads -> new lines; now only as confirmation).
+
 ## 2026-11-08: Skill window tie with nothing to break it (Teleport twice on the Cleric's bar)
 A Skill window read on 11-07 22:25:39 had only MP Eater + Teleport readable on the 2nd job tab: F/P, I/L
 and Cleric all have both, so `panels.read_skills` had no tab majority and took the first candidate (F/P).
 Now a row stays unnamed when its candidates span several jobs and the tab can't decide (the next read
 with Heal etc. names it). `hub/character.py` also drops stored skills of a sibling 2nd-job branch
 (`_sibling_branch_skills`: the branch with most stored skills wins), at load and after each read.
+
+## 2026-11-08 (round 4): repeat reads on busy backgrounds (found with `dev/corner_synth.py`)
+`dev/corner_synth.py` draws the gain lines (Arial 12, 1 px drop shadow, white / pale yellow, alpha 1 - 0.17 x age, 4.4 s life) over any picture the player's diary holds (camera walking, ropes, jumps) and scores
+what MsgCorner reads against the exact script; on the dark KPQ and Perion rock backgrounds it gives ~100% (the generator's lines match real ones pixel for pixel). On 10 other maps (2 seeds, 150 s each, raw looks, seeded store)
+the reader found nearly every line but read lines it had already read: **meso 558/570 right, 80 extra; EXP 696/700, 67 extra** (no wrong values, no phantoms: every extra was a line still on screen). Fixes, all `engine/msgcorner.py`:
+- **Slots 6-9 are not slots** (`VISIBLE = 6`): the game never shows a 7th line; stone / rock texture above the text counted as lines there and steered `_best_shift` (a static EXP line was read as a new one).
+- **`_unrope` false positives:** on stone walls the "free row between lines has ink" test flagged text columns (the `)` and digits) as ropes, cleared them, the line vanished for a look and came back as a NEW line.
+  Now only the 6 gap rows beside the slots count, no neighbour-sum, runs wider than `ROPE_MAXW` 4 columns are stone not rope, and the `)` columns are never cleared. This was the biggest single fix (Henesys EXP extras 13/16 -> 0).
+- **Fading line, same number:** `_fading_same`: when the shape test fails (a faded line's shadow is no longer dark on a pale picture) but both looks read the same number (laxer split), carry the same label (`_slot_kind`: label
+  templates against the picture, left edges are useless for faded lines), the older look is already dimmer than `FRESH_PEAK` 250 and the newer is not brighter (`FADE_TOL` 3), it is the same line. A fresh identical amount is full
+  brightness, brighter than the faded one, so it stays a new line.
+- **Dimming speed:** a continuing line cannot lose more than `DIM_RATE` 80 G/s x dt + `DIM_SLACK` 25 (real fade ~45/s): a fresh line followed by an identical one two looks later was explained as "the old line pushed up and dimmed by 100".
+- **Held lines:** a held (unseen) line staying unseen costs `HELD_GONE` 0.3, not 3 (a held line the mask keeps losing made "a new identical line arrived" look too expensive: the 3rd of 3 identical `+25` lines was missed).
+- Tried, no gain / harmful: `PEAK_TOL_UP` 15 / 18 (breaks the 230602 overflow group), more rope tolerance.
+Numbers after (same 10 maps, same seeds): **meso 566/570, 24 extra, 4 missed; EXP 698/700, 6 extra, 2 missed**; meso sum true 118920 vs read 121737 (was 140336). Validation backgrounds: KPQ s1-4 100% recall, extras 1/0/0/2;
+Perion rock s1-3 100% recall, extras 2/5/0. Real fixtures unchanged seeded and cold: 20261108_153208 14/14 meso = 226 (seeded; cold 12/14 as before), 110613 10 EXP + 8 meso = 145, 222236 matched 16 missed 0 extra 0 (8 meso),
+230602 matched 3 + 1 overflow group, 9 meso, 012726 8 EXP + 3 meso seeded (1 cold). Cost: median 0.8-1.4 ms/frame on the fixtures, 1.3-3 ms/look on the busy synthetic backgrounds; p95 is still Tesseract on item lines
+(~140 ms a call; 1107 calls over the 20 runs, mostly item lines and their garbled re-reads; not changed).
+Left over: 4 meso extras on A Hill West of Henesys s1 (a faded copy's peak jumps +11 on a pale picture, so "another identical line arrived" costs less than "the old one is still there"), 3 on L Forest s2 / 5 on Line 1 s2 / 5 on Perion s2 (ropes).
+
+## 2026-11-08 (round 5): one pickup counted on consecutive looks (live, test build 0.14.102)
+Live (Deep Ant Tunnel II, dark cave): `meso 60` at 22:19:40.91, 41.11 and 41.31, then `meso 59` and an item at 41.31: one +60 pickup counted three times (inventory drift -120), the only error in 24 pickups. No frames were kept.
+`dev/corner_synth.py` new switches: `--burst` (every 7-11 s two to four lines land within 1-3 looks: meso+meso+item, identical values, EXP+meso+item, long item names like `Evil Eye Tail x1 earned. (Etc)`), `--fast` (5 looks/s as
+live), `--dropout` (4% of the looks show no line at all), `--fadein` (a line starts at 60% brightness and is full after 0.5 s).
+**Reproduction.** Plain bursts at 5 looks/s did NOT reproduce it on the dark KPQ background (0 extras, 12 seeds) and the round-4 code was already fine there. It reproduced when new lines are drawn dim first and reach full brightness
+(`--fadein`; the first-look brightness of real lines varies 178-250, NOTES 2026-10-31, so a short ramp is plausible): round-4 behaviour re-read lines on consecutive looks on the DARK background too (KPQ 20 / 23 extra meso on 33 / 34
+true, Pig Beach 24 / 23; meso sum 2564 read for 1959 true) = the live signature (one value on 2-3 consecutive looks, bursts around it). With the fix: KPQ 0 / 0, Pig Beach 0 / 0, Henesys 1 / 1, Snail I 2 / 2.
+Mechanism: first look dim (peak ~170), next look brighter by more than `PEAK_TOL`: the "a brighter line at the same slot is a repeated identical pickup" rule (+3) made n=0 cost ~4, while n=1 ("one new line, the old one pushed up")
+cost 0.7 + 1 (the old line only needed to be < B_STRONG bright to be allowed to "vanish" for 1) = 1.7. n=1 won although the old line was not at slot 1 (nothing was there), a new line was born, read, counted; the same again next look.
+**Fix** (`engine/msgcorner.py`): a young line cannot vanish under a shift: any line born <= `YOUNG_S` 0.6 s ago, seen last look and at least `B_YOUNG` 120 bright, that a shift hypothesis would move up a slot where it is not seen, costs `YOUNG_GONE` 6
+(was 3, or 1 when dimmer than 200, or 0.3 when held). A real second identical amount still counts: the old copy is then visible one slot higher and that hypothesis costs 0.7. Also `_Slot.line`: a slot whose own picture cannot be read takes
+its number / kind from the tracked line's earlier read (`_slot_num`, `_slot_kind`), so number comparisons need only one readable picture. The checks that did NOT work and were dropped: suppressing a new line equal to a counted young line that left
+in the same look (breaks 222236: with 6 lines on screen new lines legitimately push young ones off), the same with a 0.5 s window (same regression), YOUNG_GONE without the brightness test.
+Results (10 maps x 2 seeds, seeded, raw): standard script (long item names added, so not comparable with round 4's table) meso 566/570, 36 extra, 4 missed; EXP 656/660, 9 extra, 4 missed. Bursts at 5 looks/s: 670/670 meso, 7 extra (was 12).
+Validation: KPQ s1-4 100% recall, extras 0/0/0/1; Perion rock 100%, extras 0/5/0. Real fixtures unchanged seeded and cold (153208 seeded 14/14 = 226). Remaining misses in `--fadein` runs (two lines in one look, both dim: below `B_NEW`) are a separate,
+untested-live effect and were present before.
+- 2026-11-08: Invincible (2301002, Cleric, self only: "Physical damage -N%, Basic Attack ... for 100 + 10(L-1) s"). Seen in the
+  20261108_224714 recording as the player's own recast at ~41 s (level 1, 100 s). Built as an own timer (partyfx `self`/`own`):
+  no party slot; mine whenever its icon shows and the skill is owned. Only Bless (`heal_boost`) keeps Heal rises out of the average.

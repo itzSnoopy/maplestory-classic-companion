@@ -527,7 +527,7 @@ def run_party():
         bad.append(f"solo: watched {f.hub.source.watched} party {f.party_watch}")
     f.party_n = 3
     f.sync_watch(p)
-    if f.hub.source.watched != [GUARD, "2301003", "4101001"] or f.party_watch != ["2301003", "4101001"]:   # one id per picture
+    if f.hub.source.watched != [GUARD, "1101004", "2301003", "4101001"] or f.party_watch != ["1101004", "2301003", "4101001"]:   # one id per picture
         bad.append(f"party: watched {f.hub.source.watched}")
     # --- first sight (the app starts with the icon on: no t0), exact digits
     f.fact(10.0, "buffs", {"on": ["4101001"], "left": {}, "mins": {}}, None)
@@ -906,6 +906,247 @@ def run_bless():
                        else "; ".join(bad)), False
 
 
+RAGE = "1101004"
+INV = "2301002"
+
+
+class _InvProf(_Prof):
+    def char(self):
+        return {"skills": {"2001000": {"value": 2}, INV: {"value": 3}}}
+
+
+def run_invincible():
+    """Invincible (Cleric, self only): own timer at my level, never a party slot, always mine (no booked cast needed),
+    does not keep Heal rises out of the average (only Bless boosts Heal)."""
+    from components.skillbar import feed, partyfx
+    bad = []
+    if partyfx.caption(INV, 1) != ("-1%", "shield") or partyfx.caption(INV, 20) != ("-20%", "shield"):
+        bad.append(f"captions {partyfx.caption(INV, 1)} {partyfx.caption(INV, 20)}")
+    if partyfx.self_ids() != [INV] or INV not in partyfx.own_ids() or partyfx.heal_boost_ids() != [BLESS]:
+        bad.append(f"ids self {partyfx.self_ids()} own {partyfx.own_ids()} heal_boost {partyfx.heal_boost_ids()}")
+    party = {"ok": True, "t": 100.0, "members": [{"name": "Cler", "job": "Cleric", "map": "A"}]}
+    sl = partyfx.party_slots(party, [], 100.0, "A", buffs={INV: {"since": 90.0, "ends": 200.0, "est": True, "level": 3,
+                                                                    "src": "assumed"}})
+    if any(s["id"] == INV for s in sl):
+        bad.append(f"Invincible got a party slot: {sl}")
+    for party_n in (1, 3):
+        f = feed.Feed(hub=_Hub())
+        f._watch_ids = lambda prof: [GUARD, INV]
+        f._write_casts = lambda: None
+        f._log_events = lambda ev: None
+        f.party_n = party_n
+        p = _InvProf()
+        f.begin(p, 0.0)
+        f.sync_watch(p)
+        f.fact(5.0, "buffs", {"on": [], "left": {}, "mins": {}}, None)
+        f.fact(10.0, "buffs", {"on": [INV], "left": {}, "mins": {INV: 2}}, None)     # no booked cast: still mine
+        tm = f.own_timer(INV)
+        if not tm or tm["level"] != 3 or tm["dur"] != 120 or tm["cap"] != "-3%" or abs(tm["ends"] - 130.0) > 0.01 \
+                or not tm["est"]:
+            bad.append(f"own timer (party_n {party_n}): {tm}")
+        pb = f.section_usage(10.0, None)["party_buffs"].get(INV) or {}
+        if not pb.get("mine"):
+            bad.append(f"not mine (party_n {party_n}): {pb}")
+        f.fact(80.0, "buffs", {"on": [INV], "left": {INV: 50}, "mins": {}}, None)   # digits: exact end
+        tm = f.own_timer(INV)
+        if not tm or tm["est"] or abs(tm["ends"] - 130.0) > 0.01:
+            bad.append(f"own timer from digits (party_n {party_n}): {tm}")
+    return not bad, "Invincible logic ok (captions, no party slot, always mine, own timer, Heal untouched)" \
+        if not bad else "; ".join(bad), False
+RAGE_FRAMES = ROOT / "dev" / "fixtures" / "burst" / "20261108_224714"      # a party Fighter's Rage (L5, 170 s), cast fresh at ~6 s
+RAGE_ON = (6.0, 178.1)         # the icon shows from the first frame at 6.18 to the last at 177.97 (judged on crops)
+
+
+def _pic_dir(sid, given=None):
+    from base import paths
+    for c in (Path(given) if given else None,
+              Path(os.environ["MAPLE_BLESS_ICONS"]) if os.environ.get("MAPLE_BLESS_ICONS") else None,
+              paths.DATA / "assets" / "skill_icons",
+              Path(os.environ.get("LOCALAPPDATA", "")) / "MapleClassicCompanion" / "assets" / "skill_icons"):
+        if c and (c / f"{sid}.png").exists():
+            return c
+    return None
+
+
+def run_rage_frames(icons=None):
+    """Positive + negative set for Rage (MeowDB 1101004 picture): found on every frame of 20261108_224714 inside RAGE_ON (the icon
+    is translucent, greyer as its time runs down, and under the last minute's digits) and on none outside; never found in any
+    other burst recording (searched together with Haste and Bless). Reports the lowest positive and the best negative score."""
+    folder = _pic_dir(RAGE, icons)
+    root = ROOT / "dev" / "fixtures" / "burst"
+    files = sorted(RAGE_FRAMES.glob("*.jpg")) if RAGE_FRAMES.is_dir() else []
+    if not files or folder is None:
+        return True, "skipped: needs dev/fixtures/burst/20261108_224714 and assets/skill_icons/1101004.png (MAPLE_BLESS_ICONS)", True
+    from PIL import Image
+    from engine import buffs
+    ic = buffs.load_loose(folder, [RAGE])
+    bad, pos, neg_in, n_on, n_off = [], [], [], 0, 0
+    for f in files:
+        t = _file_t(f)
+        im = Image.open(f).convert("RGB")
+        det = {}
+        got = buffs.find_loose(im.crop(buffs.strip_box(im.size)), ic, detail=det)
+        if RAGE_ON[0] <= t <= RAGE_ON[1]:
+            n_on += 1
+            pos.append(det[RAGE][0])
+            if RAGE not in got:
+                bad.append(f"missed at {t}")
+        else:
+            n_off += 1
+            neg_in.append(det[RAGE][0])
+            if RAGE in got:
+                bad.append(f"false hit at {t}")
+    hf, bf = _pic_dir(HASTE_IDS[0], icons), _pic_dir(BLESS, icons)
+    n, best, hits = 0, (-1.0, ""), []
+    for d in sorted(root.iterdir()):
+        fs = sorted(d.glob("*.jpg"))
+        if d == RAGE_FRAMES or not fs:
+            continue
+        sc = Image.open(fs[0]).size[0] / buffs.REF_W
+        both = buffs.load_loose(folder, [RAGE], sc)
+        if hf:
+            both.update(buffs.load_loose(hf, list(HASTE_IDS), sc))
+        if bf:
+            both.update(buffs.load_loose(bf, [BLESS], sc))
+        for f in fs[::max(1, len(fs) // 150)]:
+            im = Image.open(f).convert("RGB")
+            det = {}
+            got = buffs.find_loose(im.crop(buffs.strip_box(im.size)), both, detail=det)
+            n += 1
+            if RAGE in got:
+                hits.append(f"{d.name}/{f.name}")
+            if det[RAGE][0] > best[0]:
+                best = (det[RAGE][0], f"{d.name}/{f.name}")
+    if hits:
+        bad.append("Rage found in other recordings: " + ", ".join(hits[:4]))
+    return (not bad), (f"{n_on} frames with Rage all found (lowest score {min(pos):.2f}), {n_off} without it clean (best {max(neg_in):.2f}); "
+                       f"{n} frames of the other recordings clean (best {best[0]:.2f} at {best[1]}; needs {buffs.LOOSE_MIN['full']}/{buffs.LOOSE_MIN['outer']})"
+                       if not bad else "; ".join(bad[:6])), False
+
+
+def _rage_replay(folder, glyph_path, keep=False):
+    """20261108_224714 through ScreenSource._buffs + Feed as the tracker does, Rage watched as a party buff (digits wanted: this
+    dev folder may hold a cut of it). Returns (feed, log [(t, on, left, mins, party_buffs entry)], source)."""
+    from PIL import Image
+    from base import paths
+    from launcher import compose
+    from engine import buffs, vitals
+    from engine.sources.screen import ImageFrames
+    if glyph_path.exists() and not keep:
+        glyph_path.unlink()
+    src = compose.screen_source(paths.load_config(), ImageFrames([]))
+    src.bglyphs = buffs.BuffGlyphs(glyph_path)
+    src.watch_buffs([RAGE], folder=str(folder), digits=[RAGE])
+    f, _ = _feed()
+    f.party_n = 3
+    f.sync_watch(_prof_who())
+    log = []
+    for fl in sorted(RAGE_FRAMES.glob("*.jpg")):
+        t = _file_t(fl)
+        im = Image.open(fl).convert("RGB")
+        src._buffs(1000.0 + t, im.crop(buffs.strip_box(im.size)), im.crop(tuple(vitals.strip_box(im.size, (1920, 1080)))))
+        for tt, kind, v in src.take_facts():
+            if kind != "buffs":
+                continue
+            f.fact(tt, kind, v, None)
+            pb = f.section_usage(0, None)["party_buffs"].get(RAGE)
+            log.append((tt - 1000.0, v.get("on"), (v.get("left") or {}).get(RAGE), (v.get("mins") or {}).get(RAGE), dict(pb) if pb else None))
+    return f, log, src
+
+
+def run_rage_learn(icons=None):
+    """Rage replay with the countdown digits learned from scratch on this one recording: (1) the fresh cast is seen at ~6.2 s (level 5
+    assumed), (2) the seconds reads all agree on one end (175.4 +- 1) and the level learned from the full run is 5 (duration end - cast
+    ~169.2 s, table 170, tolerance +-2 for 5 s steps), (3) only minutes digits 1 and 2 are learned (no 3 / 4 from jitter variants of the
+    2), none wrong, (4) a second pass with that store reads the minutes digit and learns level 5 from the 2 -> 1 sync before the big
+    digits (end within 1.5 s of the exact one)."""
+    folder = _pic_dir(RAGE, icons)
+    if not RAGE_FRAMES.is_dir() or folder is None:
+        return True, "skipped: needs dev/fixtures/burst/20261108_224714 and assets/skill_icons/1101004.png", True
+    from components.skillbar import partyfx
+    bad = []
+    gp = _scratch() / "glyphs_rage.json"
+    f, log, src = _rage_replay(folder, gp)
+    first = next((x for x in log if x[4]), None)
+    if first is None or not 5.9 <= first[0] <= 6.6 or first[4]["level"] != 5 or first[4]["src"] != "assumed":
+        bad.append(f"fresh cast at the start: {first}")
+    reads = [round(t + left, 1) for t, on, left, mins, pb in log if left]
+    if len(reads) < 30 or max(reads) - min(reads) > 1.0 or not 174.4 <= reads[0] <= 176.4:
+        bad.append(f"seconds reads: {len(reads)} reads, ends {min(reads, default=None)}-{max(reads, default=None)}")
+    lv = ((f.model.data.get("party_levels") or {}).get(RAGE) or {}).get("?", {}).get("level")
+    if lv != 5:
+        bad.append(f"learned level {lv} (want 5)")
+    dur = (reads[0] - first[0]) if reads and first else None
+    mins = sorted(src.bglyphs.known("minutes"))
+    secs = sorted(src.bglyphs.known("seconds"))
+    if mins != ["1", "2"]:
+        bad.append(f"minutes digits learned {mins} (want only 1, 2)")
+    if len(secs) < 8:
+        bad.append(f"seconds digits learned {secs}")
+    wrong = [x for x in log if x[2] and not 0 < x[2] < 60]
+    if wrong:
+        bad.append(f"out-of-range seconds read {wrong[:2]}")
+    # second pass with the stored digits: the minutes digit is read from ~30 s and the 2 -> 1 step gives an end
+    f2, log2, _ = _rage_replay(folder, gp, keep=True)
+    m = [(t, mins_) for t, on, left, mins_, pb in log2 if mins_]
+    steps = [i for i in range(1, len(m)) if m[i][1] == 1 and m[i - 1][1] == 2]
+    synced = next((x for x in log2 if x[4] and not x[4]["est"] and x[0] < 116), None)
+    if not m or any(v not in (1, 2) for _t, v in m) or len(steps) != 1:
+        bad.append(f"minutes reads on the second pass: {m[:2]} ... steps {len(steps)}")
+    if synced is None or abs(synced[4]["ends"] - 1000.0 - 175.4) > 1.5:
+        bad.append(f"2 -> 1 sync end: {synced and synced[4]}")
+    lv2 = ((f2.model.data.get("party_levels") or {}).get(RAGE) or {}).get("?", {}).get("level")
+    if lv2 != 5:
+        bad.append(f"level from the minutes sync: {lv2}")
+    # per-skill tolerance: Rage's 5 s steps get +-2, Haste / Bless keep +-4
+    if (partyfx.level_tol(RAGE), partyfx.level_tol("4101001"), partyfx.level_tol("2301003")) != (2.0, 4.0, 4.0) \
+            or partyfx.level_for_duration(RAGE, 172.6) is not None or partyfx.level_for_duration(RAGE, 171.5) != 5 \
+            or partyfx.level_for_duration("4101001", 163.9) != 7:
+        bad.append("per-skill level tolerance")
+    return (not bad), (f"fresh cast at {first[0]:.1f} s, end {reads[0]} -> duration {dur:.1f} s = level {lv} (170 s), seconds learned {''.join(secs)}, "
+                       f"minutes {''.join(mins)}; second pass: 2 -> 1 sync end {synced[4]['ends'] - 1000.0:.1f}, level {lv2}" if not bad
+                       else "; ".join(bad)), False
+
+
+def run_rage():
+    """Rage as a party buff (Fighter / Crusader / Hero): caption and detail from the text, slot, durations from the level texts when the
+    kinds file has none, jobs."""
+    import unittest.mock as mock
+    from components.skillbar import partyfx
+    from gamedata import translate
+    bad = []
+    if partyfx.caption(RAGE, 1) != ("+10", None) or partyfx.caption(RAGE, 5) != ("+14", None) or partyfx.caption(RAGE, 30) != ("+40", None):
+        bad.append(f"Rage captions {[partyfx.caption(RAGE, lv) for lv in (1, 5, 30)]}")
+    if partyfx.details(RAGE, 5) != "Attack +14, Weapon Def. -14":
+        bad.append(f"Rage detail {partyfx.details(RAGE, 5)}")
+    if [partyfx.duration(RAGE, lv) for lv in (1, 5, 30)] != [150, 170, 300]:
+        bad.append("Rage durations")
+    with mock.patch.object(translate, "skill_kind", lambda s: None):          # no kinds entry: the level texts say "for N sec"
+        if [partyfx.duration(RAGE, lv) for lv in (1, 5, 30)] != [150, 170, 300] or partyfx.duration("2301003", 20) != 300 \
+                or partyfx.level_tol(RAGE) != 2.0:
+            bad.append("durations from the level texts")
+    for job in ("Fighter", "Crusader", "Hero"):
+        sl = partyfx.party_slots({"ok": True, "t": 50.0, "members": [{"name": "Fi", "job": job, "map": "A"}]}, [], 50.0, "A", buffs={})
+        if [s["id"] for s in sl] != [RAGE] or sl[0]["on"] or sl[0]["from"] != ["Fi"]:
+            bad.append(f"{job}: {sl}")
+    sl = partyfx.party_slots(None, [], 100.0, "A", buffs={RAGE: {"since": 90.0, "ends": None, "est": True}})
+    h = sl[0] if sl else {}
+    if len(sl) != 1 or h["level"] != 5 or h["dur"] != 170 or h["cap"] != "+14" or h["mark"] is not None or h["ends"] != 260.0 or not h["on"] \
+            or h["from"] != ["Rage"] or "Weapon Def. -14" not in h["detail"]:
+        bad.append(f"Rage slot from the icon alone: {sl}")
+    # level learning, like Haste (170 s = L5, 300 s = L30; 5 s steps)
+    for lv in (1, 5, 30):
+        g, _ = _bless_feed(own=False, party_n=3)
+        _cast_run(g, lv, sid=RAGE)
+        if _learned(g, RAGE) != {"?": lv}:
+            bad.append(f"learn Rage L{lv}: {_learned(g, RAGE)}")
+    g, _ = _bless_feed(own=False, party_n=3)
+    _cast_run(g, 5, err=2.6, sid=RAGE)                    # 172.6 s is 2.4 / 2.6 from two levels: unknown
+    if _learned(g, RAGE):
+        bad.append(f"2.6 s off a 5 s step was learned: {_learned(g, RAGE)}")
+    return (not bad), ("Rage logic ok (captions, durations from texts, slots, jobs, learning L1/L5/L30, tolerance)" if not bad else "; ".join(bad)), False
+
+
 if __name__ == "__main__":
     a = sys.argv[1:]
     kw = {}
@@ -913,7 +1154,7 @@ if __name__ == "__main__":
         kw["frames"] = a[a.index("--frames") + 1]
     if "--icons" in a:
         kw["icons"] = a[a.index("--icons") + 1]
-    for name, fn in (("frames", lambda: run_frames(**kw)), ("logic", run_logic), ("haste", run_haste), ("glyphs", run_glyphs), ("learn", run_learn), ("party", run_party), ("bless", run_bless), ("bless_frames", run_bless_frames)):
+    for name, fn in (("frames", lambda: run_frames(**kw)), ("logic", run_logic), ("haste", run_haste), ("glyphs", run_glyphs), ("learn", run_learn), ("party", run_party), ("bless", run_bless), ("bless_frames", run_bless_frames), ("rage", run_rage), ("rage_frames", run_rage_frames), ("rage_learn", run_rage_learn), ("invincible", run_invincible)):
         ok, note, skipped = fn()
         print(f"{'SKIP' if skipped else 'PASS' if ok else 'FAIL'}  {name}: {note}")
         if not ok:

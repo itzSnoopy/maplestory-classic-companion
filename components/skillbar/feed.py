@@ -47,7 +47,7 @@ PARTY_HEAL_SEQ_MAX = 10 ** 9   # the relay's limit for the "healed" seq
 PARTY_RECAST_S = 3.0        # a party buff whose digits are missing for PARTY_MISS facts in a row with more than this many s left = cast again
 PARTY_MISS = 4
 PARTY_OFF_S = 3.0           # a party buff icon must have been off this long before an ON counts as a fresh cast (level learning)
-PARTY_LEVEL_TOL = 4.0       # a measured Haste duration must be this near a table duration (s) to give a level
+PARTY_LEVEL_TOL = 4.0       # cap of partyfx.level_tol: a measured duration must be this near a table duration (s) to give a level
 PARTY_M0_S = 3.0            # the minutes digit counts as read "at the cast" up to this long after it
 BUFF_CAST_S = 3.0           # a buff icon coming on more than this long after a booked cast of it = a cast of its own
 OWN_AFTER_S = 3.0           # Bless: an own cast booked up to this long after its icon came on still belongs to that icon (the MP drop
@@ -208,7 +208,8 @@ class Feed:
         if self.party_n <= 1:
             return []
         ids = sorted(sid for sid, e in partyfx.PARTY_SKILLS.items()
-                     if e["kind"] == "buff" and e.get("icon") and not e.get("same_as"))      # one id per picture
+                     if e["kind"] == "buff" and e.get("icon") and not e.get("same_as")      # one id per picture
+                     and not e.get("self"))                                                     # self-only: the own path
         for sid in ids:
             skillicons.path(sid)                # starts the download when missing and allowed
         return ids
@@ -285,7 +286,10 @@ class Feed:
         """A cast starts at t: `fresh` = seen happen (the icon came on after being seen off, or a recast the minutes
         digit / the digit swap showed), so t0 is its start and the duration can be learned. Not fresh = no t0.
         `mine_t` = my own cast of this skill (Bless) booked at that time made it: my skill level, the cast time is the
-        start, nothing is learned (the level is known)."""
+        start, nothing is learned (the level is known). A self-only buff (Invincible) is always mine: with no booked cast
+        the icon's first sight stands in for the cast time (late when the app started mid-buff; the digits fix it)."""
+        if mine_t is None and sid in partyfx.self_ids() and self._owns(sid):
+            mine_t = t
         d.update(fresh=fresh and mine_t is None, t0=t if fresh and mine_t is None else None, m0=None, learned=False,
                  mine=mine_t is not None)
         if mine_t is not None:
@@ -320,7 +324,7 @@ class Feed:
         if not d.get("fresh") or d.get("learned") or d.get("t0") is None or not d.get("ends") or d.get("est"):
             return
         d["learned"] = True
-        lv = partyfx.level_for_duration(sid, d["ends"] - d["t0"], PARTY_LEVEL_TOL)
+        lv = partyfx.level_for_duration(sid, d["ends"] - d["t0"], partyfx.level_tol(sid, PARTY_LEVEL_TOL))
         if lv is None:
             return
         dur = partyfx.duration(sid, lv)
@@ -578,7 +582,7 @@ class Feed:
         for e in ev:
             if e["kind"] != "heal" or e["name"] != "Heal" or e.get("to_full") or e["amount"] <= 0:
                 continue
-            if any(b in self.party_buff for b in partyfx.own_ids()):
+            if any(b in self.party_buff for b in partyfx.heal_boost_ids()):
                 continue                        # Bless (mine or a party's) is on: Heal recovers a few % more, not the plain average
             lv = str(self.usage.level(mpuse.HEAL_ID) or 0)
             st = self.model.data.setdefault("heal", {}).setdefault(lv, {})

@@ -46,13 +46,26 @@ PARTY_SKILLS = {
                 "event": "Haste (party?)", "level": 7, "icon": True, "same_as": "4101001",
                 "caption": {"re": r"speed \+(\d+)", "fmt": "+{}", "mark": "boot"},
                 "detail": [(r"speed \+(\d+)", "Speed +{}")]},
+    # Rage (Fighter; Crusader / Hero keep it): the one caster measured (2026-11-08 recording) had level 5 = 170 s, so 5 is
+    # assumed; "Attack Power +N" is the caption (no mark yet), the Weapon Def. cost is in the right-click line
+    "1101004": {"name": "Rage", "jobs": ["Fighter", "Crusader", "Hero"], "kind": "buff",
+                "event": "Rage (party?)", "level": 5, "icon": True,
+                "caption": {"re": r"attack power \+(\d+)", "fmt": "+{}", "mark": None},
+                "detail": [(r"attack power \+(\d+)", "Attack +{}"), (r"weapon def\. -(\d+)", "Weapon Def. -{}")]},
     # Bless: no measured caster yet. Level 10 (190 s, -10 %) assumed: the middle of 1-20, so the worst caption error is
     # about 5 points; the minutes digit at the first fresh cast narrows it (1: L1-2, 2: L3-8, 3: L9-14, 4: L15-19, 5: L20)
     "2301003": {"name": "Bless", "jobs": ["Cleric", "Priest", "Bishop"], "kind": "buff",
-                "event": "Bless (party?)", "level": 10, "icon": True, "own": True,
+                "event": "Bless (party?)", "level": 10, "icon": True, "own": True, "heal_boost": True,
                 "caption": {"re": r"reduced by (\d+)%", "fmt": "-{}%", "mark": "shield"},
                 "detail": [(r"reduced by (\d+)%", "damage taken -{}%"),
                            (r"Heal skill is increased by (\d+)%", "Heal +{}%")]},
+    # Invincible (Cleric): self only (`self`: never a party slot; its icon is always mine while I own it), own timer
+    # like Bless at my skill level; caption = the physical damage cut
+    "2301002": {"name": "Invincible", "jobs": [], "kind": "buff", "event": "Invincible (self)", "level": 1,
+                "icon": True, "own": True, "self": True,
+                "caption": {"re": r"physical damage -(\d+)%", "fmt": "-{}%", "mark": "shield"},
+                "detail": [(r"physical damage -(\d+)%", "physical damage -{}%"),
+                           (r"basic attack (\d+) non-elemental", "Basic Attack {} magic damage")]},
 }
 
 # demo only (skillbar_ui --demo): a timed buff, to see how one looks. Not in the real table.
@@ -92,27 +105,61 @@ def speed(sid, level):
     return int(c[0].lstrip("+")) if c and c[0].startswith("+") else None
 
 
+def self_ids(table=None):
+    """Own icon buffs that only ever hit me (Invincible): no party slot, the icon is mine while I own the skill."""
+    return sorted(k for k, e in (table or PARTY_SKILLS).items() if e.get("self"))
+
+
+def heal_boost_ids(table=None):
+    """Icon buffs that make my Heal recover more (Bless): own Heal rises while one shows stay out of the average."""
+    return sorted(k for k, e in (table or PARTY_SKILLS).items() if e.get("heal_boost") and not e.get("same_as"))
+
+
 def own_ids(table=None):
     """Ids of the icon buffs the player can own too (Bless): their state can belong to my own slot."""
     return sorted(k for k, e in (table or PARTY_SKILLS).items()
                   if e.get("own") and e.get("icon") and not e.get("same_as"))
 
 
+def durations(sid):
+    """Seconds per level: the kinds file's duration_s, else (generic, any entry) the "for N sec / min" of each level's text."""
+    d = (translate.skill_kind(sid) or {}).get("duration_s")
+    if d:
+        return list(d)
+    import re
+    out = []
+    sk = next((x for x in translate.skills() if x["id"] == sid), None)
+    for lv in (sk or {}).get("levels") or []:
+        m = re.search(r"for (\d+) (sec|min)", lv, re.I)
+        if not m:
+            return []
+        out.append(int(m.group(1)) * (60 if m.group(2).lower() == "min" else 1))
+    return out
+
+
 def duration(sid, level):
-    k = translate.skill_kind(sid) or {}
-    d = k.get("duration_s") or []
+    d = durations(sid)
     return d[level - 1] if 0 < level <= len(d) else None
 
 
 def levels_in(sid, lo, hi):
     """Skill levels whose duration is within [lo, hi] seconds (the minutes digit at a cast narrows the level)."""
-    d = (translate.skill_kind(sid) or {}).get("duration_s") or []
-    return [i + 1 for i, v in enumerate(d) if lo <= v <= hi]
+    return [i + 1 for i, v in enumerate(durations(sid)) if lo <= v <= hi]
 
 
-def level_for_duration(sid, secs, tol=4.0):
-    """The level whose duration is nearest to `secs`, only when within +-tol seconds (else None: leave it unknown)."""
-    d = (translate.skill_kind(sid) or {}).get("duration_s") or []
+def level_tol(sid, cap=4.0):
+    """How near a measured duration must be to a table duration to give a level: `cap` (Haste / Bless: 10 s steps, +-4) but
+    under half the smallest step of this skill (Rage: 5 s steps, +-2) so two levels never both fit."""
+    d = durations(sid)
+    steps = [b - a for a, b in zip(d, d[1:]) if b > a]
+    return min(cap, 0.4 * min(steps)) if steps else cap
+
+
+def level_for_duration(sid, secs, tol=None):
+    """The level whose duration is nearest to `secs`, only when within +-tol seconds (default `level_tol(sid)`; else None:
+    leave it unknown)."""
+    tol = level_tol(sid) if tol is None else tol
+    d = durations(sid)
     best = min(range(len(d)), key=lambda i: abs(d[i] - secs), default=None)
     return best + 1 if best is not None and abs(d[best] - secs) <= tol else None
 
@@ -184,7 +231,7 @@ def party_slots(party, events, now, my_map=None, table=None, buffs=None):
             members = []
     out = []
     for sid, e in table.items():
-        if e.get("same_as"):
+        if e.get("same_as") or e.get("self"):
             continue
         jobs = group_jobs(table, sid)
         who = [m for m in members if m.get("job") in jobs]
