@@ -411,7 +411,10 @@ def read_skills(a, box):
         if cands:
             top = max(classes.count(c["class"]) for c in cands)
             pick = [c for c in cands if classes.count(c["class"]) == top]
-            if len({c["name"] for c in pick}) == 1:    # else still ambiguous: leave unnamed
+            # else still ambiguous: leave unnamed. Same name in several jobs with nothing on the tab
+            # to tell (only MP Eater + Teleport readable: F/P, I/L and Cleric all have both) is
+            # ambiguous too; picking the first stored F/P skills on a Cleric (2026-11-07)
+            if len({c["name"] for c in pick}) == 1 and len({c["class"] for c in pick}) == 1:
                 s = pick[0]
         r.update(id=s["id"] if s else None, name=s["name"] if s else None,
                  max=s.get("max") if s else None, job=s.get("class") if s else None)

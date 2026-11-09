@@ -76,6 +76,30 @@ JOB_SURE_S = 30       # a Stat window from another job line counts only after sh
 MIN_SCORE = 4         # below this a screenshot is never used, even if the next one agrees
 
 
+def _sibling_branch_skills(sk):
+    """Stored skill ids of a 2nd-job branch the character isn't on. One character has one branch
+    (Cleric, not also F/P), but the stored job can lag behind (still "Magician"), so the branch with
+    the most stored skills wins (latest seen breaks a tie). 2026-11-07: a Skill window read with
+    only MP Eater + Teleport readable stored F/P ones on a Cleric: Teleport showed twice on the bar."""
+    by = {}
+    for sid in sk:
+        try:
+            j = int(str(sid)[:-4] or 0)
+        except ValueError:
+            continue
+        if j % 100 // 10:                           # 2nd job or later: class + branch digit
+            by.setdefault((j // 100, j % 100 // 10), []).append(sid)
+    out = []
+    for cls in {k[0] for k in by}:
+        branches = [k for k in by if k[0] == cls]
+        if len(branches) < 2:
+            continue
+        keep = max(branches, key=lambda k: (len(by[k]),
+                                            max(((sk[s] or {}).get("seen") or "") for s in by[k])))
+        out += [s for k in branches if k != keep for s in by[k]]
+    return out
+
+
 def _drops(old, new, keys):
     return [k for k in keys if new.get(k) is not None and old.get(k) is not None and new[k] < old[k]]
 
@@ -367,6 +391,7 @@ class Profile:
         if r.get("sp") is not None:
             self._keep("stats", "sp", r["sp"], t, LABEL["sp"], trusted)
         c["skills_seen"] = _iso(t)
+        self._drop_foreign_skills(c)
         self.dirty = True
 
     def _channel(self, t, r):
@@ -437,6 +462,7 @@ class Profile:
         noticed yet, 2026-11-07) to `skills_dropped`, so every reader sees only its own skills."""
         sk = c.get("skills") or {}
         bad = [sid for sid in sk if not translate.skill_fits_job(sid, c.get("job"))]
+        bad += [sid for sid in _sibling_branch_skills(sk) if sid not in bad]
         if not bad:
             return
         for sid in bad:
